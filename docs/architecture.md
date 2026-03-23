@@ -210,6 +210,7 @@ This means a stage is not only a status label. It is also an execution contract 
 - what deterministic commands may run
 - what structured artifact should be produced
 - what adapter-reported activity must be rejected before state is persisted when it violates role policy
+- what adapter payload shape must pass schema validation before the controller accepts it
 
 ## Stage-to-Specialist Mapping
 

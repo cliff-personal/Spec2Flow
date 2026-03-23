@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/adapter-run.schema.json",
+  "title": "Spec2Flow Adapter Run",
+  "description": "Defines the normalized adapter execution payload returned before task results are applied to execution state.",
+  "type": "object",
+  "required": ["adapterRun"],
+  "additionalProperties": false,
+  "properties": {
+    "adapterRun": {
+      "type": "object",
+      "required": [
+        "adapterName",
+        "provider",
+        "taskId",
+        "runId",
+        "stage",
+        "status",
+        "summary",
+        "notes",
+        "activity",
+        "artifacts",
+        "errors"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "adapterName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taskId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "environment-preparation",
+            "requirements-analysis",
+            "code-implementation",
+            "test-design",
+            "automated-execution",
+            "defect-feedback",
+            "collaboration"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "ready", "in-progress", "blocked", "completed", "failed", "skipped"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "activity": {
+          "$ref": "#/$defs/adapterRunActivity"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifactRef"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/errorItem"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "adapterRunActivity": {
+      "type": "object",
+      "required": ["commands", "editedFiles", "artifactFiles", "collaborationActions"],
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "editedFiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "artifactFiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "collaborationActions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "required": ["id", "kind", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["log", "trace", "screenshot", "report", "bug-draft", "diff", "other"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taskId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "errorItem": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taskId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

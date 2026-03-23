@@ -1,4 +1,5 @@
 import { fail, fileExists, readStructuredFile, resolveFromCwd } from '../shared/fs-utils.js';
+import { getSchemaValidators } from '../shared/schema-registry.js';
 import type {
   AdapterRunActivity,
   AdapterRunDocument,
@@ -183,7 +184,7 @@ export function normalizeAdapterRunPayload(
     fail('adapter output must be a JSON object or contain an adapterRun object');
   }
 
-  return {
+  const normalizedPayload: AdapterRunDocument = {
     adapterRun: {
       adapterName: adapterRun.adapterName ?? adapterRuntimePayload.adapterRuntime.name,
       provider: adapterRun.provider ?? adapterRuntimePayload.adapterRuntime.provider ?? 'external-adapter',
@@ -198,6 +199,14 @@ export function normalizeAdapterRunPayload(
       errors: normalizeAdapterErrors(adapterRun.errors, claim.taskId)
     }
   };
+
+  const validators = getSchemaValidators();
+  const valid = validators.adapterRun(normalizedPayload);
+  if (!valid) {
+    fail(`adapter-run validation failed: ${JSON.stringify(validators.adapterRun.errors ?? [])}`);
+  }
+
+  return normalizedPayload;
 }
 
 export function readAdapterOutput(adapterRuntime: AdapterRuntime, templateContext: AdapterTemplateContext): unknown {
