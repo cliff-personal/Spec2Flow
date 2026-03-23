@@ -1,0 +1,123 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  buildValidatorResult: vi.fn(),
+  buildTaskGraph: vi.fn(),
+  getChangedFiles: vi.fn(),
+  getRequirementText: vi.fn()
+}));
+
+vi.mock('../onboarding/validator-service.js', () => ({
+  buildValidatorResult: mocks.buildValidatorResult
+}));
+
+vi.mock('../planning/task-graph-service.js', () => ({
+  buildTaskGraph: mocks.buildTaskGraph,
+  getChangedFiles: mocks.getChangedFiles,
+  getRequirementText: mocks.getRequirementText
+}));
+
+import { runGenerateTaskGraph } from './generate-task-graph-command.js';
+
+describe('generate-task-graph-command', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fails when required paths are missing', () => {
+    const fail = vi.fn();
+
+    expect(() => runGenerateTaskGraph({}, {
+      fail,
+      printJson: vi.fn(),
+      readStructuredFile: vi.fn(),
+      writeJson: vi.fn()
+    })).toThrow('unreachable');
+
+    expect(fail).toHaveBeenCalledWith('generate-task-graph requires --project, --topology, and --risk');
+  });
+
+  it('writes the generated task graph to the requested output path', () => {
+    const projectPayload = { spec2flow: { project: { name: 'demo' } } };
+    const topologyPayload = { topology: { workflowRoutes: [] } };
+    const riskPayload = { riskPolicy: { rules: [] } };
+    const taskGraphPayload = { taskGraph: { id: 'graph', workflowName: 'workflow', tasks: [] } };
+    const writeJson = vi.fn();
+    const readStructuredFile = vi.fn((filePath: string) => {
+      if (filePath === 'project.yaml') {
+        return projectPayload;
+      }
+      if (filePath === 'topology.yaml') {
+        return topologyPayload;
+      }
+      if (filePath === 'risk.yaml') {
+        return riskPayload;
+      }
+      throw new Error(`unexpected file: ${filePath}`);
+    });
+
+    mocks.getChangedFiles.mockReturnValue(['apps/frontend/src/app.tsx']);
+    mocks.getRequirementText.mockReturnValue('Update the frontend smoke flow.');
+    mocks.buildValidatorResult.mockReturnValue({
+      validatorResult: {
+        status: 'passed'
+      }
+    });
+    mocks.buildTaskGraph.mockReturnValue(taskGraphPayload);
+
+    runGenerateTaskGraph({
+      project: 'project.yaml',
+      topology: 'topology.yaml',
+      risk: 'risk.yaml',
+      output: 'generated/task-graph.json',
+      'requirement-file': 'requirements/frontend.md'
+    }, {
+      fail: vi.fn(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    expect(mocks.buildValidatorResult).toHaveBeenCalledWith(projectPayload, topologyPayload, riskPayload, {
+      project: 'project.yaml',
+      topology: 'topology.yaml',
+      risk: 'risk.yaml'
+    });
+    expect(mocks.buildTaskGraph).toHaveBeenCalledWith(projectPayload, topologyPayload, riskPayload, {
+      project: 'project.yaml',
+      topology: 'topology.yaml',
+      risk: 'risk.yaml',
+      requirement: 'requirements/frontend.md'
+    }, {
+      changedFiles: ['apps/frontend/src/app.tsx'],
+      requirementText: 'Update the frontend smoke flow.'
+    });
+    expect(writeJson).toHaveBeenCalledWith('generated/task-graph.json', taskGraphPayload);
+  });
+
+  it('fails when onboarding validation fails', () => {
+    const fail = vi.fn();
+
+    mocks.getChangedFiles.mockReturnValue([]);
+    mocks.getRequirementText.mockReturnValue('');
+    mocks.buildValidatorResult.mockReturnValue({
+      validatorResult: {
+        status: 'failed'
+      }
+    });
+
+    expect(() => runGenerateTaskGraph({
+      project: 'project.yaml',
+      topology: 'topology.yaml',
+      risk: 'risk.yaml'
+    }, {
+      fail,
+      printJson: vi.fn(),
+      readStructuredFile: vi.fn(() => ({})),
+      writeJson: vi.fn()
+    })).toThrow('unreachable');
+
+    expect(fail).toHaveBeenCalledWith('cannot generate task graph because onboarding validation failed');
+    expect(mocks.buildTaskGraph).not.toHaveBeenCalled();
+  });
+});
