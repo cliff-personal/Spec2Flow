@@ -1,0 +1,88 @@
+riskPolicy:
+  defaultLevel: execute-to-pr
+
+  automationLevels:
+    - name: l0-assist
+      description: only analyze, summarize, and draft outputs
+      maxAutonomy: analysis-only
+
+    - name: l1-controlled
+      description: implement changes and run validation, but stop at PR or draft issue
+      maxAutonomy: execute-to-pr
+
+    - name: l2-low-risk-automerge
+      description: allow low-risk, fully passing changes to merge automatically
+      maxAutonomy: low-risk-auto-merge
+
+  rules:
+    - name: docs-and-tests-low-risk
+      level: low
+      match:
+        paths:
+          - docs/**
+          - '**/tests/**'
+      requires:
+        humanApproval: false
+        reviewAgents: 1
+      blockAutoMerge: false
+
+    - name: frontend-medium-risk
+      level: medium
+      match:
+        paths:
+          - apps/frontend/**
+          - admin/admin-front/**
+      requires:
+        humanApproval: false
+        reviewAgents: 1
+        mustRunCommands:
+          - npm run ci:frontend
+          - npm run ci:admin-front
+      blockAutoMerge: true
+
+    - name: provider-medium-risk
+      level: medium
+      match:
+        paths:
+          - provider_service/**
+      requires:
+        humanApproval: false
+        reviewAgents: 1
+        mustRunCommands:
+          - npm run ci:provider-service
+      blockAutoMerge: true
+
+    - name: financial-high-risk
+      level: high
+      match:
+        paths:
+          - contracts/**
+          - gateway/src/services/finance/**
+          - gateway/src/api/routers/provider_withdraw*.py
+        workflowNames:
+          - withdrawal-risk-regression
+      requires:
+        humanApproval: true
+        reviewAgents: 2
+        mustRunCommands:
+          - npm run ci:gateway
+          - npm run ci:contracts
+      blockAutoMerge: true
+
+    - name: ledger-critical-risk
+      level: critical
+      match:
+        workflowNames:
+          - billing-settlement
+          - deposit-idempotency
+        serviceKinds:
+          - contracts
+          - backend
+      requires:
+        humanApproval: true
+        reviewAgents: 2
+        mustRunCommands:
+          - npm run ci:gateway
+          - npm run ci:contracts
+          - npm run ci:pr
+      blockAutoMerge: true

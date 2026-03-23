@@ -8,6 +8,7 @@ Keep the repository simple for a solo maintainer while leaving room for future e
 
 ```text
 Spec2Flow/
+├─ package.json
 ├─ README.md
 ├─ docs/
 │  ├─ mvp.md
@@ -16,7 +17,23 @@ Spec2Flow/
 │  ├─ architecture.md
 │  ├─ collaboration.md
 │  ├─ implementation-plan.md
+│  ├─ full-implementation-plan.md
+│  ├─ usage-guide.md
+│  ├─ synapse-integration-automation-design.md
 │  ├─ examples/
+│  │  ├─ synapse-network/
+│  │  │  ├─ README.md
+│  │  │  ├─ changes/
+│  │  │  │  ├─ frontend-change.txt
+│  │  │  │  └─ withdrawal-change.txt
+│  │  │  ├─ project.yaml
+│  │  │  ├─ topology.yaml
+│  │  │  ├─ risk.yaml
+│  │  │  └─ generated/
+│  │  │     ├─ onboarding-validator-result.json
+│  │  │     ├─ task-graph.json
+│  │  │     ├─ task-graph-frontend-change.json
+│  │  │     └─ task-graph-withdrawal-change.json
 │  │  ├─ sample-spec.md
 │  │  ├─ sample-requirement-summary.md
 │  │  ├─ sample-implementation-tasks.md
@@ -24,19 +41,24 @@ Spec2Flow/
 │  │  ├─ sample-test-cases.yaml
 │  │  └─ sample-bug-report.md
 ├─ schemas/
+│  ├─ project-adapter.schema.json
+│  ├─ system-topology.schema.json
+│  ├─ risk-policy.schema.json
+│  ├─ task-graph.schema.json
+│  ├─ environment-preparation-report.schema.json
+│  ├─ onboarding-validator-result.schema.json
+│  ├─ execution-state.schema.json
 │  ├─ requirement-summary.schema.json
 │  ├─ implementation-task.schema.json
 │  ├─ test-plan.schema.json
 │  ├─ test-case.schema.json
 │  ├─ execution-report.schema.json
+│  ├─ model-adapter-capability.schema.json
 │  └─ bug-report.schema.json
 ├─ packages/
-│  ├─ core/
-│  ├─ planner/
-│  ├─ implementer/
-│  ├─ executor/
-│  ├─ reporter/
 │  └─ cli/
+│     └─ src/
+│        └─ spec2flow.mjs
 ├─ playwright/
 │  ├─ tests/
 │  ├─ fixtures/
@@ -65,12 +87,26 @@ Project documentation, process definitions, examples, and architecture notes.
 
 ### `schemas/`
 Structured definitions for:
+- project adapters
+- system topologies
+- risk policies
+- task graphs
+- environment preparation reports
+- onboarding validator results
+- execution states
 - requirement summaries
 - implementation tasks
 - test plans
 - test cases
 - execution reports
+- model adapter capabilities
 - bug reports
+
+### `docs/examples/synapse-network/`
+Reference onboarding configuration for a complex multi-service target system, plus generated validator and task graph outputs.
+
+### `docs/examples/synapse-network/changes/`
+Sample changed-file lists for diff-aware risk evaluation.
 
 ### `packages/core/`
 Shared domain models, interfaces, config loading, and common utilities.
@@ -88,7 +124,7 @@ Service startup, test execution orchestration, and artifact handling.
 Result summarization and bug draft generation.
 
 ### `packages/cli/`
-Developer-facing CLI entrypoints.
+Developer-facing CLI entrypoints. The current minimal implementation validates onboarding configs and generates task graphs from example adapters.
 
 ### `playwright/`
 UI automation tests and configuration.

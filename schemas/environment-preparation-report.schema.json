@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/environment-preparation-report.schema.json",
+  "title": "Spec2Flow Environment Preparation Report",
+  "description": "Captures repository scan findings, generated templates, and unresolved onboarding gaps.",
+  "type": "object",
+  "required": ["environmentPreparationReport"],
+  "additionalProperties": false,
+  "properties": {
+    "environmentPreparationReport": {
+      "type": "object",
+      "required": ["repository", "summary", "detected", "generated", "gaps"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": ["status"],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["ready", "partially-ready", "blocked"]
+            },
+            "notes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "detected": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "docs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/detectedAsset" }
+            },
+            "scripts": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/detectedAsset" }
+            },
+            "tests": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/detectedAsset" }
+            },
+            "ci": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/detectedAsset" }
+            },
+            "services": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/detectedService" }
+            }
+          }
+        },
+        "generated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generatedArtifact"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gapItem"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "detectedAsset": {
+      "type": "object",
+      "required": ["path", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "detectedService": {
+      "type": "object",
+      "required": ["name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "startCommand": { "type": "string", "minLength": 1 }
+      }
+    },
+    "generatedArtifact": {
+      "type": "object",
+      "required": ["path", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "generated": { "type": "boolean", "const": true }
+      }
+    },
+    "gapItem": {
+      "type": "object",
+      "required": ["id", "severity", "message", "requiresHumanConfirmation"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+        "message": { "type": "string", "minLength": 1 },
+        "suggestedFix": { "type": "string", "minLength": 1 },
+        "requiresHumanConfirmation": { "type": "boolean" }
+      }
+    }
+  }
+}

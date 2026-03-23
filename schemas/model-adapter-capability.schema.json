@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/model-adapter-capability.schema.json",
+  "title": "Spec2Flow Model Adapter Capability",
+  "description": "Declares the runtime capabilities and limits of a model provider adapter such as Copilot or OpenClaw.",
+  "type": "object",
+  "required": ["adapter"],
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {
+      "type": "object",
+      "required": ["name", "supports", "limits"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "supports": {
+          "type": "object",
+          "required": ["toolCalling", "jsonMode", "multiAgentDispatch", "codeEditing"],
+          "additionalProperties": false,
+          "properties": {
+            "toolCalling": { "type": "boolean" },
+            "jsonMode": { "type": "boolean" },
+            "longContext": { "type": "boolean" },
+            "multiAgentDispatch": { "type": "boolean" },
+            "codeEditing": { "type": "boolean" },
+            "browserAutomation": { "type": "boolean" },
+            "streaming": { "type": "boolean" },
+            "functionRetryHints": { "type": "boolean" }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "required": ["maxContextTokens"],
+          "additionalProperties": false,
+          "properties": {
+            "maxContextTokens": { "type": "integer", "minimum": 1 },
+            "maxParallelAgents": { "type": "integer", "minimum": 1 },
+            "maxToolCallsPerTurn": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "fallbacks": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

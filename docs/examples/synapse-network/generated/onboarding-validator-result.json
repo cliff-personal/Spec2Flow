@@ -1,0 +1,239 @@
+{
+  "validatorResult": {
+    "status": "passed",
+    "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
+    "topologyRef": "docs/examples/synapse-network/topology.yaml",
+    "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
+    "checks": [
+      {
+        "name": "project-adapter schema",
+        "type": "schema-valid",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "project-adapter schema validation passed"
+      },
+      {
+        "name": "system-topology schema",
+        "type": "schema-valid",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "system-topology schema validation passed"
+      },
+      {
+        "name": "risk-policy schema",
+        "type": "schema-valid",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/risk.yaml",
+        "message": "risk-policy schema validation passed"
+      },
+      {
+        "name": "topology dependencies: postgres",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for postgres"
+      },
+      {
+        "name": "startup order: postgres",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for postgres"
+      },
+      {
+        "name": "topology dependencies: redis",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for redis"
+      },
+      {
+        "name": "startup order: redis",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for redis"
+      },
+      {
+        "name": "topology dependencies: anvil",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for anvil"
+      },
+      {
+        "name": "startup order: anvil",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for anvil"
+      },
+      {
+        "name": "topology dependencies: contracts",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for contracts"
+      },
+      {
+        "name": "startup order: contracts",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for contracts"
+      },
+      {
+        "name": "topology dependencies: gateway",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for gateway"
+      },
+      {
+        "name": "startup order: gateway",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for gateway"
+      },
+      {
+        "name": "topology dependencies: provider_service",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for provider_service"
+      },
+      {
+        "name": "startup order: provider_service",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for provider_service"
+      },
+      {
+        "name": "topology dependencies: frontend",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for frontend"
+      },
+      {
+        "name": "startup order: frontend",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for frontend"
+      },
+      {
+        "name": "topology dependencies: admin_gateway",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for admin_gateway"
+      },
+      {
+        "name": "startup order: admin_gateway",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for admin_gateway"
+      },
+      {
+        "name": "topology dependencies: admin_front",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "all topology dependencies declared for admin_front"
+      },
+      {
+        "name": "startup order: admin_front",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "startup order is valid for admin_front"
+      },
+      {
+        "name": "workflow route services: frontend-smoke",
+        "type": "path-exists",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "workflow route frontend-smoke references known services"
+      },
+      {
+        "name": "workflow route services: gateway-api-smoke",
+        "type": "path-exists",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "workflow route gateway-api-smoke references known services"
+      },
+      {
+        "name": "workflow route services: provider-registration-flow",
+        "type": "path-exists",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "workflow route provider-registration-flow references known services"
+      },
+      {
+        "name": "workflow route services: withdrawal-risk-regression",
+        "type": "path-exists",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/topology.yaml",
+        "message": "workflow route withdrawal-risk-regression references known services"
+      },
+      {
+        "name": "project service dependencies: frontend",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "all dependencies declared for frontend"
+      },
+      {
+        "name": "project service dependencies: gateway",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "all dependencies declared for gateway"
+      },
+      {
+        "name": "project service dependencies: admin_front",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "all dependencies declared for admin_front"
+      },
+      {
+        "name": "project service dependencies: admin_gateway",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "all dependencies declared for admin_gateway"
+      },
+      {
+        "name": "project service dependencies: provider_service",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "all dependencies declared for provider_service"
+      },
+      {
+        "name": "project service dependencies: contracts",
+        "type": "dependency-order",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/project.yaml",
+        "message": "all dependencies declared for contracts"
+      },
+      {
+        "name": "risk default level",
+        "type": "schema-valid",
+        "status": "passed",
+        "target": "docs/examples/synapse-network/risk.yaml",
+        "message": "defaultLevel matches an automation level"
+      }
+    ],
+    "summary": {
+      "passed": 32,
+      "warnings": 0,
+      "failed": 0
+    }
+  }
+}

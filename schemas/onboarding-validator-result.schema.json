@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/onboarding-validator-result.schema.json",
+  "title": "Spec2Flow Onboarding Validator Result",
+  "description": "Represents the result of validating onboarding configs, commands, and health checks for a target project.",
+  "type": "object",
+  "required": ["validatorResult"],
+  "additionalProperties": false,
+  "properties": {
+    "validatorResult": {
+      "type": "object",
+      "required": ["status", "checks"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["passed", "passed-with-warnings", "failed"]
+        },
+        "projectAdapterRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topologyRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "riskPolicyRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/checkResult"
+          }
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "passed": { "type": "integer", "minimum": 0 },
+            "warnings": { "type": "integer", "minimum": 0 },
+            "failed": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "checkResult": {
+      "type": "object",
+      "required": ["name", "type", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["path-exists", "command-runs", "health-check", "schema-valid", "dependency-order"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "warning", "failed", "skipped"]
+        },
+        "target": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

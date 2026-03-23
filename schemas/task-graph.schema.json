@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/task-graph.schema.json",
+  "title": "Spec2Flow Task Graph",
+  "description": "Defines executable tasks, dependencies, verification commands, and handoff context for a workflow run.",
+  "type": "object",
+  "required": ["taskGraph"],
+  "additionalProperties": false,
+  "properties": {
+    "taskGraph": {
+      "type": "object",
+      "required": ["id", "workflowName", "tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workflowName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requirementSummaryRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "projectAdapterRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "topologyRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "riskPolicyRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/taskNode"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "taskNode": {
+      "type": "object",
+      "required": ["id", "stage", "title", "goal", "executorType", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "environment-preparation",
+            "requirements-analysis",
+            "code-implementation",
+            "test-design",
+            "automated-execution",
+            "defect-feedback",
+            "collaboration"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executorType": {
+          "type": "string",
+          "enum": [
+            "controller-agent",
+            "requirements-agent",
+            "implementation-agent",
+            "test-design-agent",
+            "execution-agent",
+            "defect-agent",
+            "review-agent",
+            "human"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "ready", "in-progress", "blocked", "completed", "failed", "skipped"]
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "targetFiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "verifyCommands": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "artifactsDir": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "default": false
+            },
+            "reviewAgentCount": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "requireHumanApproval": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

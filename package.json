@@ -1,0 +1,21 @@
+{
+  "name": "spec2flow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "spec2flow": "packages/cli/src/spec2flow.mjs"
+  },
+  "scripts": {
+    "validate:synapse-example": "node packages/cli/src/spec2flow.mjs validate-onboarding --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --output docs/examples/synapse-network/generated/onboarding-validator-result.json",
+    "generate:synapse-task-graph": "node packages/cli/src/spec2flow.mjs generate-task-graph --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --output docs/examples/synapse-network/generated/task-graph.json",
+    "generate:synapse-task-graph:frontend-change": "node packages/cli/src/spec2flow.mjs generate-task-graph --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --changed-files-file docs/examples/synapse-network/changes/frontend-change.txt --output docs/examples/synapse-network/generated/task-graph-frontend-change.json",
+    "generate:synapse-task-graph:withdrawal-change": "node packages/cli/src/spec2flow.mjs generate-task-graph --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --changed-files-file docs/examples/synapse-network/changes/withdrawal-change.txt --output docs/examples/synapse-network/generated/task-graph-withdrawal-change.json"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "js-yaml": "^4.1.0",
+    "minimatch": "^10.0.3"
+  }
+}

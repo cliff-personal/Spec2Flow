@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/system-topology.schema.json",
+  "title": "Spec2Flow System Topology",
+  "description": "Describes service dependencies, startup order, health checks, and workflow routes for a target system.",
+  "type": "object",
+  "required": ["topology"],
+  "additionalProperties": false,
+  "properties": {
+    "topology": {
+      "type": "object",
+      "required": ["services"],
+      "additionalProperties": false,
+      "properties": {
+        "services": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/serviceNode" }
+        },
+        "startupOrder": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "workflowRoutes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflowRoute" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "serviceNode": {
+      "type": "object",
+      "required": ["name", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "frontend",
+            "backend",
+            "admin-frontend",
+            "admin-backend",
+            "provider",
+            "database",
+            "cache",
+            "chain",
+            "contracts",
+            "sdk",
+            "worker",
+            "other"
+          ]
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "healthChecks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/healthCheck" }
+        },
+        "critical": { "type": "boolean", "default": false }
+      }
+    },
+    "healthCheck": {
+      "type": "object",
+      "required": ["type", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["http", "tcp", "command", "file"] },
+        "target": { "type": "string", "minLength": 1 },
+        "expect": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "integer", "minimum": 0 }
+          ]
+        },
+        "timeoutSeconds": { "type": "integer", "minimum": 1, "default": 30 }
+      }
+    },
+    "workflowRoute": {
+      "type": "object",
+      "required": ["name", "entryServices", "verifyCommands"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "entryServices": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "verifyCommands": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "artifactTargets": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

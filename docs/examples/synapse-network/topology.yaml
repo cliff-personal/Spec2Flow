@@ -1,0 +1,138 @@
+topology:
+  services:
+    - name: postgres
+      kind: database
+      critical: true
+      healthChecks:
+        - type: command
+          target: pg_isready -U synapse -d synapse_gateway
+          timeoutSeconds: 30
+
+    - name: redis
+      kind: cache
+      critical: true
+      healthChecks:
+        - type: tcp
+          target: localhost:6379
+          timeoutSeconds: 15
+
+    - name: anvil
+      kind: chain
+      critical: true
+      healthChecks:
+        - type: tcp
+          target: localhost:8545
+          timeoutSeconds: 15
+
+    - name: contracts
+      kind: contracts
+      dependsOn:
+        - anvil
+
+    - name: gateway
+      kind: backend
+      critical: true
+      dependsOn:
+        - postgres
+        - redis
+        - anvil
+        - contracts
+      healthChecks:
+        - type: http
+          target: http://localhost:8000/health
+          expect: 200
+          timeoutSeconds: 30
+
+    - name: provider_service
+      kind: provider
+      dependsOn:
+        - gateway
+      healthChecks:
+        - type: http
+          target: http://localhost:8100/health
+          expect: 200
+          timeoutSeconds: 20
+
+    - name: frontend
+      kind: frontend
+      dependsOn:
+        - gateway
+      healthChecks:
+        - type: http
+          target: http://localhost:3000
+          expect: 200
+          timeoutSeconds: 30
+
+    - name: admin_gateway
+      kind: admin-backend
+      dependsOn:
+        - postgres
+      healthChecks:
+        - type: http
+          target: http://localhost:8010/health
+          expect: 200
+          timeoutSeconds: 20
+
+    - name: admin_front
+      kind: admin-frontend
+      dependsOn:
+        - admin_gateway
+      healthChecks:
+        - type: http
+          target: http://localhost:3001
+          expect: 200
+          timeoutSeconds: 30
+
+  startupOrder:
+    - postgres
+    - redis
+    - anvil
+    - contracts
+    - gateway
+    - provider_service
+    - admin_gateway
+    - frontend
+    - admin_front
+
+  workflowRoutes:
+    - name: frontend-smoke
+      entryServices:
+        - frontend
+        - gateway
+      verifyCommands:
+        - npm run ci:frontend
+      artifactTargets:
+        - spec2flow/outputs/execution/frontend-smoke
+
+    - name: gateway-api-smoke
+      entryServices:
+        - gateway
+        - postgres
+        - redis
+      verifyCommands:
+        - npm run ci:gateway
+      artifactTargets:
+        - spec2flow/outputs/execution/gateway-api-smoke
+
+    - name: provider-registration-flow
+      entryServices:
+        - gateway
+        - provider_service
+        - postgres
+      verifyCommands:
+        - npm run ci:provider-service
+        - npm run ci:gateway
+      artifactTargets:
+        - spec2flow/outputs/execution/provider-registration-flow
+
+    - name: withdrawal-risk-regression
+      entryServices:
+        - gateway
+        - contracts
+        - postgres
+        - anvil
+      verifyCommands:
+        - npm run ci:gateway
+        - npm run ci:contracts
+      artifactTargets:
+        - spec2flow/outputs/execution/withdrawal-risk-regression

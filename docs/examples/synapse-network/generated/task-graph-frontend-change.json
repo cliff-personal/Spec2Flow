@@ -1,0 +1,711 @@
+{
+  "taskGraph": {
+    "id": "synapse-network-task-graph",
+    "workflowName": "synapse-network-workflow",
+    "source": {
+      "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
+      "topologyRef": "docs/examples/synapse-network/topology.yaml",
+      "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
+      "changeSet": [
+        "apps/frontend/src/app/login/page.tsx",
+        "apps/frontend/src/components/dashboard/OverviewCard.tsx"
+      ]
+    },
+    "tasks": [
+      {
+        "id": "environment-preparation",
+        "stage": "environment-preparation",
+        "title": "Prepare repository environment",
+        "goal": "Load project adapter, topology, and risk policy for synapse-network",
+        "executorType": "controller-agent",
+        "status": "ready",
+        "riskLevel": "low",
+        "verifyCommands": [
+          "sh scripts/local/setup_local_env.sh"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "frontend-smoke--requirements-analysis",
+        "stage": "requirements-analysis",
+        "title": "Analyze frontend-smoke requirements",
+        "goal": "Summarize scope, impacted services, and acceptance criteria for frontend-smoke",
+        "executorType": "requirements-agent",
+        "status": "pending",
+        "riskLevel": "medium",
+        "dependsOn": [
+          "environment-preparation"
+        ],
+        "inputs": {
+          "routeName": "frontend-smoke",
+          "entryServices": [
+            "frontend",
+            "gateway"
+          ],
+          "changedFiles": [
+            "apps/frontend/src/app/login/page.tsx",
+            "apps/frontend/src/components/dashboard/OverviewCard.tsx"
+          ],
+          "matchedRiskRules": [
+            "frontend-medium-risk"
+          ]
+        },
+        "targetFiles": [
+          "apps/frontend",
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
+        "reviewPolicy": {
+          "required": true,
+          "reviewAgentCount": 1,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "frontend-smoke--code-implementation",
+        "stage": "code-implementation",
+        "title": "Implement frontend-smoke changes",
+        "goal": "Apply code changes for frontend-smoke within the declared service boundaries",
+        "executorType": "implementation-agent",
+        "status": "pending",
+        "riskLevel": "medium",
+        "dependsOn": [
+          "frontend-smoke--requirements-analysis"
+        ],
+        "inputs": {
+          "matchedRiskRules": [
+            "frontend-medium-risk"
+          ]
+        },
+        "targetFiles": [
+          "apps/frontend",
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
+        "reviewPolicy": {
+          "required": true,
+          "reviewAgentCount": 1,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "frontend-smoke--test-design",
+        "stage": "test-design",
+        "title": "Design frontend-smoke validation",
+        "goal": "Produce route-specific smoke or regression coverage for frontend-smoke",
+        "executorType": "test-design-agent",
+        "status": "pending",
+        "riskLevel": "medium",
+        "dependsOn": [
+          "frontend-smoke--code-implementation"
+        ],
+        "inputs": {
+          "matchedRiskRules": [
+            "frontend-medium-risk"
+          ]
+        },
+        "targetFiles": [
+          "apps/frontend",
+          "gateway"
+        ],
+        "verifyCommands": [
+          "npm run ci:frontend",
+          "npm run ci:admin-front"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
+        "reviewPolicy": {
+          "required": true,
+          "reviewAgentCount": 1,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "frontend-smoke--automated-execution",
+        "stage": "automated-execution",
+        "title": "Execute frontend-smoke validation",
+        "goal": "Run declared verification commands for frontend-smoke",
+        "executorType": "execution-agent",
+        "status": "pending",
+        "riskLevel": "medium",
+        "dependsOn": [
+          "frontend-smoke--test-design"
+        ],
+        "inputs": {
+          "matchedRiskRules": [
+            "frontend-medium-risk"
+          ]
+        },
+        "targetFiles": [
+          "apps/frontend",
+          "gateway"
+        ],
+        "verifyCommands": [
+          "npm run ci:frontend",
+          "npm run ci:admin-front"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
+        "reviewPolicy": {
+          "required": true,
+          "reviewAgentCount": 1,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "frontend-smoke--defect-feedback",
+        "stage": "defect-feedback",
+        "title": "Summarize frontend-smoke execution failures",
+        "goal": "Generate structured bug drafts and evidence if frontend-smoke validation fails",
+        "executorType": "defect-agent",
+        "status": "pending",
+        "riskLevel": "medium",
+        "dependsOn": [
+          "frontend-smoke--automated-execution"
+        ],
+        "inputs": {
+          "matchedRiskRules": [
+            "frontend-medium-risk"
+          ]
+        },
+        "targetFiles": [
+          "apps/frontend",
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
+        "reviewPolicy": {
+          "required": true,
+          "reviewAgentCount": 1,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "frontend-smoke--collaboration",
+        "stage": "collaboration",
+        "title": "Prepare frontend-smoke review handoff",
+        "goal": "Prepare PR or issue-ready collaboration output for frontend-smoke",
+        "executorType": "review-agent",
+        "status": "pending",
+        "riskLevel": "medium",
+        "dependsOn": [
+          "frontend-smoke--defect-feedback"
+        ],
+        "inputs": {
+          "matchedRiskRules": [
+            "frontend-medium-risk"
+          ]
+        },
+        "targetFiles": [
+          "apps/frontend",
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
+        "reviewPolicy": {
+          "required": true,
+          "reviewAgentCount": 1,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "gateway-api-smoke--requirements-analysis",
+        "stage": "requirements-analysis",
+        "title": "Analyze gateway-api-smoke requirements",
+        "goal": "Summarize scope, impacted services, and acceptance criteria for gateway-api-smoke",
+        "executorType": "requirements-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "environment-preparation"
+        ],
+        "inputs": {
+          "routeName": "gateway-api-smoke",
+          "entryServices": [
+            "gateway",
+            "postgres",
+            "redis"
+          ],
+          "changedFiles": [
+            "apps/frontend/src/app/login/page.tsx",
+            "apps/frontend/src/components/dashboard/OverviewCard.tsx"
+          ],
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "gateway-api-smoke--code-implementation",
+        "stage": "code-implementation",
+        "title": "Implement gateway-api-smoke changes",
+        "goal": "Apply code changes for gateway-api-smoke within the declared service boundaries",
+        "executorType": "implementation-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "gateway-api-smoke--requirements-analysis"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "gateway-api-smoke--test-design",
+        "stage": "test-design",
+        "title": "Design gateway-api-smoke validation",
+        "goal": "Produce route-specific smoke or regression coverage for gateway-api-smoke",
+        "executorType": "test-design-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "gateway-api-smoke--code-implementation"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway"
+        ],
+        "verifyCommands": [
+          "npm run ci:gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "gateway-api-smoke--automated-execution",
+        "stage": "automated-execution",
+        "title": "Execute gateway-api-smoke validation",
+        "goal": "Run declared verification commands for gateway-api-smoke",
+        "executorType": "execution-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "gateway-api-smoke--test-design"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway"
+        ],
+        "verifyCommands": [
+          "npm run ci:gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "gateway-api-smoke--defect-feedback",
+        "stage": "defect-feedback",
+        "title": "Summarize gateway-api-smoke execution failures",
+        "goal": "Generate structured bug drafts and evidence if gateway-api-smoke validation fails",
+        "executorType": "defect-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "gateway-api-smoke--automated-execution"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "gateway-api-smoke--collaboration",
+        "stage": "collaboration",
+        "title": "Prepare gateway-api-smoke review handoff",
+        "goal": "Prepare PR or issue-ready collaboration output for gateway-api-smoke",
+        "executorType": "review-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "gateway-api-smoke--defect-feedback"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "provider-registration-flow--requirements-analysis",
+        "stage": "requirements-analysis",
+        "title": "Analyze provider-registration-flow requirements",
+        "goal": "Summarize scope, impacted services, and acceptance criteria for provider-registration-flow",
+        "executorType": "requirements-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "environment-preparation"
+        ],
+        "inputs": {
+          "routeName": "provider-registration-flow",
+          "entryServices": [
+            "gateway",
+            "provider_service",
+            "postgres"
+          ],
+          "changedFiles": [
+            "apps/frontend/src/app/login/page.tsx",
+            "apps/frontend/src/components/dashboard/OverviewCard.tsx"
+          ],
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "provider_service"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "provider-registration-flow--code-implementation",
+        "stage": "code-implementation",
+        "title": "Implement provider-registration-flow changes",
+        "goal": "Apply code changes for provider-registration-flow within the declared service boundaries",
+        "executorType": "implementation-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "provider-registration-flow--requirements-analysis"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "provider_service"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "provider-registration-flow--test-design",
+        "stage": "test-design",
+        "title": "Design provider-registration-flow validation",
+        "goal": "Produce route-specific smoke or regression coverage for provider-registration-flow",
+        "executorType": "test-design-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "provider-registration-flow--code-implementation"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "provider_service"
+        ],
+        "verifyCommands": [
+          "npm run ci:provider-service",
+          "npm run ci:gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "provider-registration-flow--automated-execution",
+        "stage": "automated-execution",
+        "title": "Execute provider-registration-flow validation",
+        "goal": "Run declared verification commands for provider-registration-flow",
+        "executorType": "execution-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "provider-registration-flow--test-design"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "provider_service"
+        ],
+        "verifyCommands": [
+          "npm run ci:provider-service",
+          "npm run ci:gateway"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "provider-registration-flow--defect-feedback",
+        "stage": "defect-feedback",
+        "title": "Summarize provider-registration-flow execution failures",
+        "goal": "Generate structured bug drafts and evidence if provider-registration-flow validation fails",
+        "executorType": "defect-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "provider-registration-flow--automated-execution"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "provider_service"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "provider-registration-flow--collaboration",
+        "stage": "collaboration",
+        "title": "Prepare provider-registration-flow review handoff",
+        "goal": "Prepare PR or issue-ready collaboration output for provider-registration-flow",
+        "executorType": "review-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "provider-registration-flow--defect-feedback"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "provider_service"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "withdrawal-risk-regression--requirements-analysis",
+        "stage": "requirements-analysis",
+        "title": "Analyze withdrawal-risk-regression requirements",
+        "goal": "Summarize scope, impacted services, and acceptance criteria for withdrawal-risk-regression",
+        "executorType": "requirements-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "environment-preparation"
+        ],
+        "inputs": {
+          "routeName": "withdrawal-risk-regression",
+          "entryServices": [
+            "gateway",
+            "contracts",
+            "postgres",
+            "anvil"
+          ],
+          "changedFiles": [
+            "apps/frontend/src/app/login/page.tsx",
+            "apps/frontend/src/components/dashboard/OverviewCard.tsx"
+          ],
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "contracts"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "withdrawal-risk-regression--code-implementation",
+        "stage": "code-implementation",
+        "title": "Implement withdrawal-risk-regression changes",
+        "goal": "Apply code changes for withdrawal-risk-regression within the declared service boundaries",
+        "executorType": "implementation-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "withdrawal-risk-regression--requirements-analysis"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "contracts"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "withdrawal-risk-regression--test-design",
+        "stage": "test-design",
+        "title": "Design withdrawal-risk-regression validation",
+        "goal": "Produce route-specific smoke or regression coverage for withdrawal-risk-regression",
+        "executorType": "test-design-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "withdrawal-risk-regression--code-implementation"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "contracts"
+        ],
+        "verifyCommands": [
+          "npm run ci:gateway",
+          "npm run ci:contracts"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "withdrawal-risk-regression--automated-execution",
+        "stage": "automated-execution",
+        "title": "Execute withdrawal-risk-regression validation",
+        "goal": "Run declared verification commands for withdrawal-risk-regression",
+        "executorType": "execution-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "withdrawal-risk-regression--test-design"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "contracts"
+        ],
+        "verifyCommands": [
+          "npm run ci:gateway",
+          "npm run ci:contracts"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "withdrawal-risk-regression--defect-feedback",
+        "stage": "defect-feedback",
+        "title": "Summarize withdrawal-risk-regression execution failures",
+        "goal": "Generate structured bug drafts and evidence if withdrawal-risk-regression validation fails",
+        "executorType": "defect-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "withdrawal-risk-regression--automated-execution"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "contracts"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      },
+      {
+        "id": "withdrawal-risk-regression--collaboration",
+        "stage": "collaboration",
+        "title": "Prepare withdrawal-risk-regression review handoff",
+        "goal": "Prepare PR or issue-ready collaboration output for withdrawal-risk-regression",
+        "executorType": "review-agent",
+        "status": "pending",
+        "riskLevel": "low",
+        "dependsOn": [
+          "withdrawal-risk-regression--defect-feedback"
+        ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
+        "targetFiles": [
+          "gateway",
+          "contracts"
+        ],
+        "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+        "reviewPolicy": {
+          "required": false,
+          "reviewAgentCount": 0,
+          "requireHumanApproval": false
+        }
+      }
+    ]
+  }
+}

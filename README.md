@@ -6,6 +6,13 @@
 
 Modern development is no longer just about writing code. Teams need a repeatable workflow that can:
 
+需求分析
+代码实现
+测试设计
+自动执行
+缺陷反馈
+协作流程
+
 - understand product and design documents
 - read and reason about an existing codebase
 - translate requirements into implementation tasks
@@ -202,6 +209,60 @@ The next implementation target is to establish:
 - [docs/structure.md](docs/structure.md)
 - [docs/collaboration.md](docs/collaboration.md)
 - [docs/implementation-plan.md](docs/implementation-plan.md)
+- [docs/full-implementation-plan.md](docs/full-implementation-plan.md)
+- [docs/usage-guide.md](docs/usage-guide.md)
+- [docs/synapse-integration-automation-design.md](docs/synapse-integration-automation-design.md)
+
+## Current Contracts
+
+- [schemas/project-adapter.schema.json](schemas/project-adapter.schema.json)
+- [schemas/system-topology.schema.json](schemas/system-topology.schema.json)
+- [schemas/risk-policy.schema.json](schemas/risk-policy.schema.json)
+- [schemas/task-graph.schema.json](schemas/task-graph.schema.json)
+- [schemas/environment-preparation-report.schema.json](schemas/environment-preparation-report.schema.json)
+- [schemas/onboarding-validator-result.schema.json](schemas/onboarding-validator-result.schema.json)
+- [schemas/execution-state.schema.json](schemas/execution-state.schema.json)
+- [schemas/model-adapter-capability.schema.json](schemas/model-adapter-capability.schema.json)
+
+## Integration Examples
+
+- [docs/examples/synapse-network/README.md](docs/examples/synapse-network/README.md)
+- [docs/examples/synapse-network/project.yaml](docs/examples/synapse-network/project.yaml)
+- [docs/examples/synapse-network/topology.yaml](docs/examples/synapse-network/topology.yaml)
+- [docs/examples/synapse-network/risk.yaml](docs/examples/synapse-network/risk.yaml)
+- [docs/examples/synapse-network/generated/onboarding-validator-result.json](docs/examples/synapse-network/generated/onboarding-validator-result.json)
+- [docs/examples/synapse-network/generated/task-graph.json](docs/examples/synapse-network/generated/task-graph.json)
+- [docs/examples/synapse-network/generated/task-graph-frontend-change.json](docs/examples/synapse-network/generated/task-graph-frontend-change.json)
+- [docs/examples/synapse-network/generated/task-graph-withdrawal-change.json](docs/examples/synapse-network/generated/task-graph-withdrawal-change.json)
+
+## Minimal Runtime
+
+Spec2Flow now includes a minimal CLI runtime for onboarding validation and task graph generation.
+
+- [package.json](package.json)
+- [packages/cli/src/spec2flow.mjs](packages/cli/src/spec2flow.mjs)
+
+Example commands:
+
+```bash
+npm install
+npm run validate:synapse-example
+npm run generate:synapse-task-graph
+npm run generate:synapse-task-graph:frontend-change
+npm run generate:synapse-task-graph:withdrawal-change
+```
+
+`generate-task-graph` also supports diff-aware risk matching:
+
+```bash
+node packages/cli/src/spec2flow.mjs generate-task-graph \
+	--project docs/examples/synapse-network/project.yaml \
+	--topology docs/examples/synapse-network/topology.yaml \
+	--risk docs/examples/synapse-network/risk.yaml \
+	--changed-files-file docs/examples/synapse-network/changes/withdrawal-change.txt
+```
+
+Risk escalation is scoped to routes whose declared target paths are actually touched by the changed files, so a frontend-only diff does not raise unrelated backend or settlement routes.
 
 ## Contributing
 

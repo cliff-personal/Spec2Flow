@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/execution-state.schema.json",
+  "title": "Spec2Flow Execution State",
+  "description": "Stores live workflow execution progress, task statuses, artifacts, and provider metadata outside the model session.",
+  "type": "object",
+  "required": ["executionState"],
+  "additionalProperties": false,
+  "properties": {
+    "executionState": {
+      "type": "object",
+      "required": ["runId", "workflowName", "status", "tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "runId": { "type": "string", "minLength": 1 },
+        "workflowName": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "blocked", "completed", "failed", "cancelled"]
+        },
+        "currentStage": {
+          "type": "string",
+          "enum": [
+            "environment-preparation",
+            "requirements-analysis",
+            "code-implementation",
+            "test-design",
+            "automated-execution",
+            "defect-feedback",
+            "collaboration"
+          ]
+        },
+        "provider": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "adapter": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "sessionId": { "type": "string", "minLength": 1 }
+          }
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/taskState" }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifactRef" }
+        },
+        "errors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/errorItem" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "taskState": {
+      "type": "object",
+      "required": ["taskId", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "ready", "in-progress", "blocked", "completed", "failed", "skipped"]
+        },
+        "executor": { "type": "string", "minLength": 1 },
+        "attempts": { "type": "integer", "minimum": 0, "default": 0 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "artifactRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "required": ["id", "kind", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["log", "trace", "screenshot", "report", "bug-draft", "diff", "other"]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "errorItem": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "recoverable": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

@@ -1,0 +1,105 @@
+spec2flow:
+  project:
+    name: synapse-network
+    type: polyglot-monorepo
+    defaultBranch: main
+    owner: cliff
+
+  docs:
+    requirements:
+      - docs/01_Product_Vision
+      - docs/01_Product_Frontend
+    architecture:
+      - docs/02_System_Architecture
+      - docs/03_Core_Workflows
+    database:
+      - docs/04_Database_Design
+      - docs/Gateway_Database_Design.md
+    operations:
+      - docs/05_DevOps_Deployment
+    api:
+      - docs/api.md
+      - docs/06_Reference
+
+  services:
+    frontend:
+      path: apps/frontend
+      type: frontend
+      install: cd apps/frontend && yarn install
+      start: cd apps/frontend && yarn dev
+      health: http://localhost:3000
+      test: npm run ci:frontend
+      dependsOn:
+        - gateway
+
+    gateway:
+      path: gateway
+      type: backend
+      start: sh scripts/local/restart_gateway.sh
+      health: http://localhost:8000/health
+      test: npm run ci:gateway
+      dependsOn:
+        - postgres
+        - redis
+        - anvil
+
+    admin_front:
+      path: admin/admin-front
+      type: admin-frontend
+      install: cd admin/admin-front && yarn install
+      start: cd admin/admin-front && yarn dev
+      health: http://localhost:3001
+      test: npm run ci:admin-front
+      dependsOn:
+        - admin_gateway
+
+    admin_gateway:
+      path: admin/gateway-admin
+      type: admin-backend
+      start: cd admin/gateway-admin && sh scripts/ops/start-local.sh
+      health: http://localhost:8010/health
+      test: npm run ci:admin-gateway
+      dependsOn:
+        - postgres
+
+    provider_service:
+      path: provider_service
+      type: provider
+      start: cd provider_service && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8100
+      health: http://localhost:8100/health
+      test: npm run ci:provider-service
+      dependsOn:
+        - gateway
+
+    contracts:
+      path: contracts
+      type: contract-runtime
+      start: npx hardhat compile
+      test: npm run ci:contracts
+      dependsOn:
+        - anvil
+
+  infrastructure:
+    bootstrap: sh scripts/local/setup_local_env.sh
+    stop: sh scripts/local/stop_local_env.sh
+    compose: docker-compose/docker-compose.yml
+
+  tests:
+    repo_ci: npm run ci:pr
+    frontend_ci: npm run ci:frontend
+    gateway_ci: npm run ci:gateway
+    admin_front_ci: npm run ci:admin-front
+    admin_gateway_ci: npm run ci:admin-gateway
+    provider_service_ci: npm run ci:provider-service
+    contracts_ci: npm run ci:contracts
+    sdk_python_ci: npm run ci:sdk-python
+
+  artifacts:
+    baseDir: spec2flow/outputs
+    executionDir: spec2flow/outputs/execution
+    bugsDir: spec2flow/outputs/bugs
+
+  generatedBy:
+    tool: spec2flow-environment-preparation
+    version: 0.1.0
+    generatedAt: 2026-03-23T00:00:00Z

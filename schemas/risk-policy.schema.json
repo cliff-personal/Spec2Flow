@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/risk-policy.schema.json",
+  "title": "Spec2Flow Risk Policy",
+  "description": "Defines automation levels, guarded paths, and approval requirements for a target repository.",
+  "type": "object",
+  "required": ["riskPolicy"],
+  "additionalProperties": false,
+  "properties": {
+    "riskPolicy": {
+      "type": "object",
+      "required": ["automationLevels", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "automationLevels": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/automationLevel" }
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/riskRule" }
+        },
+        "defaultLevel": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "automationLevel": {
+      "type": "object",
+      "required": ["name", "description", "maxAutonomy"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "maxAutonomy": {
+          "type": "string",
+          "enum": ["analysis-only", "execute-to-pr", "low-risk-auto-merge", "fully-autonomous"]
+        }
+      }
+    },
+    "riskRule": {
+      "type": "object",
+      "required": ["name", "level", "match"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "match": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "paths": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "workflowNames": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "serviceKinds": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "requires": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "humanApproval": { "type": "boolean", "default": false },
+            "reviewAgents": { "type": "integer", "minimum": 0, "default": 0 },
+            "mustRunCommands": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "blockAutoMerge": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}
