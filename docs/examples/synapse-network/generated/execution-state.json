@@ -3,36 +3,52 @@
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
     "status": "running",
-    "currentStage": "test-design",
+    "currentStage": "requirements-analysis",
     "provider": {
       "adapter": "spec2flow-cli",
       "model": "gpt-5.4",
       "sessionId": "example-session"
     },
-    "startedAt": "2026-03-23T15:48:24.399Z",
-    "updatedAt": "2026-03-23T15:48:25.332Z",
+    "startedAt": "2026-03-23T16:16:57.578Z",
+    "updatedAt": "2026-03-23T16:28:09.634Z",
     "tasks": [
       {
         "taskId": "environment-preparation",
-        "status": "completed",
+        "status": "blocked",
         "executor": "controller-agent",
         "attempts": 1,
         "artifactRefs": [
           "task-graph",
           "requirements-summary",
-          "environment-preparation-environment-preparation-output"
+          "environment-preparation-environment-preparation-output",
+          "environment-preparation-environment-preparation-model-output"
         ],
         "notes": [
           "stage:environment-preparation",
+          "role-profile:environment-preparation-controller",
           "risk:low",
           "summary:requirements-ready",
           "scope-confirmed",
           "summary:simulated-environment-preparation-completed",
           "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:environment-preparation"
+          "simulated-stage:environment-preparation",
+          "summary:Environment metadata loaded, but bootstrap is blocked by a missing setup script.",
+          "provider:github-copilot-cli",
+          "model:gpt-5.4",
+          "task:environment-preparation",
+          "session-id:806c6b04-1d19-464d-9f40-b17ebc617660",
+          "session-key:example-session::environment-preparation::controller-agent",
+          "Loaded `docs/examples/synapse-network/generated/task-claim.json`, `project.yaml`, `topology.yaml`, `risk.yaml`, and `model-adapter-capability.json`.",
+          "Confirmed the role profile is `environment-preparation-controller` with `bootstrap-only` command policy and expected artifact `environment-preparation-report`.",
+          "Confirmed the adapter capability satisfies required supports: `toolCalling` and `jsonMode`.",
+          "Checked `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
+          "Ran `sh scripts/local/setup_local_env.sh`, which failed with exit code 127 because the script does not exist.",
+          "Ran `npm run validate:synapse-example`, which passed and verified the onboarding configuration files.",
+          "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T161838Z.json`.",
+          "No repository source files were modified."
         ],
-        "startedAt": "2026-03-23T15:48:24.580Z",
-        "completedAt": "2026-03-23T15:48:24.932Z"
+        "startedAt": "2026-03-23T16:16:57.763Z",
+        "completedAt": "2026-03-23T16:16:58.132Z"
       },
       {
         "taskId": "frontend-smoke--requirements-analysis",
@@ -44,13 +60,14 @@
         ],
         "notes": [
           "stage:requirements-analysis",
+          "role-profile:requirements-analysis-specialist",
           "risk:low",
           "summary:simulated-requirements-analysis-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:requirements-analysis"
         ],
-        "startedAt": "2026-03-23T15:48:25.108Z",
-        "completedAt": "2026-03-23T15:48:25.146Z"
+        "startedAt": "2026-03-23T16:19:33.080Z",
+        "completedAt": "2026-03-23T16:19:33.120Z"
       },
       {
         "taskId": "frontend-smoke--code-implementation",
@@ -62,13 +79,14 @@
         ],
         "notes": [
           "stage:code-implementation",
+          "role-profile:code-implementation-specialist",
           "risk:low",
           "summary:simulated-code-implementation-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:code-implementation"
         ],
-        "startedAt": "2026-03-23T15:48:25.167Z",
-        "completedAt": "2026-03-23T15:48:25.182Z"
+        "startedAt": "2026-03-23T16:19:33.141Z",
+        "completedAt": "2026-03-23T16:19:33.157Z"
       },
       {
         "taskId": "frontend-smoke--test-design",
@@ -80,13 +98,14 @@
         ],
         "notes": [
           "stage:test-design",
+          "role-profile:test-design-specialist",
           "risk:low",
           "summary:simulated-test-design-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:test-design"
         ],
-        "startedAt": "2026-03-23T15:48:25.195Z",
-        "completedAt": "2026-03-23T15:48:25.208Z"
+        "startedAt": "2026-03-23T16:19:33.170Z",
+        "completedAt": "2026-03-23T16:19:33.183Z"
       },
       {
         "taskId": "frontend-smoke--automated-execution",
@@ -98,13 +117,14 @@
         ],
         "notes": [
           "stage:automated-execution",
+          "role-profile:automated-execution-specialist",
           "risk:low",
           "summary:simulated-automated-execution-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:automated-execution"
         ],
-        "startedAt": "2026-03-23T15:48:25.221Z",
-        "completedAt": "2026-03-23T15:48:25.233Z"
+        "startedAt": "2026-03-23T16:19:33.197Z",
+        "completedAt": "2026-03-23T16:19:33.209Z"
       },
       {
         "taskId": "frontend-smoke--defect-feedback",
@@ -116,31 +136,33 @@
         ],
         "notes": [
           "stage:defect-feedback",
+          "role-profile:defect-feedback-specialist",
           "risk:low",
           "summary:simulated-defect-feedback-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:defect-feedback"
         ],
-        "startedAt": "2026-03-23T15:48:25.245Z",
-        "completedAt": "2026-03-23T15:48:25.257Z"
+        "startedAt": "2026-03-23T16:19:33.222Z",
+        "completedAt": "2026-03-23T16:19:33.235Z"
       },
       {
         "taskId": "frontend-smoke--collaboration",
         "status": "completed",
-        "executor": "review-agent",
+        "executor": "collaboration-agent",
         "attempts": 1,
         "artifactRefs": [
           "frontend-smoke--collaboration-collaboration-output"
         ],
         "notes": [
           "stage:collaboration",
+          "role-profile:collaboration-specialist",
           "risk:low",
           "summary:simulated-collaboration-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:collaboration"
         ],
-        "startedAt": "2026-03-23T15:48:25.273Z",
-        "completedAt": "2026-03-23T15:48:25.286Z"
+        "startedAt": "2026-03-23T16:19:33.251Z",
+        "completedAt": "2026-03-23T16:19:33.267Z"
       },
       {
         "taskId": "gateway-api-smoke--requirements-analysis",
@@ -152,13 +174,14 @@
         ],
         "notes": [
           "stage:requirements-analysis",
+          "role-profile:requirements-analysis-specialist",
           "risk:low",
           "summary:simulated-requirements-analysis-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:requirements-analysis"
         ],
-        "startedAt": "2026-03-23T15:48:25.298Z",
-        "completedAt": "2026-03-23T15:48:25.309Z"
+        "startedAt": "2026-03-23T16:19:33.280Z",
+        "completedAt": "2026-03-23T16:19:33.293Z"
       },
       {
         "taskId": "gateway-api-smoke--code-implementation",
@@ -170,24 +193,40 @@
         ],
         "notes": [
           "stage:code-implementation",
+          "role-profile:code-implementation-specialist",
           "risk:low",
           "summary:simulated-code-implementation-completed",
           "simulated-adapter:github-copilot-cli-example",
           "simulated-stage:code-implementation"
         ],
-        "startedAt": "2026-03-23T15:48:25.320Z",
-        "completedAt": "2026-03-23T15:48:25.332Z"
+        "startedAt": "2026-03-23T16:19:33.306Z",
+        "completedAt": "2026-03-23T16:19:33.319Z"
       },
       {
         "taskId": "gateway-api-smoke--test-design",
-        "status": "ready",
+        "status": "blocked",
         "executor": "test-design-agent",
-        "attempts": 0,
-        "artifactRefs": [],
+        "attempts": 1,
+        "artifactRefs": [
+          "gateway-api-smoke--test-design-test-design-model-output"
+        ],
         "notes": [
           "stage:test-design",
-          "risk:low"
-        ]
+          "role-profile:test-design-specialist",
+          "risk:low",
+          "summary:Gateway smoke test design is blocked by missing repository context.",
+          "provider:github-copilot-cli",
+          "model:gpt-5.4",
+          "task:gateway-api-smoke--test-design",
+          "session-id:e7e8e765-8bba-4843-bdc5-acf35d91663d",
+          "session-key:example-session::gateway-api-smoke::test-design-agent",
+          "Inspected the declared Synapse context files and repository root.",
+          "Confirmed the target path `gateway/` does not exist in this checkout.",
+          "Confirmed `package.json` does not define the required verify command `npm run ci:gateway`.",
+          "Recorded a blocker artifact at `spec2flow/outputs/execution/gateway-api-smoke/test-design-blocker.json`.",
+          "Did not add or update gateway unit tests because there is no gateway code or runnable gateway CI target in this repository."
+        ],
+        "startedAt": "2026-03-23T16:20:23.674Z"
       },
       {
         "taskId": "gateway-api-smoke--automated-execution",
@@ -197,6 +236,7 @@
         "artifactRefs": [],
         "notes": [
           "stage:automated-execution",
+          "role-profile:automated-execution-specialist",
           "risk:low"
         ]
       },
@@ -208,41 +248,60 @@
         "artifactRefs": [],
         "notes": [
           "stage:defect-feedback",
+          "role-profile:defect-feedback-specialist",
           "risk:low"
         ]
       },
       {
         "taskId": "gateway-api-smoke--collaboration",
         "status": "pending",
-        "executor": "review-agent",
+        "executor": "collaboration-agent",
         "attempts": 0,
         "artifactRefs": [],
         "notes": [
           "stage:collaboration",
+          "role-profile:collaboration-specialist",
           "risk:low"
         ]
       },
       {
         "taskId": "provider-registration-flow--requirements-analysis",
-        "status": "ready",
+        "status": "completed",
         "executor": "requirements-agent",
-        "attempts": 0,
-        "artifactRefs": [],
+        "attempts": 1,
+        "artifactRefs": [
+          "provider-registration-flow--requirements-analysis-requirements-analysis-model-output"
+        ],
         "notes": [
           "stage:requirements-analysis",
-          "risk:low"
-        ]
+          "role-profile:requirements-analysis-specialist",
+          "risk:low",
+          "summary:Summarized the provider registration flow scope, impacted services, and acceptance criteria.",
+          "provider:github-copilot-cli",
+          "model:gpt-5.4",
+          "task:provider-registration-flow--requirements-analysis",
+          "session-id:feace8e2-efb0-4037-b3cb-3ed4f5d7b824",
+          "session-key:example-session::provider-registration-flow::requirements-agent",
+          "Created `spec2flow/outputs/execution/provider-registration-flow/requirements-summary.json`.",
+          "Derived the analysis from the task claim, route metadata, example README, and execution-state context.",
+          "Did not run tests or verification commands because this stage is analysis-only and declares none.",
+          "Recorded that declared target paths `gateway` and `provider_service` are not present in this checkout, so the summary is metadata-driven."
+        ],
+        "startedAt": "2026-03-23T16:22:28.236Z",
+        "completedAt": "2026-03-23T16:24:38.910Z"
       },
       {
         "taskId": "provider-registration-flow--code-implementation",
-        "status": "pending",
+        "status": "in-progress",
         "executor": "implementation-agent",
-        "attempts": 0,
+        "attempts": 1,
         "artifactRefs": [],
         "notes": [
           "stage:code-implementation",
+          "role-profile:code-implementation-specialist",
           "risk:low"
-        ]
+        ],
+        "startedAt": "2026-03-23T16:24:38.926Z"
       },
       {
         "taskId": "provider-registration-flow--test-design",
@@ -252,6 +311,7 @@
         "artifactRefs": [],
         "notes": [
           "stage:test-design",
+          "role-profile:test-design-specialist",
           "risk:low"
         ]
       },
@@ -263,6 +323,7 @@
         "artifactRefs": [],
         "notes": [
           "stage:automated-execution",
+          "role-profile:automated-execution-specialist",
           "risk:low"
         ]
       },
@@ -274,30 +335,34 @@
         "artifactRefs": [],
         "notes": [
           "stage:defect-feedback",
+          "role-profile:defect-feedback-specialist",
           "risk:low"
         ]
       },
       {
         "taskId": "provider-registration-flow--collaboration",
         "status": "pending",
-        "executor": "review-agent",
+        "executor": "collaboration-agent",
         "attempts": 0,
         "artifactRefs": [],
         "notes": [
           "stage:collaboration",
+          "role-profile:collaboration-specialist",
           "risk:low"
         ]
       },
       {
         "taskId": "withdrawal-risk-regression--requirements-analysis",
-        "status": "ready",
+        "status": "in-progress",
         "executor": "requirements-agent",
-        "attempts": 0,
+        "attempts": 1,
         "artifactRefs": [],
         "notes": [
           "stage:requirements-analysis",
+          "role-profile:requirements-analysis-specialist",
           "risk:low"
-        ]
+        ],
+        "startedAt": "2026-03-23T16:28:09.634Z"
       },
       {
         "taskId": "withdrawal-risk-regression--code-implementation",
@@ -307,6 +372,7 @@
         "artifactRefs": [],
         "notes": [
           "stage:code-implementation",
+          "role-profile:code-implementation-specialist",
           "risk:low"
         ]
       },
@@ -318,6 +384,7 @@
         "artifactRefs": [],
         "notes": [
           "stage:test-design",
+          "role-profile:test-design-specialist",
           "risk:low"
         ]
       },
@@ -329,6 +396,7 @@
         "artifactRefs": [],
         "notes": [
           "stage:automated-execution",
+          "role-profile:automated-execution-specialist",
           "risk:low"
         ]
       },
@@ -340,17 +408,19 @@
         "artifactRefs": [],
         "notes": [
           "stage:defect-feedback",
+          "role-profile:defect-feedback-specialist",
           "risk:low"
         ]
       },
       {
         "taskId": "withdrawal-risk-regression--collaboration",
         "status": "pending",
-        "executor": "review-agent",
+        "executor": "collaboration-agent",
         "attempts": 0,
         "artifactRefs": [],
         "notes": [
           "stage:collaboration",
+          "role-profile:collaboration-specialist",
           "risk:low"
         ]
       }
@@ -386,6 +456,12 @@
         "id": "environment-preparation-environment-preparation-output",
         "kind": "report",
         "path": "spec2flow/outputs/execution/environment-preparation/environment-preparation-output.json",
+        "taskId": "environment-preparation"
+      },
+      {
+        "id": "environment-preparation-environment-preparation-model-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/environment-preparation-copilot-cli-output.json",
         "taskId": "environment-preparation"
       },
       {
@@ -435,8 +511,39 @@
         "kind": "report",
         "path": "spec2flow/outputs/execution/gateway-api-smoke/code-implementation-output.json",
         "taskId": "gateway-api-smoke--code-implementation"
+      },
+      {
+        "id": "gateway-api-smoke--test-design-test-design-model-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/test-design-copilot-cli-output.json",
+        "taskId": "gateway-api-smoke--test-design"
+      },
+      {
+        "id": "provider-registration-flow--requirements-analysis-requirements-analysis-model-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/provider-registration-flow/requirements-analysis-copilot-cli-output.json",
+        "taskId": "provider-registration-flow--requirements-analysis"
       }
     ],
-    "errors": []
+    "errors": [
+      {
+        "code": "MISSING_BOOTSTRAP_SCRIPT",
+        "message": "Verification command `sh scripts/local/setup_local_env.sh` failed because `scripts/local/setup_local_env.sh` does not exist in the repository checkout.",
+        "taskId": "environment-preparation",
+        "recoverable": true
+      },
+      {
+        "code": "MISSING_GATEWAY_TARGET",
+        "message": "The claimed target files reference `gateway`, but no `gateway/` directory exists in this repository checkout.",
+        "taskId": "gateway-api-smoke--test-design",
+        "recoverable": true
+      },
+      {
+        "code": "MISSING_GATEWAY_VERIFY_COMMAND",
+        "message": "The required verification command `npm run ci:gateway` is not defined in `package.json`, so gateway smoke tests cannot be validated here.",
+        "taskId": "gateway-api-smoke--test-design",
+        "recoverable": true
+      }
+    ]
   }
 }

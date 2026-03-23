@@ -7,6 +7,25 @@
     "stage": "defect-feedback",
     "goal": "Generate structured bug drafts and evidence if frontend-smoke validation fails",
     "executorType": "defect-agent",
+    "roleProfile": {
+      "profileId": "defect-feedback-specialist",
+      "specialistRole": "defect-agent",
+      "commandPolicy": "none",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": false,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "longContext"
+      ],
+      "expectedArtifacts": [
+        "defect-summary",
+        "bug-draft"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -94,6 +113,8 @@
     },
     "instructions": [
       "Execute only the task identified by frontend-smoke--defect-feedback.",
+      "Follow role profile defect-feedback-specialist with command policy none.",
+      "Expected artifacts: defect-summary, bug-draft.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

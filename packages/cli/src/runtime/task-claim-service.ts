@@ -6,6 +6,7 @@ import {
   validateExecutionStatePayload
 } from './execution-state-service.js';
 import { fail } from '../shared/fs-utils.js';
+import { getMissingRequiredAdapterSupports } from '../shared/task-role-profile.js';
 import type { ExecutionStateDocument } from '../types/execution-state.js';
 import type { ModelAdapterCapability, TaskClaimPayload } from '../types/task-claim.js';
 import type { Task, TaskGraphDocument } from '../types/task-graph.js';
@@ -70,7 +71,15 @@ export function buildTaskClaim(
   if (!taskState) {
     fail(`missing execution state for task: ${task.id}`);
   }
+  if (!task.roleProfile) {
+    fail(`missing role profile for task: ${task.id}`);
+  }
   const source = taskGraphPayload.taskGraph.source ?? {};
+  const missingSupports = getMissingRequiredAdapterSupports(task.roleProfile, adapterCapabilityPayload?.adapter);
+  const provider = executionStatePayload.executionState.provider;
+  if (missingSupports.length > 0) {
+    fail(`adapter capability does not satisfy role profile for ${task.id}: missing ${missingSupports.join(', ')}`);
+  }
 
   return {
     taskClaim: {
@@ -81,6 +90,7 @@ export function buildTaskClaim(
       stage: task.stage,
       goal: task.goal,
       executorType: task.executorType,
+      roleProfile: task.roleProfile,
       ...(task.riskLevel ? { riskLevel: task.riskLevel } : {}),
       ...(task.reviewPolicy ? { reviewPolicy: task.reviewPolicy } : {}),
       modelAdapterCapabilityRef: paths.adapterCapability,
@@ -106,8 +116,8 @@ export function buildTaskClaim(
         ...(executionStatePayload.executionState.currentStage
           ? { currentStage: executionStatePayload.executionState.currentStage }
           : {}),
-        ...(executionStatePayload.executionState.provider !== undefined
-          ? { provider: executionStatePayload.executionState.provider ?? null }
+        ...(provider
+          ? { provider }
           : {}),
         attempt: taskState.attempts ?? 0,
         artifactRefs: taskState.artifactRefs ?? [],
@@ -118,6 +128,8 @@ export function buildTaskClaim(
       },
       instructions: [
         `Execute only the task identified by ${task.id}.`,
+        `Follow role profile ${task.roleProfile.profileId} with command policy ${task.roleProfile.commandPolicy}.`,
+        `Expected artifacts: ${task.roleProfile.expectedArtifacts.join(', ')}.`,
         'Respect the declared target files, verification commands, and review policy.',
         'Persist outputs back into execution-state.json before moving to downstream tasks.'
       ]

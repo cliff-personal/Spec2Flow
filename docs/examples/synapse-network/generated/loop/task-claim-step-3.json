@@ -7,6 +7,25 @@
     "stage": "test-design",
     "goal": "Produce route-specific smoke or regression coverage for frontend-smoke",
     "executorType": "test-design-agent",
+    "roleProfile": {
+      "profileId": "test-design-specialist",
+      "specialistRole": "test-design-agent",
+      "commandPolicy": "safe-repo-commands",
+      "canReadRepository": true,
+      "canEditFiles": true,
+      "canRunCommands": true,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "codeEditing"
+      ],
+      "expectedArtifacts": [
+        "test-plan",
+        "test-cases"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -96,6 +115,8 @@
     },
     "instructions": [
       "Execute only the task identified by frontend-smoke--test-design.",
+      "Follow role profile test-design-specialist with command policy safe-repo-commands.",
+      "Expected artifacts: test-plan, test-cases.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

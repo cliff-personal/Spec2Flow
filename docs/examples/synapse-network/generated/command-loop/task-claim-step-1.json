@@ -2,11 +2,29 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "environment-preparation",
-    "title": "Prepare repository environment",
-    "stage": "environment-preparation",
-    "goal": "Load project adapter, topology, and risk policy for synapse-network",
-    "executorType": "controller-agent",
+    "taskId": "withdrawal-risk-regression--requirements-analysis",
+    "title": "Analyze withdrawal-risk-regression requirements",
+    "stage": "requirements-analysis",
+    "goal": "Summarize scope, impacted services, and acceptance criteria for withdrawal-risk-regression",
+    "executorType": "requirements-agent",
+    "roleProfile": {
+      "profileId": "requirements-analysis-specialist",
+      "specialistRole": "requirements-agent",
+      "commandPolicy": "none",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": false,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "longContext"
+      ],
+      "expectedArtifacts": [
+        "requirements-summary"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -40,33 +58,50 @@
         "docs/06_Reference"
       ],
       "changedFiles": [],
-      "targetFiles": [],
-      "verifyCommands": [
-        "sh scripts/local/setup_local_env.sh"
+      "targetFiles": [
+        "gateway",
+        "contracts"
       ],
-      "taskInputs": {}
+      "verifyCommands": [],
+      "taskInputs": {
+        "routeName": "withdrawal-risk-regression",
+        "entryServices": [
+          "gateway",
+          "contracts",
+          "postgres",
+          "anvil"
+        ],
+        "changedFiles": [],
+        "matchedRiskRules": [],
+        "requirementText": "",
+        "routeSelectionMode": "all-routes",
+        "matchedRequirementPhrases": [],
+        "matchedRequirementKeywords": []
+      }
     },
     "runtimeContext": {
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "environment-preparation",
+      "currentStage": "requirements-analysis",
       "provider": {
         "adapter": "spec2flow-cli",
         "model": "gpt-5.4",
         "sessionId": "example-session"
       },
       "attempt": 1,
-      "artifactRefs": [
-        "task-graph"
-      ],
+      "artifactRefs": [],
       "taskArtifacts": [],
       "taskErrors": [],
-      "artifactsDir": "spec2flow/outputs/execution",
-      "dependsOn": []
+      "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+      "dependsOn": [
+        "environment-preparation"
+      ]
     },
     "instructions": [
-      "Execute only the task identified by environment-preparation.",
+      "Execute only the task identified by withdrawal-risk-regression--requirements-analysis.",
+      "Follow role profile requirements-analysis-specialist with command policy none.",
+      "Expected artifacts: requirements-summary.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

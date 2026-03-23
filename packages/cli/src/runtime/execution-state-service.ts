@@ -48,6 +48,7 @@ export function buildExecutionArtifacts(taskGraphPayload: TaskGraphDocument, pat
 export function buildInitialTaskState(task: Task): TaskState {
   const notes = dedupe<string>([
     `stage:${task.stage}`,
+    `role-profile:${task.roleProfile.profileId}`,
     `risk:${task.riskLevel}`,
     task.reviewPolicy?.requireHumanApproval ? 'requires-human-approval' : null,
     task.reviewPolicy?.required ? `review-agents:${task.reviewPolicy.reviewAgentCount}` : null

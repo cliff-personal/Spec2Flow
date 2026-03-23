@@ -7,6 +7,24 @@
     "stage": "automated-execution",
     "goal": "Run declared verification commands for frontend-smoke",
     "executorType": "execution-agent",
+    "roleProfile": {
+      "profileId": "automated-execution-specialist",
+      "specialistRole": "execution-agent",
+      "commandPolicy": "verification-only",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": true,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode"
+      ],
+      "expectedArtifacts": [
+        "execution-report",
+        "verification-evidence"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -96,6 +114,8 @@
     },
     "instructions": [
       "Execute only the task identified by frontend-smoke--automated-execution.",
+      "Follow role profile automated-execution-specialist with command policy verification-only.",
+      "Expected artifacts: execution-report, verification-evidence.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

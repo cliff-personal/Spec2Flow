@@ -16,8 +16,25 @@ export type TaskExecutorType =
   | 'test-design-agent'
   | 'execution-agent'
   | 'defect-agent'
-  | 'review-agent'
+  | 'collaboration-agent'
   | 'human';
+
+export type AdapterSupportName =
+  | 'toolCalling'
+  | 'jsonMode'
+  | 'longContext'
+  | 'multiAgentDispatch'
+  | 'codeEditing'
+  | 'browserAutomation'
+  | 'streaming'
+  | 'functionRetryHints';
+
+export type TaskCommandPolicy =
+  | 'none'
+  | 'bootstrap-only'
+  | 'safe-repo-commands'
+  | 'verification-only'
+  | 'collaboration-only';
 
 export type TaskStatus =
   | 'pending'
@@ -29,6 +46,19 @@ export type TaskStatus =
   | 'skipped';
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export interface TaskRoleProfile {
+  profileId: string;
+  specialistRole: TaskExecutorType;
+  commandPolicy: TaskCommandPolicy;
+  canReadRepository: boolean;
+  canEditFiles: boolean;
+  canRunCommands: boolean;
+  canWriteArtifacts: boolean;
+  canOpenCollaboration: boolean;
+  requiredAdapterSupports: AdapterSupportName[];
+  expectedArtifacts: string[];
+}
 
 export interface TaskGraphSource {
   requirementSummaryRef?: string;
@@ -48,6 +78,7 @@ export interface Task {
   title: string;
   goal: string;
   executorType: TaskExecutorType;
+  roleProfile: TaskRoleProfile;
   status: TaskStatus;
   riskLevel?: RiskLevel;
   dependsOn?: string[];

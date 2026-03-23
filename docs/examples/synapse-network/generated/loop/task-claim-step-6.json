@@ -6,7 +6,24 @@
     "title": "Prepare frontend-smoke review handoff",
     "stage": "collaboration",
     "goal": "Prepare PR or issue-ready collaboration output for frontend-smoke",
-    "executorType": "review-agent",
+    "executorType": "collaboration-agent",
+    "roleProfile": {
+      "profileId": "collaboration-specialist",
+      "specialistRole": "collaboration-agent",
+      "commandPolicy": "collaboration-only",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": false,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": true,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode"
+      ],
+      "expectedArtifacts": [
+        "collaboration-handoff"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -94,6 +111,8 @@
     },
     "instructions": [
       "Execute only the task identified by frontend-smoke--collaboration.",
+      "Follow role profile collaboration-specialist with command policy collaboration-only.",
+      "Expected artifacts: collaboration-handoff.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

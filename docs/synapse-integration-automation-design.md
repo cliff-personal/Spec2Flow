@@ -437,10 +437,10 @@ spec2flow:
   - 负责失败归因
   - 负责生成 bug draft
 
-7. `review-agent`
-  - 负责 plan review、spec compliance review、quality review
+7. `collaboration-agent`
+  - 负责 review handoff、spec compliance review、quality review、issue/PR handoff
 
-在主架构文档中，这个角色族已经被正式收敛为 `collaboration-agent` 视角。
+在主架构文档中，这个角色已经被正式收敛为 `collaboration-agent` 视角。
 
 也就是说，实现上可以是：
 

@@ -9,6 +9,13 @@
       "changeSet": [
         "contracts/src/SettlementVault.sol",
         "gateway/src/services/finance/withdrawal_risk.py"
+      ],
+      "routeSelectionMode": "changed-files",
+      "selectedRoutes": [
+        "frontend-smoke",
+        "gateway-api-smoke",
+        "provider-registration-flow",
+        "withdrawal-risk-regression"
       ]
     },
     "tasks": [
@@ -18,6 +25,23 @@
         "title": "Prepare repository environment",
         "goal": "Load project adapter, topology, and risk policy for synapse-network",
         "executorType": "controller-agent",
+        "roleProfile": {
+          "profileId": "environment-preparation-controller",
+          "specialistRole": "controller-agent",
+          "commandPolicy": "bootstrap-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "environment-preparation-report"
+          ]
+        },
         "status": "ready",
         "riskLevel": "low",
         "verifyCommands": [
@@ -36,6 +60,24 @@
         "title": "Analyze frontend-smoke requirements",
         "goal": "Summarize scope, impacted services, and acceptance criteria for frontend-smoke",
         "executorType": "requirements-agent",
+        "roleProfile": {
+          "profileId": "requirements-analysis-specialist",
+          "specialistRole": "requirements-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "requirements-summary"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
@@ -51,7 +93,11 @@
             "contracts/src/SettlementVault.sol",
             "gateway/src/services/finance/withdrawal_risk.py"
           ],
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files",
+          "matchedRequirementPhrases": [],
+          "matchedRequirementKeywords": []
         },
         "targetFiles": [
           "apps/frontend",
@@ -70,13 +116,34 @@
         "title": "Implement frontend-smoke changes",
         "goal": "Apply code changes for frontend-smoke within the declared service boundaries",
         "executorType": "implementation-agent",
+        "roleProfile": {
+          "profileId": "code-implementation-specialist",
+          "specialistRole": "implementation-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "implementation-summary",
+            "code-diff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "frontend-smoke--requirements-analysis"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "apps/frontend",
@@ -95,13 +162,34 @@
         "title": "Design frontend-smoke validation",
         "goal": "Produce route-specific smoke or regression coverage for frontend-smoke",
         "executorType": "test-design-agent",
+        "roleProfile": {
+          "profileId": "test-design-specialist",
+          "specialistRole": "test-design-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "test-plan",
+            "test-cases"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "frontend-smoke--code-implementation"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "apps/frontend",
@@ -123,13 +211,33 @@
         "title": "Execute frontend-smoke validation",
         "goal": "Run declared verification commands for frontend-smoke",
         "executorType": "execution-agent",
+        "roleProfile": {
+          "profileId": "automated-execution-specialist",
+          "specialistRole": "execution-agent",
+          "commandPolicy": "verification-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "execution-report",
+            "verification-evidence"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "frontend-smoke--test-design"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "apps/frontend",
@@ -151,13 +259,34 @@
         "title": "Summarize frontend-smoke execution failures",
         "goal": "Generate structured bug drafts and evidence if frontend-smoke validation fails",
         "executorType": "defect-agent",
+        "roleProfile": {
+          "profileId": "defect-feedback-specialist",
+          "specialistRole": "defect-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "defect-summary",
+            "bug-draft"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "frontend-smoke--automated-execution"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "apps/frontend",
@@ -175,14 +304,33 @@
         "stage": "collaboration",
         "title": "Prepare frontend-smoke review handoff",
         "goal": "Prepare PR or issue-ready collaboration output for frontend-smoke",
-        "executorType": "review-agent",
+        "executorType": "collaboration-agent",
+        "roleProfile": {
+          "profileId": "collaboration-specialist",
+          "specialistRole": "collaboration-agent",
+          "commandPolicy": "collaboration-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": true,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "collaboration-handoff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "frontend-smoke--defect-feedback"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "apps/frontend",
@@ -201,6 +349,24 @@
         "title": "Analyze gateway-api-smoke requirements",
         "goal": "Summarize scope, impacted services, and acceptance criteria for gateway-api-smoke",
         "executorType": "requirements-agent",
+        "roleProfile": {
+          "profileId": "requirements-analysis-specialist",
+          "specialistRole": "requirements-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "requirements-summary"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
@@ -217,7 +383,11 @@
             "contracts/src/SettlementVault.sol",
             "gateway/src/services/finance/withdrawal_risk.py"
           ],
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files",
+          "matchedRequirementPhrases": [],
+          "matchedRequirementKeywords": []
         },
         "targetFiles": [
           "gateway"
@@ -235,13 +405,34 @@
         "title": "Implement gateway-api-smoke changes",
         "goal": "Apply code changes for gateway-api-smoke within the declared service boundaries",
         "executorType": "implementation-agent",
+        "roleProfile": {
+          "profileId": "code-implementation-specialist",
+          "specialistRole": "implementation-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "implementation-summary",
+            "code-diff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "gateway-api-smoke--requirements-analysis"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway"
@@ -259,13 +450,34 @@
         "title": "Design gateway-api-smoke validation",
         "goal": "Produce route-specific smoke or regression coverage for gateway-api-smoke",
         "executorType": "test-design-agent",
+        "roleProfile": {
+          "profileId": "test-design-specialist",
+          "specialistRole": "test-design-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "test-plan",
+            "test-cases"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "gateway-api-smoke--code-implementation"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway"
@@ -286,13 +498,33 @@
         "title": "Execute gateway-api-smoke validation",
         "goal": "Run declared verification commands for gateway-api-smoke",
         "executorType": "execution-agent",
+        "roleProfile": {
+          "profileId": "automated-execution-specialist",
+          "specialistRole": "execution-agent",
+          "commandPolicy": "verification-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "execution-report",
+            "verification-evidence"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "gateway-api-smoke--test-design"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway"
@@ -313,13 +545,34 @@
         "title": "Summarize gateway-api-smoke execution failures",
         "goal": "Generate structured bug drafts and evidence if gateway-api-smoke validation fails",
         "executorType": "defect-agent",
+        "roleProfile": {
+          "profileId": "defect-feedback-specialist",
+          "specialistRole": "defect-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "defect-summary",
+            "bug-draft"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "gateway-api-smoke--automated-execution"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway"
@@ -336,14 +589,33 @@
         "stage": "collaboration",
         "title": "Prepare gateway-api-smoke review handoff",
         "goal": "Prepare PR or issue-ready collaboration output for gateway-api-smoke",
-        "executorType": "review-agent",
+        "executorType": "collaboration-agent",
+        "roleProfile": {
+          "profileId": "collaboration-specialist",
+          "specialistRole": "collaboration-agent",
+          "commandPolicy": "collaboration-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": true,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "collaboration-handoff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "gateway-api-smoke--defect-feedback"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway"
@@ -361,6 +633,24 @@
         "title": "Analyze provider-registration-flow requirements",
         "goal": "Summarize scope, impacted services, and acceptance criteria for provider-registration-flow",
         "executorType": "requirements-agent",
+        "roleProfile": {
+          "profileId": "requirements-analysis-specialist",
+          "specialistRole": "requirements-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "requirements-summary"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
@@ -377,7 +667,11 @@
             "contracts/src/SettlementVault.sol",
             "gateway/src/services/finance/withdrawal_risk.py"
           ],
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files",
+          "matchedRequirementPhrases": [],
+          "matchedRequirementKeywords": []
         },
         "targetFiles": [
           "gateway",
@@ -396,13 +690,34 @@
         "title": "Implement provider-registration-flow changes",
         "goal": "Apply code changes for provider-registration-flow within the declared service boundaries",
         "executorType": "implementation-agent",
+        "roleProfile": {
+          "profileId": "code-implementation-specialist",
+          "specialistRole": "implementation-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "implementation-summary",
+            "code-diff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "provider-registration-flow--requirements-analysis"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -421,13 +736,34 @@
         "title": "Design provider-registration-flow validation",
         "goal": "Produce route-specific smoke or regression coverage for provider-registration-flow",
         "executorType": "test-design-agent",
+        "roleProfile": {
+          "profileId": "test-design-specialist",
+          "specialistRole": "test-design-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "test-plan",
+            "test-cases"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "provider-registration-flow--code-implementation"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -450,13 +786,33 @@
         "title": "Execute provider-registration-flow validation",
         "goal": "Run declared verification commands for provider-registration-flow",
         "executorType": "execution-agent",
+        "roleProfile": {
+          "profileId": "automated-execution-specialist",
+          "specialistRole": "execution-agent",
+          "commandPolicy": "verification-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "execution-report",
+            "verification-evidence"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "provider-registration-flow--test-design"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -479,13 +835,34 @@
         "title": "Summarize provider-registration-flow execution failures",
         "goal": "Generate structured bug drafts and evidence if provider-registration-flow validation fails",
         "executorType": "defect-agent",
+        "roleProfile": {
+          "profileId": "defect-feedback-specialist",
+          "specialistRole": "defect-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "defect-summary",
+            "bug-draft"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "provider-registration-flow--automated-execution"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -503,14 +880,33 @@
         "stage": "collaboration",
         "title": "Prepare provider-registration-flow review handoff",
         "goal": "Prepare PR or issue-ready collaboration output for provider-registration-flow",
-        "executorType": "review-agent",
+        "executorType": "collaboration-agent",
+        "roleProfile": {
+          "profileId": "collaboration-specialist",
+          "specialistRole": "collaboration-agent",
+          "commandPolicy": "collaboration-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": true,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "collaboration-handoff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "low",
         "dependsOn": [
           "provider-registration-flow--defect-feedback"
         ],
         "inputs": {
-          "matchedRiskRules": []
+          "matchedRiskRules": [],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -529,6 +925,24 @@
         "title": "Analyze withdrawal-risk-regression requirements",
         "goal": "Summarize scope, impacted services, and acceptance criteria for withdrawal-risk-regression",
         "executorType": "requirements-agent",
+        "roleProfile": {
+          "profileId": "requirements-analysis-specialist",
+          "specialistRole": "requirements-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "requirements-summary"
+          ]
+        },
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [
@@ -548,7 +962,11 @@
           ],
           "matchedRiskRules": [
             "financial-high-risk"
-          ]
+          ],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files",
+          "matchedRequirementPhrases": [],
+          "matchedRequirementKeywords": []
         },
         "targetFiles": [
           "gateway",
@@ -567,6 +985,25 @@
         "title": "Implement withdrawal-risk-regression changes",
         "goal": "Apply code changes for withdrawal-risk-regression within the declared service boundaries",
         "executorType": "implementation-agent",
+        "roleProfile": {
+          "profileId": "code-implementation-specialist",
+          "specialistRole": "implementation-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "implementation-summary",
+            "code-diff"
+          ]
+        },
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [
@@ -575,7 +1012,9 @@
         "inputs": {
           "matchedRiskRules": [
             "financial-high-risk"
-          ]
+          ],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -594,6 +1033,25 @@
         "title": "Design withdrawal-risk-regression validation",
         "goal": "Produce route-specific smoke or regression coverage for withdrawal-risk-regression",
         "executorType": "test-design-agent",
+        "roleProfile": {
+          "profileId": "test-design-specialist",
+          "specialistRole": "test-design-agent",
+          "commandPolicy": "safe-repo-commands",
+          "canReadRepository": true,
+          "canEditFiles": true,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "codeEditing"
+          ],
+          "expectedArtifacts": [
+            "test-plan",
+            "test-cases"
+          ]
+        },
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [
@@ -602,7 +1060,9 @@
         "inputs": {
           "matchedRiskRules": [
             "financial-high-risk"
-          ]
+          ],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -625,6 +1085,24 @@
         "title": "Execute withdrawal-risk-regression validation",
         "goal": "Run declared verification commands for withdrawal-risk-regression",
         "executorType": "execution-agent",
+        "roleProfile": {
+          "profileId": "automated-execution-specialist",
+          "specialistRole": "execution-agent",
+          "commandPolicy": "verification-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": true,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
+          "expectedArtifacts": [
+            "execution-report",
+            "verification-evidence"
+          ]
+        },
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [
@@ -633,7 +1111,9 @@
         "inputs": {
           "matchedRiskRules": [
             "financial-high-risk"
-          ]
+          ],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -656,6 +1136,25 @@
         "title": "Summarize withdrawal-risk-regression execution failures",
         "goal": "Generate structured bug drafts and evidence if withdrawal-risk-regression validation fails",
         "executorType": "defect-agent",
+        "roleProfile": {
+          "profileId": "defect-feedback-specialist",
+          "specialistRole": "defect-agent",
+          "commandPolicy": "none",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": false,
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode",
+            "longContext"
+          ],
+          "expectedArtifacts": [
+            "defect-summary",
+            "bug-draft"
+          ]
+        },
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [
@@ -664,7 +1163,9 @@
         "inputs": {
           "matchedRiskRules": [
             "financial-high-risk"
-          ]
+          ],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",
@@ -683,6 +1184,20 @@
         "title": "Prepare withdrawal-risk-regression review handoff",
         "goal": "Prepare PR or issue-ready collaboration output for withdrawal-risk-regression",
         "executorType": "human",
+        "roleProfile": {
+          "profileId": "collaboration-human-gate",
+          "specialistRole": "human",
+          "commandPolicy": "collaboration-only",
+          "canReadRepository": true,
+          "canEditFiles": false,
+          "canRunCommands": false,
+          "canWriteArtifacts": true,
+          "canOpenCollaboration": true,
+          "requiredAdapterSupports": [],
+          "expectedArtifacts": [
+            "human-approval-record"
+          ]
+        },
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [
@@ -691,7 +1206,9 @@
         "inputs": {
           "matchedRiskRules": [
             "financial-high-risk"
-          ]
+          ],
+          "requirementText": "",
+          "routeSelectionMode": "changed-files"
         },
         "targetFiles": [
           "gateway",

@@ -7,6 +7,25 @@
     "stage": "code-implementation",
     "goal": "Apply code changes for gateway-api-smoke within the declared service boundaries",
     "executorType": "implementation-agent",
+    "roleProfile": {
+      "profileId": "code-implementation-specialist",
+      "specialistRole": "implementation-agent",
+      "commandPolicy": "safe-repo-commands",
+      "canReadRepository": true,
+      "canEditFiles": true,
+      "canRunCommands": true,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "codeEditing"
+      ],
+      "expectedArtifacts": [
+        "implementation-summary",
+        "code-diff"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -93,6 +112,8 @@
     },
     "instructions": [
       "Execute only the task identified by gateway-api-smoke--code-implementation.",
+      "Follow role profile code-implementation-specialist with command policy safe-repo-commands.",
+      "Expected artifacts: implementation-summary, code-diff.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

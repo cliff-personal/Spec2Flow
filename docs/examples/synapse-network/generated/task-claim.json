@@ -7,6 +7,23 @@
     "stage": "environment-preparation",
     "goal": "Load project adapter, topology, and risk policy for synapse-network",
     "executorType": "controller-agent",
+    "roleProfile": {
+      "profileId": "environment-preparation-controller",
+      "specialistRole": "controller-agent",
+      "commandPolicy": "bootstrap-only",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": true,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode"
+      ],
+      "expectedArtifacts": [
+        "environment-preparation-report"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -89,6 +106,8 @@
     },
     "instructions": [
       "Execute only the task identified by environment-preparation.",
+      "Follow role profile environment-preparation-controller with command policy bootstrap-only.",
+      "Expected artifacts: environment-preparation-report.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

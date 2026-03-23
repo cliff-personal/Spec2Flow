@@ -2,11 +2,30 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "withdrawal-risk-regression--requirements-analysis",
-    "title": "Analyze withdrawal-risk-regression requirements",
-    "stage": "requirements-analysis",
-    "goal": "Summarize scope, impacted services, and acceptance criteria for withdrawal-risk-regression",
-    "executorType": "requirements-agent",
+    "taskId": "provider-registration-flow--code-implementation",
+    "title": "Implement provider-registration-flow changes",
+    "stage": "code-implementation",
+    "goal": "Apply code changes for provider-registration-flow within the declared service boundaries",
+    "executorType": "implementation-agent",
+    "roleProfile": {
+      "profileId": "code-implementation-specialist",
+      "specialistRole": "implementation-agent",
+      "commandPolicy": "safe-repo-commands",
+      "canReadRepository": true,
+      "canEditFiles": true,
+      "canRunCommands": true,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "codeEditing"
+      ],
+      "expectedArtifacts": [
+        "implementation-summary",
+        "code-diff"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -16,6 +35,15 @@
     "modelAdapterCapabilityRef": null,
     "modelAdapterCapability": null,
     "repositoryContext": {
+      "requirementRef": null,
+      "requirementText": null,
+      "routeSelectionMode": "all-routes",
+      "selectedRoutes": [
+        "frontend-smoke",
+        "gateway-api-smoke",
+        "provider-registration-flow",
+        "withdrawal-risk-regression"
+      ],
       "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
       "topologyRef": "docs/examples/synapse-network/topology.yaml",
       "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
@@ -33,37 +61,38 @@
       "changedFiles": [],
       "targetFiles": [
         "gateway",
-        "contracts"
+        "provider_service"
       ],
       "verifyCommands": [],
       "taskInputs": {
-        "routeName": "withdrawal-risk-regression",
-        "entryServices": [
-          "gateway",
-          "contracts",
-          "postgres",
-          "anvil"
-        ],
-        "changedFiles": [],
-        "matchedRiskRules": []
+        "matchedRiskRules": [],
+        "requirementText": "",
+        "routeSelectionMode": "all-routes"
       }
     },
     "runtimeContext": {
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "requirements-analysis",
+      "currentStage": "code-implementation",
+      "provider": {
+        "adapter": "spec2flow-cli",
+        "model": "gpt-5.4",
+        "sessionId": "example-session"
+      },
       "attempt": 1,
       "artifactRefs": [],
       "taskArtifacts": [],
       "taskErrors": [],
-      "artifactsDir": "spec2flow/outputs/execution/withdrawal-risk-regression",
+      "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
       "dependsOn": [
-        "environment-preparation"
+        "provider-registration-flow--requirements-analysis"
       ]
     },
     "instructions": [
-      "Execute only the task identified by withdrawal-risk-regression--requirements-analysis.",
+      "Execute only the task identified by provider-registration-flow--code-implementation.",
+      "Follow role profile code-implementation-specialist with command policy safe-repo-commands.",
+      "Expected artifacts: implementation-summary, code-diff.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

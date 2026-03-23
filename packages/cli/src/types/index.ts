@@ -1,10 +1,13 @@
 export type { ReviewPolicy } from './review-policy.js';
 export type {
+  AdapterSupportName,
   RiskLevel,
   Task,
+  TaskCommandPolicy,
   TaskExecutorType,
   TaskGraph,
   TaskGraphDocument,
+  TaskRoleProfile,
   TaskGraphSource,
   TaskStage,
   TaskStatus

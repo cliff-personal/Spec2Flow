@@ -14,11 +14,12 @@
       "session-id:806c6b04-1d19-464d-9f40-b17ebc617660",
       "session-key:example-session::environment-preparation::controller-agent",
       "Loaded `docs/examples/synapse-network/generated/task-claim.json`, `project.yaml`, `topology.yaml`, `risk.yaml`, and `model-adapter-capability.json`.",
-      "Confirmed the adapter capability supports tool calling, JSON mode, long context, and multi-agent dispatch.",
-      "Checked for `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
+      "Confirmed the role profile is `environment-preparation-controller` with `bootstrap-only` command policy and expected artifact `environment-preparation-report`.",
+      "Confirmed the adapter capability satisfies required supports: `toolCalling` and `jsonMode`.",
+      "Checked `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
       "Ran `sh scripts/local/setup_local_env.sh`, which failed with exit code 127 because the script does not exist.",
       "Ran `npm run validate:synapse-example`, which passed and verified the onboarding configuration files.",
-      "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T152344Z.json`.",
+      "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T161838Z.json`.",
       "No repository source files were modified."
     ],
     "artifacts": [
@@ -50,11 +51,12 @@
       "session-id:806c6b04-1d19-464d-9f40-b17ebc617660",
       "session-key:example-session::environment-preparation::controller-agent",
       "Loaded `docs/examples/synapse-network/generated/task-claim.json`, `project.yaml`, `topology.yaml`, `risk.yaml`, and `model-adapter-capability.json`.",
-      "Confirmed the adapter capability supports tool calling, JSON mode, long context, and multi-agent dispatch.",
-      "Checked for `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
+      "Confirmed the role profile is `environment-preparation-controller` with `bootstrap-only` command policy and expected artifact `environment-preparation-report`.",
+      "Confirmed the adapter capability satisfies required supports: `toolCalling` and `jsonMode`.",
+      "Checked `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
       "Ran `sh scripts/local/setup_local_env.sh`, which failed with exit code 127 because the script does not exist.",
       "Ran `npm run validate:synapse-example`, which passed and verified the onboarding configuration files.",
-      "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T152344Z.json`.",
+      "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T161838Z.json`.",
       "No repository source files were modified."
     ],
     "artifacts": [
@@ -73,6 +75,6 @@
         "recoverable": true
       }
     ],
-    "submittedAt": "2026-03-23T15:24:16.802Z"
+    "submittedAt": "2026-03-23T16:19:32.938Z"
   }
 }

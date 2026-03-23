@@ -81,7 +81,7 @@
   "$defs": {
     "taskNode": {
       "type": "object",
-      "required": ["id", "stage", "title", "goal", "executorType", "status"],
+      "required": ["id", "stage", "title", "goal", "executorType", "roleProfile", "status"],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -117,9 +117,12 @@
             "test-design-agent",
             "execution-agent",
             "defect-agent",
-            "review-agent",
+            "collaboration-agent",
             "human"
           ]
+        },
+        "roleProfile": {
+          "$ref": "#/$defs/taskRoleProfile"
         },
         "status": {
           "type": "string",
@@ -175,6 +178,89 @@
               "type": "boolean",
               "default": false
             }
+          }
+        }
+      }
+    },
+    "taskRoleProfile": {
+      "type": "object",
+      "required": [
+        "profileId",
+        "specialistRole",
+        "commandPolicy",
+        "canReadRepository",
+        "canEditFiles",
+        "canRunCommands",
+        "canWriteArtifacts",
+        "canOpenCollaboration",
+        "requiredAdapterSupports",
+        "expectedArtifacts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "specialistRole": {
+          "type": "string",
+          "enum": [
+            "controller-agent",
+            "requirements-agent",
+            "implementation-agent",
+            "test-design-agent",
+            "execution-agent",
+            "defect-agent",
+            "collaboration-agent",
+            "human"
+          ]
+        },
+        "commandPolicy": {
+          "type": "string",
+          "enum": [
+            "none",
+            "bootstrap-only",
+            "safe-repo-commands",
+            "verification-only",
+            "collaboration-only"
+          ]
+        },
+        "canReadRepository": {
+          "type": "boolean"
+        },
+        "canEditFiles": {
+          "type": "boolean"
+        },
+        "canRunCommands": {
+          "type": "boolean"
+        },
+        "canWriteArtifacts": {
+          "type": "boolean"
+        },
+        "canOpenCollaboration": {
+          "type": "boolean"
+        },
+        "requiredAdapterSupports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "toolCalling",
+              "jsonMode",
+              "longContext",
+              "multiAgentDispatch",
+              "codeEditing",
+              "browserAutomation",
+              "streaming",
+              "functionRetryHints"
+            ]
+          }
+        },
+        "expectedArtifacts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

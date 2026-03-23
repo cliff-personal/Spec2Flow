@@ -5,8 +5,10 @@ import type {
   ProviderSessionMetadata
 } from './execution-state.js';
 import type {
+  AdapterSupportName,
   RiskLevel,
   TaskExecutorType,
+  TaskRoleProfile,
   TaskStage
 } from './task-graph.js';
 import type { ReviewPolicy } from './review-policy.js';
@@ -21,6 +23,8 @@ export interface AdapterCapabilitySupports {
   streaming?: boolean;
   functionRetryHints?: boolean;
 }
+
+export type RequiredAdapterSupports = AdapterSupportName[];
 
 export interface AdapterCapabilityLimits {
   maxContextTokens?: number;
@@ -73,6 +77,7 @@ export interface TaskClaim {
   stage: TaskStage;
   goal: string;
   executorType: TaskExecutorType;
+  roleProfile: TaskRoleProfile;
   riskLevel?: RiskLevel;
   reviewPolicy?: ReviewPolicy;
   modelAdapterCapabilityRef?: string | null;

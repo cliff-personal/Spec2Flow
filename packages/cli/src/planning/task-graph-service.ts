@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { minimatch } from 'minimatch';
 import { dedupe } from '../shared/collection-utils.js';
 import { fail, readChangedFilesContent, readTextFile, resolveFromCwd } from '../shared/fs-utils.js';
+import { buildTaskRoleProfile } from '../shared/task-role-profile.js';
 import type { RiskLevel, Task, TaskGraphDocument } from '../types/index.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -98,7 +99,17 @@ export function getRequirementText(options: CliOptions): string {
 }
 
 function normalizeSearchText(value: unknown): string {
-  return String(value ?? '')
+  let rawValue = '';
+
+  if (typeof value === 'string') {
+    rawValue = value;
+  } else if (Array.isArray(value)) {
+    rawValue = value.join(' ');
+  } else if (value != null) {
+    rawValue = JSON.stringify(value);
+  }
+
+  return rawValue
     .normalize('NFKC')
     .toLowerCase()
     .replaceAll(/[_/-]+/g, ' ')
@@ -358,6 +369,7 @@ function buildRouteTaskBundle(
       title: `Analyze ${route.name} requirements`,
       goal: `Summarize scope, impacted services, and acceptance criteria for ${route.name}`,
       executorType: 'requirements-agent',
+      roleProfile: buildTaskRoleProfile('requirements-analysis', 'requirements-agent'),
       status: 'pending',
       riskLevel,
       dependsOn: ['environment-preparation'],
@@ -381,6 +393,7 @@ function buildRouteTaskBundle(
       title: `Implement ${route.name} changes`,
       goal: `Apply code changes for ${route.name} within the declared service boundaries`,
       executorType: 'implementation-agent',
+      roleProfile: buildTaskRoleProfile('code-implementation', 'implementation-agent'),
       status: 'pending',
       riskLevel,
       dependsOn: [analyzeId],
@@ -399,6 +412,7 @@ function buildRouteTaskBundle(
       title: `Design ${route.name} validation`,
       goal: `Produce route-specific smoke or regression coverage for ${route.name}`,
       executorType: 'test-design-agent',
+      roleProfile: buildTaskRoleProfile('test-design', 'test-design-agent'),
       status: 'pending',
       riskLevel,
       dependsOn: [implementId],
@@ -418,6 +432,7 @@ function buildRouteTaskBundle(
       title: `Execute ${route.name} validation`,
       goal: `Run declared verification commands for ${route.name}`,
       executorType: 'execution-agent',
+      roleProfile: buildTaskRoleProfile('automated-execution', 'execution-agent'),
       status: 'pending',
       riskLevel,
       dependsOn: [testId],
@@ -437,6 +452,7 @@ function buildRouteTaskBundle(
       title: `Summarize ${route.name} execution failures`,
       goal: `Generate structured bug drafts and evidence if ${route.name} validation fails`,
       executorType: 'defect-agent',
+      roleProfile: buildTaskRoleProfile('defect-feedback', 'defect-agent'),
       status: 'pending',
       riskLevel,
       dependsOn: [executeId],
@@ -454,7 +470,8 @@ function buildRouteTaskBundle(
       stage: 'collaboration',
       title: `Prepare ${route.name} review handoff`,
       goal: `Prepare PR or issue-ready collaboration output for ${route.name}`,
-      executorType: reviewPolicy.requireHumanApproval ? 'human' : 'review-agent',
+      executorType: reviewPolicy.requireHumanApproval ? 'human' : 'collaboration-agent',
+      roleProfile: buildTaskRoleProfile('collaboration', reviewPolicy.requireHumanApproval ? 'human' : 'collaboration-agent'),
       status: 'pending',
       riskLevel,
       dependsOn: [defectId],
@@ -489,6 +506,7 @@ export function buildTaskGraph(
       title: 'Prepare repository environment',
       goal: `Load project adapter, topology, and risk policy for ${project.project.name}`,
       executorType: 'controller-agent',
+      roleProfile: buildTaskRoleProfile('environment-preparation', 'controller-agent'),
       status: 'ready',
       riskLevel: 'low',
       verifyCommands: [project.infrastructure.bootstrap],
@@ -518,7 +536,7 @@ export function buildTaskGraph(
         topologyRef: paths.topology,
         riskPolicyRef: paths.risk,
         changeSet: changedFiles,
-        ...(paths.requirement !== undefined ? { requirementRef: paths.requirement } : {}),
+        ...(typeof paths.requirement === 'string' && paths.requirement.length > 0 ? { requirementRef: paths.requirement } : {}),
         ...(requirementText ? { requirementText } : {}),
         routeSelectionMode: routeSelection.mode,
         selectedRoutes: routeSelection.routes.map((route) => route.name)

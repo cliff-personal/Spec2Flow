@@ -7,6 +7,24 @@
     "stage": "requirements-analysis",
     "goal": "Summarize scope, impacted services, and acceptance criteria for frontend-smoke",
     "executorType": "requirements-agent",
+    "roleProfile": {
+      "profileId": "requirements-analysis-specialist",
+      "specialistRole": "requirements-agent",
+      "commandPolicy": "none",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": false,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "longContext"
+      ],
+      "expectedArtifacts": [
+        "requirements-summary"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -102,6 +120,8 @@
     },
     "instructions": [
       "Execute only the task identified by frontend-smoke--requirements-analysis.",
+      "Follow role profile requirements-analysis-specialist with command policy none.",
+      "Expected artifacts: requirements-summary.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

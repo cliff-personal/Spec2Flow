@@ -7,6 +7,24 @@
     "stage": "requirements-analysis",
     "goal": "Summarize scope, impacted services, and acceptance criteria for provider-registration-flow",
     "executorType": "requirements-agent",
+    "roleProfile": {
+      "profileId": "requirements-analysis-specialist",
+      "specialistRole": "requirements-agent",
+      "commandPolicy": "none",
+      "canReadRepository": true,
+      "canEditFiles": false,
+      "canRunCommands": false,
+      "canWriteArtifacts": true,
+      "canOpenCollaboration": false,
+      "requiredAdapterSupports": [
+        "toolCalling",
+        "jsonMode",
+        "longContext"
+      ],
+      "expectedArtifacts": [
+        "requirements-summary"
+      ]
+    },
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -16,6 +34,15 @@
     "modelAdapterCapabilityRef": null,
     "modelAdapterCapability": null,
     "repositoryContext": {
+      "requirementRef": null,
+      "requirementText": null,
+      "routeSelectionMode": "all-routes",
+      "selectedRoutes": [
+        "frontend-smoke",
+        "gateway-api-smoke",
+        "provider-registration-flow",
+        "withdrawal-risk-regression"
+      ],
       "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
       "topologyRef": "docs/examples/synapse-network/topology.yaml",
       "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
@@ -44,7 +71,11 @@
           "postgres"
         ],
         "changedFiles": [],
-        "matchedRiskRules": []
+        "matchedRiskRules": [],
+        "requirementText": "",
+        "routeSelectionMode": "all-routes",
+        "matchedRequirementPhrases": [],
+        "matchedRequirementKeywords": []
       }
     },
     "runtimeContext": {
@@ -52,6 +83,11 @@
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
       "currentStage": "requirements-analysis",
+      "provider": {
+        "adapter": "spec2flow-cli",
+        "model": "gpt-5.4",
+        "sessionId": "example-session"
+      },
       "attempt": 1,
       "artifactRefs": [],
       "taskArtifacts": [],
@@ -63,6 +99,8 @@
     },
     "instructions": [
       "Execute only the task identified by provider-registration-flow--requirements-analysis.",
+      "Follow role profile requirements-analysis-specialist with command policy none.",
+      "Expected artifacts: requirements-summary.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]
