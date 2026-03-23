@@ -443,4 +443,112 @@ describe('command chain integration', () => {
     expect(defectClaim.taskClaim?.taskId).toBe('frontend-smoke--defect-feedback');
     expect(defectClaim.taskClaim?.stage).toBe('defect-feedback');
   });
+
+  it('advances defect-feedback into collaboration after defect handling completes', () => {
+    const tempDir = createTempDir();
+    const taskGraphPath = path.join(tempDir, 'task-graph.json');
+    const statePath = path.join(tempDir, 'execution-state.json');
+    const executionClaimPath = path.join(tempDir, 'execution-task-claim.json');
+    const defectClaimPath = path.join(tempDir, 'defect-task-claim.json');
+    const collaborationClaimPath = path.join(tempDir, 'collaboration-task-claim.json');
+    const logArtifactPath = path.join(tempDir, 'execution-log.txt');
+    const bugDraftPath = path.join(tempDir, 'bug-draft.md');
+
+    const taskGraphPayload = buildDefectLoopTaskGraphFixture();
+    writeJson(taskGraphPath, taskGraphPayload);
+    const executionStatePayload = buildExecutionState(taskGraphPayload, {
+      'run-id': 'defect-collaboration-run',
+      adapter: 'github-copilot-cli',
+      model: 'gpt-5.4',
+      'session-id': 'defect-collaboration-session'
+    }, {
+      taskGraph: taskGraphPath
+    });
+    writeJson(statePath, executionStatePayload);
+    fs.writeFileSync(logArtifactPath, 'execution log\n', 'utf8');
+    fs.writeFileSync(bugDraftPath, '# Bug draft\n', 'utf8');
+
+    runClaimNextTask({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      output: executionClaimPath
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    runSubmitTaskResult({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      claim: executionClaimPath,
+      'result-status': 'completed',
+      summary: 'execution finished without required report',
+      'add-artifacts': `execution-log|log|${logArtifactPath}`
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    runClaimNextTask({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      output: defectClaimPath
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    const claimedDefectTask = readExecutionState(statePath).executionState.tasks.find((task) => task.taskId === 'frontend-smoke--defect-feedback');
+    expect(claimedDefectTask?.status).toBe('in-progress');
+    expect(claimedDefectTask?.attempts).toBe(1);
+
+    runSubmitTaskResult({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      claim: defectClaimPath,
+      'result-status': 'completed',
+      summary: 'defect analysis completed',
+      notes: 'bug-draft-ready',
+      'add-artifacts': `bug-draft|report|${bugDraftPath}`
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    const stateAfterDefect = readExecutionState(statePath);
+    const defectTask = stateAfterDefect.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--defect-feedback');
+    const collaborationTask = stateAfterDefect.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--collaboration');
+
+    expect(defectTask?.status).toBe('completed');
+    expect(defectTask?.notes).toContain('route-trigger:automated-execution');
+    expect(defectTask?.notes).toContain('route-reason:artifact-contract-missing');
+    expect(defectTask?.notes).toContain('bug-draft-ready');
+    expect(defectTask?.artifactRefs).toContain('bug-draft');
+    expect(collaborationTask?.status).toBe('ready');
+    expect(stateAfterDefect.executionState.currentStage).toBe('collaboration');
+    expect(stateAfterDefect.executionState.status).toBe('running');
+
+    runClaimNextTask({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      output: collaborationClaimPath
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    const collaborationClaim = readStructuredFile(collaborationClaimPath) as TaskClaimPayload;
+    expect(collaborationClaim.taskClaim?.taskId).toBe('frontend-smoke--collaboration');
+    expect(collaborationClaim.taskClaim?.stage).toBe('collaboration');
+  });
 });
