@@ -15,6 +15,7 @@ Spec2Flow/
 │     ├─ schemas.instructions.md
 │     └─ docs.instructions.md
 ├─ AGENTS.md
+├─ llms.txt
 ├─ package.json
 ├─ tsconfig.json
 ├─ tsconfig.build.json
@@ -22,8 +23,10 @@ Spec2Flow/
 ├─ README.md
 ├─ docs/
 │  ├─ mvp.md
+│  ├─ index.md
 │  ├─ structure.md
 │  ├─ copilot.md
+│  ├─ Harness_engineering.md
 │  ├─ roadmap.md
 │  ├─ architecture.md
 │  ├─ collaboration.md
@@ -88,6 +91,7 @@ This file should describe the current repository map first. Future package split
 - `.github/instructions/`: scoped instructions for TypeScript, schemas, and docs
 - `README.md`: product overview and quick start context
 - `AGENTS.md`: repository rules, design principles, and documentation discipline
+- `llms.txt`: machine-readable repository map for AI agents and external tooling
 - `package.json`: CLI entrypoints and example workflow commands
 - `tsconfig.json`: phase 0 TypeScript configuration for NodeNext typechecking without changing the current runtime entrypoint
 - `tsconfig.build.json`: build configuration that emits runnable CLI artifacts into `packages/cli/dist/`
@@ -99,7 +103,10 @@ Versioned record system for product intent, architecture, usage, and examples.
 Recommended reading order:
 - `README.md` for product overview
 - `AGENTS.md` for repository rules and doc governance
+- `llms.txt` for machine-readable repository discovery
+- `docs/index.md` for the shortest AI-facing docs map
 - `docs/copilot.md` for Copilot customization and maintenance policy
+- `docs/Harness_engineering.md` for AI-facing repository optimization guidance
 - `docs/architecture.md` for runtime boundaries
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration

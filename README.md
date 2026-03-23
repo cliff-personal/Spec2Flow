@@ -158,7 +158,10 @@ The next implementation target is to establish:
 ## Key Docs
 
 - [AGENTS.md](AGENTS.md)
+- [llms.txt](llms.txt)
+- [docs/index.md](docs/index.md)
 - [docs/copilot.md](docs/copilot.md)
+- [docs/Harness_engineering.md](docs/Harness_engineering.md)
 - [docs/mvp.md](docs/mvp.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/roadmap.md](docs/roadmap.md)

@@ -1,0 +1,79 @@
+# Spec2Flow
+
+Spec2Flow is a workflow orchestration framework for agent-friendly software delivery.
+
+It is the control plane for a six-stage engineering loop:
+- requirements analysis
+- code implementation
+- test design
+- automated execution
+- defect feedback
+- collaboration workflow
+
+Spec2Flow is the orchestrator, not the coding agent itself.
+
+## Start Here
+
+- [README.md](README.md): Product overview, goals, commands, and primary docs.
+- [AGENTS.md](AGENTS.md): Repository architecture map, navigation, and core boundaries.
+- [docs/index.md](docs/index.md): AI-facing reading order and source-of-truth map.
+
+## Architecture And Boundaries
+
+- [docs/architecture.md](docs/architecture.md): Runtime model, orchestration boundaries, and specialist-agent overlay.
+- [docs/structure.md](docs/structure.md): Current repository map and reading order.
+- [docs/Harness_engineering.md](docs/Harness_engineering.md): How this repository should evolve to be easier for AI agents to navigate and verify.
+
+## Copilot And Customization
+
+- [docs/copilot.md](docs/copilot.md): Copilot customization and maintenance strategy.
+- [.github/copilot-instructions.md](.github/copilot-instructions.md): Repository-wide execution policy for Copilot.
+- [.github/instructions/docs.instructions.md](.github/instructions/docs.instructions.md): Rules for editing docs.
+- [.github/instructions/typescript-cli.instructions.md](.github/instructions/typescript-cli.instructions.md): Rules for editing TypeScript CLI source.
+- [.github/instructions/schemas.instructions.md](.github/instructions/schemas.instructions.md): Rules for editing schemas.
+
+## Usage
+
+- [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
+- [docs/collaboration.md](docs/collaboration.md): Collaboration workflow using GitHub and execution evidence.
+- [docs/examples/synapse-network/README.md](docs/examples/synapse-network/README.md): Example target-system onboarding and workflow artifacts.
+
+## Contracts
+
+- [schemas/task-graph.schema.json](schemas/task-graph.schema.json): Workflow task graph contract.
+- [schemas/execution-state.schema.json](schemas/execution-state.schema.json): Persisted execution-state contract.
+- [schemas/model-adapter-capability.schema.json](schemas/model-adapter-capability.schema.json): Adapter capability contract.
+- [schemas/model-adapter-runtime.schema.json](schemas/model-adapter-runtime.schema.json): Adapter runtime configuration contract.
+- [schemas/onboarding-validator-result.schema.json](schemas/onboarding-validator-result.schema.json): Onboarding validation result contract.
+
+## Runtime Source
+
+- [packages/cli/src/cli/spec2flow-dist-entrypoint.ts](packages/cli/src/cli/spec2flow-dist-entrypoint.ts): TypeScript CLI source entrypoint.
+- [packages/cli/dist/cli/spec2flow-dist-entrypoint.js](packages/cli/dist/cli/spec2flow-dist-entrypoint.js): Default compiled CLI runtime entrypoint.
+- [packages/cli/src/runtime/](packages/cli/src/runtime/): Execution-state, routing, task-claim, task-result, and workflow-loop services.
+- [packages/cli/src/planning/](packages/cli/src/planning/): Task-graph construction and planning logic.
+- [packages/cli/src/adapters/](packages/cli/src/adapters/): Adapter execution, normalization, and Copilot CLI preflight.
+
+## Verification Commands
+
+- `npm run build`
+- `npm run typecheck`
+- `npm run test:unit`
+- `npm run validate:synapse-example`
+- `npm run generate:synapse-task-graph`
+- `npm run generate:synapse-execution-state`
+- `npm run preflight:copilot-cli`
+
+## Source Of Truth Rules
+
+- Repository files are the source of truth for architecture, contracts, and operating guidance.
+- Schemas and TypeScript types define enforceable runtime contracts.
+- Checked-in example files under `docs/examples/` are reference artifacts.
+- Runtime files under `.spec2flow/` and `spec2flow/outputs/` are execution evidence, not durable documentation.
+
+## Reading Strategy For AI Agents
+
+1. Read [AGENTS.md](AGENTS.md) for the architecture boundary and navigation map.
+2. Read [docs/index.md](docs/index.md) to choose the minimal relevant context.
+3. Read the specific source-of-truth doc for the task domain.
+4. Validate behavior against schemas, runtime code, and stable commands.
