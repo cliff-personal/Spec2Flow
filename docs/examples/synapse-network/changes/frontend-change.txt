@@ -1,2 +1,0 @@
-apps/frontend/src/app/login/page.tsx
-apps/frontend/src/components/dashboard/OverviewCard.tsx

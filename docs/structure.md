@@ -1,14 +1,17 @@
-# Proposed Repository Structure
+# Repository Structure
 
 ## Goal
 
-Keep the repository simple for a solo maintainer while leaving room for future expansion across the six workflow stages.
+Keep the repository simple to navigate for both humans and agents while leaving room for future expansion.
 
-## Proposed Layout
+## Current Layout
 
 ```text
 Spec2Flow/
+├─ AGENTS.md
 ├─ package.json
+├─ tsconfig.json
+├─ tsconfig.build.json
 ├─ README.md
 ├─ docs/
 │  ├─ mvp.md
@@ -18,6 +21,7 @@ Spec2Flow/
 │  ├─ collaboration.md
 │  ├─ implementation-plan.md
 │  ├─ full-implementation-plan.md
+│  ├─ typescript-migration-plan.md
 │  ├─ usage-guide.md
 │  ├─ synapse-integration-automation-design.md
 │  ├─ examples/
@@ -29,17 +33,15 @@ Spec2Flow/
 │  │  │  ├─ project.yaml
 │  │  │  ├─ topology.yaml
 │  │  │  ├─ risk.yaml
+│  │  │  ├─ model-adapter-capability.json
+│  │  │  ├─ model-adapter-runtime.json
 │  │  │  └─ generated/
 │  │  │     ├─ onboarding-validator-result.json
 │  │  │     ├─ task-graph.json
 │  │  │     ├─ task-graph-frontend-change.json
-│  │  │     └─ task-graph-withdrawal-change.json
-│  │  ├─ sample-spec.md
-│  │  ├─ sample-requirement-summary.md
-│  │  ├─ sample-implementation-tasks.md
-│  │  ├─ sample-test-plan.md
-│  │  ├─ sample-test-cases.yaml
-│  │  └─ sample-bug-report.md
+│  │  │     ├─ task-graph-withdrawal-change.json
+│  │  │     ├─ execution-state.json
+│  │  │     └─ workflow-loop-summary.json
 ├─ schemas/
 │  ├─ project-adapter.schema.json
 │  ├─ system-topology.schema.json
@@ -54,36 +56,41 @@ Spec2Flow/
 │  ├─ test-case.schema.json
 │  ├─ execution-report.schema.json
 │  ├─ model-adapter-capability.schema.json
-│  └─ bug-report.schema.json
+│  └─ model-adapter-runtime.schema.json
 ├─ packages/
 │  └─ cli/
+│     ├─ dist/
 │     └─ src/
-│        └─ spec2flow.mjs
-├─ playwright/
-│  ├─ tests/
-│  ├─ fixtures/
-│  └─ playwright.config.ts
-├─ scripts/
-│  ├─ start-service.sh
-│  ├─ run-smoke.sh
-│  └─ collect-artifacts.sh
-├─ .github/
-│  ├─ ISSUE_TEMPLATE/
-│  │  └─ bug-report.md
-│  └─ workflows/
-│     ├─ ci.yml
-│     └─ playwright.yml
-├─ reports/
-│  ├─ execution/
-│  └─ bugs/
-└─ examples/
-   └─ demo-project/
+│        ├─ adapters/
+│        ├─ cli/
+│        ├─ onboarding/
+│        ├─ planning/
+│        ├─ runtime/
+│        ├─ shared/
+│        └─ types/
 ```
+
+This file should describe the current repository map first. Future package splits or optional integrations belong in architecture or roadmap docs, not in the primary structure map.
 
 ## Directory Responsibilities
 
+### Root Files
+
+- `README.md`: product overview and quick start context
+- `AGENTS.md`: repository rules, design principles, and documentation discipline
+- `package.json`: CLI entrypoints and example workflow commands
+- `tsconfig.json`: phase 0 TypeScript configuration for NodeNext typechecking without changing the current runtime entrypoint
+- `tsconfig.build.json`: build configuration that emits runnable CLI artifacts into `packages/cli/dist/`
+
 ### `docs/`
-Project documentation, process definitions, examples, and architecture notes.
+Versioned record system for product intent, architecture, usage, and examples.
+
+Recommended reading order:
+- `README.md` for product overview
+- `AGENTS.md` for repository rules and doc governance
+- `docs/architecture.md` for runtime boundaries
+- `docs/usage-guide.md` for adoption flow
+- `docs/synapse-integration-automation-design.md` for complex-system integration
 
 ### `schemas/`
 Structured definitions for:
@@ -94,62 +101,54 @@ Structured definitions for:
 - environment preparation reports
 - onboarding validator results
 - execution states
-- requirement summaries
-- implementation tasks
-- test plans
-- test cases
-- execution reports
 - model adapter capabilities
-- bug reports
+- model adapter runtimes
 
 ### `docs/examples/synapse-network/`
-Reference onboarding configuration for a complex multi-service target system, plus generated validator and task graph outputs.
+Reference onboarding configuration for a complex multi-service target system, plus generated validator, task graph, and runtime outputs.
 
 ### `docs/examples/synapse-network/changes/`
-Sample changed-file lists for diff-aware risk evaluation.
-
-### `packages/core/`
-Shared domain models, interfaces, config loading, and common utilities.
-
-### `packages/planner/`
-Spec/code analysis, requirement summarization, and test planning logic.
-
-### `packages/implementer/`
-Implementation task generation and code-change orchestration helpers.
-
-### `packages/executor/`
-Service startup, test execution orchestration, and artifact handling.
-
-### `packages/reporter/`
-Result summarization and bug draft generation.
+Sample changed-file lists for diff-aware and requirement-aware route selection examples.
 
 ### `packages/cli/`
-Developer-facing CLI entrypoints. The current minimal implementation validates onboarding configs and generates task graphs from example adapters.
+Developer-facing CLI entrypoints. This is the current implementation surface for validation, task graph generation, execution-state lifecycle, task claiming, adapter execution, and workflow-loop orchestration.
 
-### `playwright/`
-UI automation tests and configuration.
+### `packages/cli/dist/`
+Generated build output for the TypeScript runtime. This directory is now the default CLI runtime surface used by the package bin and repository scripts.
 
-### `scripts/`
-Simple shell helpers for local execution and debugging.
+The primary CLI entrypoint is `packages/cli/dist/cli/spec2flow-dist-entrypoint.js`.
 
-### `.github/workflows/`
-CI workflows for validation and automated execution.
+### `packages/cli/src/cli/`
+Thin CLI shell helpers such as argument parsing, command dispatch, and the TypeScript source entrypoint that emits the compiled runtime.
 
-### `.github/ISSUE_TEMPLATE/`
-GitHub Issues templates for bug intake and collaboration.
+### `packages/cli/src/onboarding/`
+Onboarding validation rules and repository configuration checks.
 
-### `reports/`
-Generated execution summaries and bug drafts.
+### `packages/cli/src/planning/`
+Planning-domain logic for requirement interpretation, route selection, risk-aware task bundling, and task graph construction.
+
+### `packages/cli/src/runtime/`
+Runtime-domain logic for execution-state initialization, task claims, task results, and workflow-loop progression.
+
+### `packages/cli/src/adapters/`
+Adapter infrastructure for external model/runtime invocation, adapter payload normalization, and Copilot CLI preflight checks.
+
+### `packages/cli/src/types/`
+Phase 1 TypeScript domain types for the workflow model, execution state, task claims, task results, adapter contracts, and workflow loop summaries.
+
+### `packages/cli/src/shared/`
+Shared infrastructure utilities for filesystem IO, schema loading, and common output helpers.
 
 ## Solo Maintainer Recommendation
 
-For the first implementation, do not fully build every package.
+For the first implementation, keep the map narrow and current.
 Start with:
+- `README.md`
+- `AGENTS.md`
 - `docs/`
 - `schemas/`
-- `playwright/`
-- `.github/workflows/`
-- `.github/ISSUE_TEMPLATE/`
-- a lightweight `packages/cli/` or `scripts/` entrypoint
+- `packages/cli/`
 
 Then expand only when real usage appears.
+
+If future package splits become real, add them after the implementation exists and after the docs, commands, and contracts all point to the same structure.

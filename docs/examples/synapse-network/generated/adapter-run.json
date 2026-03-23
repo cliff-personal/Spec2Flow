@@ -2,43 +2,77 @@
   "adapterRun": {
     "adapterName": "github-copilot-cli-adapter",
     "provider": "github-copilot-cli",
-    "taskId": "frontend-smoke--requirements-analysis",
+    "taskId": "environment-preparation",
     "runId": "synapse-example-run",
-    "stage": "requirements-analysis",
-    "status": "failed",
-    "summary": "adapter failed for frontend-smoke--requirements-analysis",
+    "stage": "environment-preparation",
+    "status": "blocked",
+    "summary": "Environment metadata loaded, but bootstrap is blocked by a missing setup script.",
     "notes": [
-      "task:frontend-smoke--requirements-analysis",
-      "adapter-execution-failed"
+      "provider:github-copilot-cli",
+      "model:gpt-5.4",
+      "task:environment-preparation",
+      "session-id:806c6b04-1d19-464d-9f40-b17ebc617660",
+      "session-key:example-session::environment-preparation::controller-agent",
+      "Loaded `docs/examples/synapse-network/generated/task-claim.json`, `project.yaml`, `topology.yaml`, `risk.yaml`, and `model-adapter-capability.json`.",
+      "Confirmed the adapter capability supports tool calling, JSON mode, long context, and multi-agent dispatch.",
+      "Checked for `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
+      "Ran `sh scripts/local/setup_local_env.sh`, which failed with exit code 127 because the script does not exist.",
+      "Ran `npm run validate:synapse-example`, which passed and verified the onboarding configuration files.",
+      "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T152344Z.json`.",
+      "No repository source files were modified."
     ],
-    "artifacts": [],
+    "artifacts": [
+      {
+        "id": "environment-preparation-environment-preparation-model-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/environment-preparation-copilot-cli-output.json",
+        "taskId": "environment-preparation"
+      }
+    ],
     "errors": [
       {
-        "code": "adapter-execution-failed",
-        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 68 (line 1 column 69)",
-        "taskId": "frontend-smoke--requirements-analysis",
-        "recoverable": false
+        "code": "MISSING_BOOTSTRAP_SCRIPT",
+        "message": "Verification command `sh scripts/local/setup_local_env.sh` failed because `scripts/local/setup_local_env.sh` does not exist in the repository checkout.",
+        "taskId": "environment-preparation",
+        "recoverable": true
       }
     ]
   },
   "receipt": {
-    "taskId": "frontend-smoke--requirements-analysis",
-    "status": "failed",
+    "taskId": "environment-preparation",
+    "status": "blocked",
     "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
     "notes": [
-      "summary:adapter failed for frontend-smoke--requirements-analysis",
-      "task:frontend-smoke--requirements-analysis",
-      "adapter-execution-failed"
+      "summary:Environment metadata loaded, but bootstrap is blocked by a missing setup script.",
+      "provider:github-copilot-cli",
+      "model:gpt-5.4",
+      "task:environment-preparation",
+      "session-id:806c6b04-1d19-464d-9f40-b17ebc617660",
+      "session-key:example-session::environment-preparation::controller-agent",
+      "Loaded `docs/examples/synapse-network/generated/task-claim.json`, `project.yaml`, `topology.yaml`, `risk.yaml`, and `model-adapter-capability.json`.",
+      "Confirmed the adapter capability supports tool calling, JSON mode, long context, and multi-agent dispatch.",
+      "Checked for `scripts/local/*.sh` and found no matching local scripts in this repository checkout.",
+      "Ran `sh scripts/local/setup_local_env.sh`, which failed with exit code 127 because the script does not exist.",
+      "Ran `npm run validate:synapse-example`, which passed and verified the onboarding configuration files.",
+      "Wrote an execution artifact to `spec2flow/outputs/execution/environment-preparation-report-20260323T152344Z.json`.",
+      "No repository source files were modified."
     ],
-    "artifacts": [],
-    "errors": [
+    "artifacts": [
       {
-        "code": "adapter-execution-failed",
-        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 68 (line 1 column 69)",
-        "taskId": "frontend-smoke--requirements-analysis",
-        "recoverable": false
+        "id": "environment-preparation-environment-preparation-model-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/environment-preparation-copilot-cli-output.json",
+        "taskId": "environment-preparation"
       }
     ],
-    "submittedAt": "2026-03-23T08:57:04.254Z"
+    "errors": [
+      {
+        "code": "MISSING_BOOTSTRAP_SCRIPT",
+        "message": "Verification command `sh scripts/local/setup_local_env.sh` failed because `scripts/local/setup_local_env.sh` does not exist in the repository checkout.",
+        "taskId": "environment-preparation",
+        "recoverable": true
+      }
+    ],
+    "submittedAt": "2026-03-23T15:24:16.802Z"
   }
 }

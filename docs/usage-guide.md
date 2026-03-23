@@ -2,7 +2,7 @@
 
 ## Goal
 
-Explain how another project can adopt the Spec2Flow workflow using Copilot, Playwright, GitHub Actions, and GitHub Issues.
+Explain how another project can adopt the Spec2Flow workflow using repository config, adapter-backed agents, deterministic execution, and collaboration tooling.
 
 ## Who This Is For
 
@@ -27,7 +27,7 @@ If the external project does not already have standardized docs, startup scripts
 
 ## Adoption Model
 
-An external project uses Spec2Flow in six stages.
+An external project uses Spec2Flow as an orchestrated workflow. At a high level:
 
 ### 1. Provide Inputs
 The project supplies:
@@ -47,19 +47,25 @@ Spec2Flow generates:
 - bug drafts
 
 ### 3. Run Automated Validation
-The project uses Playwright and local scripts to validate critical user flows.
+The project uses repository-native validation commands and Playwright when browser validation is needed.
 
 ### 4. Publish Team Signals
 The project uses GitHub Actions and GitHub Issues to publish run status, artifacts, and defect follow-up.
+
+The execution boundary should stay explicit:
+
+- Spec2Flow orchestrates runs, task graphs, execution state, and artifacts
+- an external adapter maps one claimed task into a task-scoped agent runtime
+- deterministic executors handle startup, validation, and evidence capture
 
 ## Runtime Loop
 
 The minimal runtime loop in an adopting repository is:
 
-1. generate `task-graph.json`
+1. generate `task-graph.json` from requirement text, requirement file, or change scope
 2. initialize `execution-state.json`
 3. claim the next ready `taskId`
-4. send the emitted claim payload to the model adapter
+4. send the emitted claim payload to the external adapter
 5. apply deterministic edits or command execution
 6. submit the task result back into Spec2Flow state
 7. repeat until the run is completed, blocked, or failed
@@ -67,6 +73,19 @@ The minimal runtime loop in an adopting repository is:
 For early adoption or integration testing, `simulate-model-run` can stand in for a real provider adapter so the team can validate controller behavior before wiring Copilot or another API.
 
 Once that works, the next step is to add a `model-adapter-runtime.json` file and point `run-task-with-adapter` or `run-workflow-loop --adapter-runtime ...` at a real external adapter command.
+
+For requirement-driven execution, the most direct entrypoint is:
+
+```bash
+npm run spec2flow -- generate-task-graph \
+  --project .spec2flow/project.yaml \
+  --topology .spec2flow/topology.yaml \
+  --risk .spec2flow/policies/risk.yaml \
+  --requirement "Describe the feature request here" \
+  --output .spec2flow/task-graph.requirement.json
+```
+
+When `--requirement` or `--requirement-file` is provided, Spec2Flow selects matching workflow routes first and only falls back to all routes if no route signals match the request.
 
 That adapter command can be a thin wrapper around Copilot CLI, OpenAI, Azure OpenAI, Claude, or an internal agent platform. Spec2Flow does not need to know those provider details as long as the command returns one normalized JSON result.
 
@@ -84,7 +103,7 @@ If you do not set `adapterRuntime.model`, the adapter will let Copilot CLI choos
 Run a preflight before the first workflow execution:
 
 ```bash
-node packages/cli/src/spec2flow.mjs preflight-copilot-cli \
+npm run spec2flow -- preflight-copilot-cli \
   --adapter-runtime docs/examples/synapse-network/model-adapter-runtime.json
 ```
 
@@ -94,7 +113,18 @@ For Copilot-backed adapter runs, Spec2Flow executes that preflight automatically
 
 Use `--skip-preflight` only when you intentionally want to bypass the guardrail, for example while debugging the adapter itself.
 
-The adapter intentionally uses one-shot prompt mode rather than long-lived `/resume` sessions, because each Spec2Flow claim is meant to be a tightly scoped execution unit.
+Spec2Flow still keeps workflow state in `execution-state.json`, not inside any provider chat history. The adapter may reuse provider sessions, but the session is never the workflow truth source.
+
+The bundled Copilot adapter can optionally reuse Copilot CLI sessions with `--resume` when the runtime supplies a stable session key.
+
+The recommended default is to scope sessions by `runId + routeName + executorType`, not to force the whole workflow into one global session. That keeps useful continuity for one responsibility, such as requirements analysis or implementation on one route, without letting unrelated tasks pollute each other.
+
+In practice, prefer these session scopes:
+
+- `route + executorType`: best default for specialist continuity
+- `route` only: acceptable when one route is handled by one agent style end to end
+- `taskId`: safest when isolation matters more than reuse
+- one global run session: only for very small workflows, otherwise context drift accumulates too quickly
 
 After that, `run-workflow-loop` can act as the first autonomous controller loop for local rehearsals, integration tests, and eventually provider-backed execution.
 
@@ -217,10 +247,10 @@ reporting:
 
 ### Feature Work
 1. Create or update a GitHub Issue with the requirement.
-2. Ask Copilot to summarize the requirement and impacted modules.
-3. Ask Copilot to generate implementation tasks and validation scope.
+2. Use an adapter-backed agent to summarize the requirement and impacted modules.
+3. Use an adapter-backed agent to generate implementation tasks and validation scope.
 4. Implement the change.
-5. Ask Copilot to generate or update the smoke and regression cases.
+5. Generate or update the smoke and regression cases.
 6. Run Playwright locally.
 7. Open a pull request with validation notes.
 8. Let GitHub Actions rerun the smoke path.
@@ -228,7 +258,7 @@ reporting:
 ### Bug Investigation
 1. Reproduce the issue locally or in CI.
 2. Capture screenshot, trace, logs, and failing assertion.
-3. Ask Copilot to convert evidence into a structured bug draft.
+3. Convert evidence into a structured bug draft.
 4. Review the draft.
 5. Publish it to GitHub Issues.
 6. Link the issue to the failing run and the fixing PR.

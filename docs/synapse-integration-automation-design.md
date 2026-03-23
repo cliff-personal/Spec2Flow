@@ -32,9 +32,23 @@ Spec2Flow 目前的六阶段主线是对的：
 
 它解决的是“AI 如何参与整个工程闭环”，而不只是“AI 写代码”。这个方向没有问题。
 
-### 2.2 但当前架构还不足以跑通复杂系统
+### 2.2 当前架构已经足以跑通核心闭环，但还不足以默认高可信无人值守
 
-对于一个像 Synapse-Network 这样的系统，当前 Spec2Flow 文档架构还缺 6 个关键能力：
+对于一个像 Synapse-Network 这样的系统，Spec2Flow 现在已经可以支撑核心闭环：
+
+1. 需求分析
+2. 代码实现
+3. 测试设计
+4. 自动执行
+
+前提是职责边界必须明确：
+
+- Spec2Flow 负责任务编排、状态持久化、依赖解锁、工件归档
+- provider adapter 负责把一个已 claim 的任务映射成可执行的 agent 运行时
+- agent 只在单个任务边界内读取代码、修改文件、生成测试、执行允许的命令
+- workflow state、task DAG、retry 和 resume 逻辑必须保存在模型外部
+
+但如果目标是让复杂系统默认进入高可信、低人工介入、可审计的持续运行模式，当前文档架构还缺 6 个关键能力：
 
 1. **接入层缺失**
 当前只定义了 workflow，没有定义“目标系统如何声明自己”。复杂系统需要一份正式的接入契约。
@@ -56,8 +70,8 @@ Spec2Flow 目前的六阶段主线是对的：
 
 结论很明确：
 
-- **简单项目**：当前架构经过补充后可以很快跑通
-- **复杂系统**：当前架构只能跑通局部闭环，无法直接实现高可信无人值守
+- **简单项目**：当前架构已经可以跑通核心闭环
+- **复杂系统**：当前架构可以跑通“需求到验证”的主要路径，但还不能默认等同于高可信无人值守
 
 ## 3. 为什么 Synapse-Network 是一个合适的接入样板
 
@@ -362,6 +376,14 @@ spec2flow:
 - 为不同任务选择不同执行器
 - 串联 review loop
 
+这一层需要明确一个边界：
+
+- Spec2Flow 是 orchestrator，不是一个大而全的 agent
+- orchestrator 负责外层 DAG、execution state、claim/result contract、resume/retry
+- 真正执行单个任务的是 provider adapter 背后的 task-scoped agent runtime
+
+这也是当前架构能够从“只会分析”走向“可以执行”的关键。过去的问题不是 workflow stage 不对，而是执行边界没有被写清楚。
+
 这里建议至少拆出 5 类执行器：
 
 1. `spec-analyzer`
@@ -374,17 +396,27 @@ spec2flow:
 
 - 任务不是一个 agent 干到底
 - 而是 controller 调度多个专职 agent
+- controller 不保存模型内状态真相，状态真相必须在 `task-graph.json`、`execution-state.json` 和 artifacts 中
 
 ### 5.3.1 多 agent 编排建议
 
 要支持复杂系统，Spec2Flow 不应该只有一个大 agent，而应该采用 controller + specialists 的模型。
 
+这里的 specialists 不一定要求实现成 7 个永远常驻的独立会话。更现实的实现方式是：
+
+- 由 Spec2Flow controller 根据 `taskId` 和 stage 选择执行角色
+- 由 provider adapter 为这个角色装配上下文、权限和能力
+- 在 provider 内复用合适粒度的 session，例如 `runId + routeName + executorType`
+
+这意味着“多 agent”首先是一个职责分离模型，其次才是一个会话数量模型。
+
 建议的最小多 agent 拓扑如下：
 
-1. `controller-agent`
+1. `spec2flow-controller`
   - 负责读取任务图
   - 负责任务分发
   - 负责汇总状态
+  - 负责写回 execution state
 
 2. `requirements-agent`
   - 负责需求分析
@@ -408,6 +440,15 @@ spec2flow:
 7. `review-agent`
   - 负责 plan review、spec compliance review、quality review
 
+在主架构文档中，这个角色族已经被正式收敛为 `collaboration-agent` 视角。
+
+也就是说，实现上可以是：
+
+- 一个 `collaboration-agent` 统一负责 review handoff、issue handoff、PR handoff
+- 或者在 provider adapter 内部继续细分出 review profile
+
+但对 Spec2Flow controller 来说，外层仍然应视为 collaboration stage 的 specialist role，而不是一个绕开 state machine 的独立流程。
+
 这个模型和 `superpowers` 的核心经验是一致的：
 
 - 计划与执行分开
@@ -417,6 +458,8 @@ spec2flow:
 ### 5.3.2 多 agent 之间如何协作
 
 多 agent 不能靠自然语言随意传话，必须靠结构化上下文协作。
+
+此外，这些 agent 的协作对象应该是“任务对象”和“产物对象”，而不是共享一段不可审计的长对话。
 
 建议所有 agent 通过统一任务对象交接：
 
@@ -442,6 +485,13 @@ task:
 - agent 不需要反复重读整个仓库
 - controller 能精确重试单个任务
 - review agent 能独立复核
+- adapter 能对不同 stage 应用不同的读写和命令权限
+
+如果后续需要扩展能力，建议优先顺序是：
+
+1. 先让 task object 和 artifact object 稳定
+2. 再补 repository-specific skills
+3. 最后再接入 MCP 来连接外部系统
 
 ## 5.7 模型抽象层（Model Abstraction Layer）
 
@@ -477,10 +527,20 @@ task:
 - `plan_tasks`
 - `edit_code`
 - `design_tests`
+- `run_commands`
 - `summarize_failures`
 - `draft_bug_report`
 
 这一层是能力接口层。
+
+对当前 Spec2Flow 来说，真正的最小可执行能力集合其实更具体：
+
+- 读取仓库文件
+- 写入仓库文件
+- 执行 shell 命令
+- 返回结构化 JSON 结果
+
+如果一个 provider adapter 不能稳定提供这四项能力，它就不能承担完整的“需求分析 -> 实现 -> 测试 -> 执行”闭环。
 
 #### C. Provider Adapter
 针对不同模型或宿主实现适配器，例如：
@@ -492,6 +552,12 @@ task:
 - `local-oss-adapter`
 
 这一层只负责把统一能力接口映射到底层模型平台。
+
+在当前实现里，还应该补一句非常关键的话：
+
+- adapter 提供的是 task-scoped agent runtime，不是整个系统的状态存储
+- state persistence 仍然属于 Spec2Flow controller
+- session reuse 可以在 adapter 层做，但 session 不是 workflow truth source
 
 ### 5.7.3 为 OpenClaw 做准备时要注意什么
 
@@ -536,6 +602,53 @@ controller 再根据能力决定：
 - 哪些任务能并行
 - 哪些任务必须降级
 - 哪些任务必须交给其他 provider
+
+### 5.7.5 Skills、MCP 与 Copilot Plan 的定位
+
+为了避免把所有能力都堆到 provider adapter 里，这里需要明确三个概念。
+
+#### Skills
+
+skills 不是运行这套架构的前置条件。
+
+skills 更适合承载：
+
+- requirements-analysis checklist
+- code review rubric
+- test-design rubric
+- defect drafting template
+
+也就是说：
+
+- agent 是执行面
+- skills 是可复用的行为模板
+
+#### MCP
+
+MCP 也不是本地仓库闭环的前置条件。
+
+MCP 更适合承载：
+
+- GitHub PR / review / issue 操作
+- 外部文档系统
+- 数据库和内部平台工具
+- 需要结构化鉴权的外部服务
+
+也就是说：
+
+- 本地代码与测试闭环，agent 加 task orchestration 就够了
+- 一旦要进入跨系统自动化，再让 MCP 接管这些外部能力
+
+#### Copilot Plan
+
+Copilot plan 适合在一个已 claim 的任务内部做步骤展开，但不应替代 Spec2Flow 的 task DAG。
+
+推荐边界是：
+
+- Spec2Flow 管外层任务图、依赖、resume、retry 和审计
+- plan 只服务于单任务内部的实现思考和测试设计思考
+
+这样才能保留全局编排能力，同时不丢掉 agent 的局部规划优势。
 
 ## 5.4 环境与执行层（Environment And Execution Layer）
 

@@ -20,10 +20,32 @@ npm run generate:synapse-task-graph:frontend-change
 npm run generate:synapse-task-graph:withdrawal-change
 ```
 
-如果在真实接入仓库里运行，也可以直接从 `git diff` 自动读取 changed files：
+如果是“在对话中先提出需求，再让 Spec2Flow 自动派发后续任务”，优先直接传 requirement 文本：
 
 ```bash
-node packages/cli/src/spec2flow.mjs generate-task-graph \
+npm run spec2flow -- generate-task-graph \
+	--project .spec2flow/project.yaml \
+	--topology .spec2flow/topology.yaml \
+	--risk .spec2flow/policies/risk.yaml \
+	--requirement "服务商注册流程增加 KYC 校验，并补充网关接口校验与回归验证" \
+	--output .spec2flow/task-graph.requirement.json
+```
+
+如果需求内容较长，改用文件：
+
+```bash
+npm run spec2flow -- generate-task-graph \
+	--project .spec2flow/project.yaml \
+	--topology .spec2flow/topology.yaml \
+	--risk .spec2flow/policies/risk.yaml \
+	--requirement-file .spec2flow/requirements/current-request.md \
+	--output .spec2flow/task-graph.requirement.json
+```
+
+如果在真实接入仓库里运行，也仍然可以直接从 `git diff` 自动读取 changed files：
+
+```bash
+npm run spec2flow -- generate-task-graph \
 	--project .spec2flow/project.yaml \
 	--topology .spec2flow/topology.yaml \
 	--risk .spec2flow/policies/risk.yaml \
@@ -57,6 +79,12 @@ node packages/cli/src/spec2flow.mjs generate-task-graph \
 - `docs/examples/synapse-network/changes/frontend-change.txt`
 - `docs/examples/synapse-network/changes/withdrawal-change.txt`
 
+现在的 route 选择优先级是：
+
+- 有 `--requirement` 或 `--requirement-file` 时，按 requirement 命中 route
+- 否则如果有 changed files，按 changed files 命中 route
+- 两者都没有时，默认生成全部 route
+
 现在的风险判定会同时结合：
 
 - `risk.yaml` 里的 `paths`
@@ -64,7 +92,7 @@ node packages/cli/src/spec2flow.mjs generate-task-graph \
 - `serviceKinds`
 - 实际传入的 changed files
 
-并且只会提升受影响 route 的风险等级，不会把一次局部前端改动扩散成全局高风险任务图。
+并且只会提升已选中 route 的风险等级，不会把一次局部需求扩散成全局高风险任务图。
 
 包含：
 
@@ -74,7 +102,7 @@ node packages/cli/src/spec2flow.mjs generate-task-graph \
 - `model-adapter-capability.json`：模型适配器能力与限制示例
 - `model-adapter-runtime.json`：如何调用真实外部 adapter command 的运行时契约
 
-`model-adapter-runtime.json` 现在调用 `example-command-adapter.mjs` 这个真实 Copilot CLI adapter。它会读取 claim，执行 `gh copilot -p`，然后返回结构化结果，由 CLI 写回状态。
+`model-adapter-runtime.json` 现在调用 `example-command-adapter.mjs` 这个真实 Copilot CLI adapter。它会读取 claim，执行 `gh copilot -p`，并在配置了 session key 时自动用 `--resume` 复用已有 Copilot CLI session，然后返回结构化结果，由 CLI 写回状态。
 
 运行前至少需要满足：
 
@@ -87,6 +115,9 @@ node packages/cli/src/spec2flow.mjs generate-task-graph \
 - `SPEC2FLOW_COPILOT_MODEL`
 - `SPEC2FLOW_COPILOT_ADAPTER_NAME`
 - `SPEC2FLOW_COPILOT_CWD`
+- `SPEC2FLOW_COPILOT_SESSION_KEY`
+- `SPEC2FLOW_COPILOT_SESSION_ID`
+- `SPEC2FLOW_COPILOT_SESSION_DIR`
 
 如果不设置 `SPEC2FLOW_COPILOT_MODEL`，adapter 会直接使用 Copilot CLI 当前账户的默认模型。这通常比硬编码 `gpt-5` 更稳，因为不同账户可用模型并不完全一致。
 
@@ -109,7 +140,7 @@ npm run preflight:copilot-cli
 如果你明确要跳过，可以手动加上：
 
 ```bash
-node packages/cli/src/spec2flow.mjs run-task-with-adapter \
+npm run spec2flow -- run-task-with-adapter \
 	--state docs/examples/synapse-network/generated/execution-state.json \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--claim docs/examples/synapse-network/generated/task-claim.json \
@@ -120,11 +151,14 @@ node packages/cli/src/spec2flow.mjs run-task-with-adapter \
 这个 adapter 按文档采用了以下做法：
 
 - 用 `-p` 执行一次性、可脚本化 prompt
+- 用 `--resume=<sessionId>` 复用 session，但只在 runtime 提供稳定 session key 时启用
 - 保留 `.github/copilot-instructions.md` 作为仓库级指令
 - 用 `--model` 固定模型
 - 用 `--no-ask-user` 做非交互运行
 - 用 `--available-tools view,grep,glob` 收缩工具面
 - 用 `--disable-builtin-mcps` 避免不必要的远程能力
+
+示例 runtime 默认把 session 作用域设为 `runId + routeName + executorType`。这是比“整个工作流共用一个 session”更稳的默认值，因为 requirements、implementation、test、defect 这些职责会积累不同上下文，混在一个长会话里容易造成提示污染。
 
 它不直接依赖 VS Code 里的 Copilot Chat 会话，而是走官方文档里的 Copilot CLI 命令面。
 

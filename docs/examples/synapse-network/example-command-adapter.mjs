@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -61,6 +62,32 @@ function extractJsonPayload(content) {
   return normalized.slice(firstObjectStart, lastObjectEnd + 1);
 }
 
+function extractCopilotAssistantContent(content) {
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const events = [];
+
+  for (const line of lines) {
+    try {
+      events.push(JSON.parse(line));
+    } catch {
+      return content;
+    }
+  }
+
+  const assistantMessages = events.filter((event) => event?.type === 'assistant.message');
+  const finalMessage = assistantMessages.at(-1)?.data?.content;
+
+  if (typeof finalMessage === 'string' && finalMessage.trim()) {
+    return finalMessage;
+  }
+
+  return content;
+}
+
 function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(process.cwd(), filePath), 'utf8'));
 }
@@ -81,6 +108,61 @@ function getOptionalEnv(name, fallback = '') {
   return value.trim() || fallback;
 }
 
+function readJsonIfExists(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function getSessionStoreDir() {
+  return path.resolve(process.cwd(), getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_DIR', '.spec2flow/runtime/copilot-sessions'));
+}
+
+function getSessionRecordPath(sessionKey) {
+  return path.join(getSessionStoreDir(), `${Buffer.from(sessionKey).toString('base64url')}.json`);
+}
+
+function resolveCopilotSession() {
+  const explicitSessionId = getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_ID', '');
+  if (explicitSessionId) {
+    return {
+      sessionId: explicitSessionId,
+      sessionKey: '',
+      source: 'explicit'
+    };
+  }
+
+  const sessionKey = getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_KEY', '');
+  if (!sessionKey) {
+    return null;
+  }
+
+  const sessionRecordPath = getSessionRecordPath(sessionKey);
+  const existingRecord = readJsonIfExists(sessionRecordPath);
+  const sessionId = existingRecord?.sessionId ?? randomUUID();
+  const now = new Date().toISOString();
+
+  ensureDirForFile(sessionRecordPath);
+  fs.writeFileSync(
+    sessionRecordPath,
+    `${JSON.stringify({
+      sessionKey,
+      sessionId,
+      createdAt: existingRecord?.createdAt ?? now,
+      updatedAt: now
+    }, null, 2)}\n`,
+    'utf8'
+  );
+
+  return {
+    sessionId,
+    sessionKey,
+    source: existingRecord ? 'stored' : 'generated'
+  };
+}
+
 function buildArtifactPath(claim) {
   const routeName = getRouteNameFromTaskId(claim.taskId);
   const stageName = sanitizeStageName(claim.stage);
@@ -96,10 +178,200 @@ function getContextReferences(claimPayload, claimPath) {
   const repositoryContext = claimPayload.taskClaim?.repositoryContext ?? {};
   return [
     normalizePathForPrompt(claimPath),
+    repositoryContext.requirementRef,
     repositoryContext.projectAdapterRef,
     repositoryContext.topologyRef,
     repositoryContext.riskPolicyRef
   ].filter(Boolean);
+}
+
+function isEnabled(value, fallback = false) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
+function getExecutionToggles() {
+  return {
+    allowFileWrites: isEnabled(process.env.SPEC2FLOW_ALLOW_FILE_WRITES, true),
+    allowTestRuns: isEnabled(process.env.SPEC2FLOW_ALLOW_TEST_RUNS, true),
+    allowGitWrite: isEnabled(process.env.SPEC2FLOW_ALLOW_GIT_WRITE, false),
+    allowPrCreate: isEnabled(process.env.SPEC2FLOW_ALLOW_PR_CREATE, false)
+  };
+}
+
+function createStagePlan(artifactsDir, options = {}) {
+  const {
+    allowShell = false,
+    allowWrite = false,
+    instructions = []
+  } = options;
+
+  return {
+    allowShell,
+    allowWrite,
+    instructions: [`Store any generated analysis artifacts under ${artifactsDir}.`, ...instructions]
+  };
+}
+
+function buildRequirementsPlan(artifactsDir, toggles) {
+  if (toggles.allowFileWrites) {
+    return createStagePlan(artifactsDir, {
+      allowWrite: true,
+      instructions: [
+      `You may create or update requirement analysis documents under ${artifactsDir}, but do not change source code.`,
+      'Do not run tests in this stage.'
+      ]
+    });
+  }
+
+  return createStagePlan(artifactsDir, {
+    instructions: [
+      'Do not modify files because file writes are disabled.',
+      'Do not run tests in this stage.'
+    ]
+  });
+}
+
+function buildCodeImplementationPlan(artifactsDir, toggles) {
+  if (toggles.allowFileWrites) {
+    return createStagePlan(artifactsDir, {
+      allowShell: true,
+      allowWrite: true,
+      instructions: [
+        'Modify only files needed for the claimed implementation scope, including directly related unit tests.',
+        'Implement the required code changes in the repository, not just analysis.',
+        'Do not create commits or pull requests in this stage.'
+      ]
+    });
+  }
+
+  return createStagePlan(artifactsDir, {
+    allowShell: true,
+    instructions: [
+      'Return blocked if implementation requires file modification, because file writes are disabled.',
+      'Do not create commits or pull requests in this stage.'
+    ]
+  });
+}
+
+function buildTestDesignPlan(artifactsDir, toggles) {
+  if (toggles.allowFileWrites) {
+    return createStagePlan(artifactsDir, {
+      allowShell: true,
+      allowWrite: true,
+      instructions: [
+        'Add or update unit tests and test-case artifacts needed for the claimed scope.',
+        'Do not run the full test suite in this stage unless a very small check is required to validate syntax.'
+      ]
+    });
+  }
+
+  return createStagePlan(artifactsDir, {
+    allowShell: true,
+    instructions: [
+      'Return blocked if test files need to be created or updated, because file writes are disabled.',
+      'Do not run the full test suite in this stage unless a very small check is required to validate syntax.'
+    ]
+  });
+}
+
+function buildAutomatedExecutionPlan(artifactsDir, toggles) {
+  if (toggles.allowTestRuns) {
+    return createStagePlan(artifactsDir, {
+      allowShell: true,
+      instructions: [
+        'Run the smallest relevant verification commands and unit tests for the claimed scope.',
+        `Store test outputs, logs, and summaries under ${artifactsDir}.`,
+        'Do not modify source files in this stage except when a command naturally produces generated outputs.'
+      ]
+    });
+  }
+
+  return createStagePlan(artifactsDir, {
+    instructions: [
+      'Return blocked if verification requires running tests, because test execution is disabled.',
+      'Do not modify source files in this stage.'
+    ]
+  });
+}
+
+function buildCollaborationPlan(artifactsDir, toggles) {
+  if (!toggles.allowGitWrite) {
+    return createStagePlan(artifactsDir, {
+      allowShell: true,
+      instructions: [
+        'Do not commit or push because git write operations are disabled; prepare a PR-ready summary instead.'
+      ]
+    });
+  }
+
+  const prInstruction = toggles.allowPrCreate
+    ? 'Push the branch and open or update a pull request for the claimed scope.'
+    : 'Do not open a pull request because PR creation is disabled; prepare a PR-ready summary instead.';
+
+  return createStagePlan(artifactsDir, {
+    allowShell: true,
+    instructions: [
+      'Prepare the final collaboration output from the implemented changes and validation results.',
+      'Create a commit for the claimed scope only.',
+      prInstruction
+    ]
+  });
+}
+
+function getStageExecutionPlan(claim) {
+  const stage = claim.stage;
+  const artifactsDir = claim.runtimeContext?.artifactsDir || 'spec2flow/outputs/execution';
+  const toggles = getExecutionToggles();
+
+  if (stage === 'environment-preparation') {
+    return createStagePlan(artifactsDir, {
+      allowShell: true,
+      instructions: [
+        'Read repository context, bootstrap commands, and constraints.',
+        'You may run bootstrap or verification shell commands needed to validate the environment.',
+        'Do not modify repository source files in this stage.'
+      ]
+    });
+  }
+
+  if (stage === 'requirements-analysis') {
+    return buildRequirementsPlan(artifactsDir, toggles);
+  }
+
+  if (stage === 'code-implementation') {
+    return buildCodeImplementationPlan(artifactsDir, toggles);
+  }
+
+  if (stage === 'test-design') {
+    return buildTestDesignPlan(artifactsDir, toggles);
+  }
+
+  if (stage === 'automated-execution') {
+    return buildAutomatedExecutionPlan(artifactsDir, toggles);
+  }
+
+  if (stage === 'defect-feedback') {
+    return createStagePlan(
+      artifactsDir,
+      {
+        allowWrite: toggles.allowFileWrites,
+        instructions: [
+          ...(toggles.allowFileWrites ? [`Write bug summaries or failure analysis artifacts under ${artifactsDir} when useful.`] : []),
+          'Do not change application source code in this stage.'
+        ]
+      }
+    );
+  }
+
+  if (stage === 'collaboration') {
+    return buildCollaborationPlan(artifactsDir, toggles);
+  }
+
+  return createStagePlan(artifactsDir);
 }
 
 function buildCopilotPrompt(claimPayload, claimPath) {
@@ -107,23 +379,26 @@ function buildCopilotPrompt(claimPayload, claimPath) {
   const refs = getContextReferences(claimPayload, claimPath).map((filePath) => `@${filePath}`);
   const verificationSummary = (claim.repositoryContext?.verifyCommands ?? []).join(', ') || 'none';
   const targetFiles = (claim.repositoryContext?.targetFiles ?? []).join(', ') || 'none';
+  const stagePlan = getStageExecutionPlan(claim);
 
   return [
     'Execute exactly one Spec2Flow task claim and return JSON only.',
     'Use the repository instructions automatically loaded by Copilot CLI.',
-    'Do not modify files. Do not run tests. Produce analysis/output only for the claimed task.',
     'Return a JSON object with keys: status, summary, notes, deliverable, errors.',
     'status must be one of completed, blocked, or failed.',
     'summary must be a short sentence.',
     'notes must be an array of short strings.',
     'deliverable must be JSON-compatible and should contain the useful task output.',
     'errors must be an array of objects with code, message, and optional recoverable.',
+    'Use Copilot CLI tools when needed; do not pretend to have executed commands or edited files.',
+    'The Spec2Flow adapter wrapper persists execution-state and output artifacts after your JSON response, so do not block on editing .spec2flow state files unless the claimed task explicitly targets them.',
     `Task id: ${claim.taskId}.`,
     `Stage: ${claim.stage}.`,
     `Goal: ${claim.goal}.`,
     `Target files: ${targetFiles}.`,
     `Verify commands: ${verificationSummary}.`,
     `Context files: ${refs.join(' ')}.`,
+    ...stagePlan.instructions,
     'If the context is insufficient or authentication/tooling blocks execution, return blocked or failed with a precise error message.',
     '',
     JSON.stringify(claimPayload, null, 2)
@@ -133,27 +408,62 @@ function buildCopilotPrompt(claimPayload, claimPath) {
 function callCopilotCli(claimPayload, claimPath) {
   const adapterName = getOptionalEnv('SPEC2FLOW_COPILOT_ADAPTER_NAME', 'github-copilot-cli-adapter');
   const model = getOptionalEnv('SPEC2FLOW_COPILOT_MODEL', '');
+  const session = resolveCopilotSession();
+  const claim = claimPayload.taskClaim;
+  const stagePlan = getStageExecutionPlan(claim);
+  const toggles = getExecutionToggles();
   const prompt = buildCopilotPrompt(claimPayload, claimPath);
   const cwd = getOptionalEnv('SPEC2FLOW_COPILOT_CWD', process.cwd());
   const args = [
     'copilot',
     '--',
+    '--output-format',
+    'json',
     '-p',
     prompt,
     '-s',
     '--stream',
     'off',
     '--no-color',
+    '--allow-all-paths',
     '--allow-all-tools',
     '--no-ask-user',
     '--disable-builtin-mcps',
-    '--disallow-temp-dir',
-    '--available-tools',
-    'view,grep,glob'
+    '--disallow-temp-dir'
   ];
+
+  if (!stagePlan.allowShell) {
+    args.push('--deny-tool=shell');
+  }
+
+  if (!stagePlan.allowWrite) {
+    args.push('--deny-tool=write');
+  }
+
+  if (!toggles.allowGitWrite) {
+    args.push(
+      '--deny-tool=shell(git add)',
+      '--deny-tool=shell(git commit)',
+      '--deny-tool=shell(git push)',
+      '--deny-tool=shell(git merge)',
+      '--deny-tool=shell(git rebase)',
+      '--deny-tool=shell(git reset)',
+      '--deny-tool=shell(git checkout)'
+    );
+  }
+
+  if (!toggles.allowPrCreate) {
+    args.push('--deny-tool=shell(gh pr:*)');
+  }
 
   if (model) {
     args.push('--model', model);
+  }
+
+  args.push('--add-dir', cwd);
+
+  if (session?.sessionId) {
+    args.push(`--resume=${session.sessionId}`);
   }
 
   let stdout = '';
@@ -176,7 +486,8 @@ function callCopilotCli(claimPayload, claimPath) {
 
   let taskResult;
   try {
-    taskResult = JSON.parse(extractJsonPayload(stdout));
+    const assistantContent = extractCopilotAssistantContent(stdout);
+    taskResult = JSON.parse(extractJsonPayload(assistantContent));
   } catch (error) {
     throw new Error(`copilot cli output is not valid JSON: ${error.message}`);
   }
@@ -185,6 +496,7 @@ function callCopilotCli(claimPayload, claimPath) {
     provider: 'github-copilot-cli',
     model: model || 'default',
     adapterName,
+    session,
     taskResult
   };
 }
@@ -204,6 +516,8 @@ function buildAdapterRun(claimPayload, runResult) {
       adapter: runResult.adapterName,
       provider: runResult.provider,
       model: runResult.model,
+      sessionId: runResult.session?.sessionId ?? null,
+      sessionKey: runResult.session?.sessionKey ?? null,
       taskId: claim.taskId,
       stage: claim.stage,
       summary: taskResult.summary ?? `${claim.taskId}-completed`,
@@ -227,6 +541,8 @@ function buildAdapterRun(claimPayload, runResult) {
         `provider:${runResult.provider}`,
         `model:${runResult.model}`,
         `task:${claim.taskId}`,
+        ...(runResult.session?.sessionId ? [`session-id:${runResult.session.sessionId}`] : []),
+        ...(runResult.session?.sessionKey ? [`session-key:${runResult.session.sessionKey}`] : []),
         ...(Array.isArray(taskResult.notes) ? taskResult.notes : [])
       ],
       artifacts: [

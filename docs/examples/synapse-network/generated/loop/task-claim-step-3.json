@@ -15,8 +15,8 @@
     },
     "modelAdapterCapabilityRef": "docs/examples/synapse-network/model-adapter-capability.json",
     "modelAdapterCapability": {
-      "name": "copilot-example",
-      "provider": "github-copilot",
+      "name": "github-copilot-cli-example",
+      "provider": "github-copilot-cli",
       "supports": {
         "toolCalling": true,
         "jsonMode": true,
@@ -38,6 +38,15 @@
       ]
     },
     "repositoryContext": {
+      "requirementRef": null,
+      "requirementText": null,
+      "routeSelectionMode": "all-routes",
+      "selectedRoutes": [
+        "frontend-smoke",
+        "gateway-api-smoke",
+        "provider-registration-flow",
+        "withdrawal-risk-regression"
+      ],
       "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
       "topologyRef": "docs/examples/synapse-network/topology.yaml",
       "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
@@ -61,7 +70,9 @@
         "npm run ci:frontend"
       ],
       "taskInputs": {
-        "matchedRiskRules": []
+        "matchedRiskRules": [],
+        "requirementText": "",
+        "routeSelectionMode": "all-routes"
       }
     },
     "runtimeContext": {
@@ -69,6 +80,11 @@
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
       "currentStage": "test-design",
+      "provider": {
+        "adapter": "spec2flow-cli",
+        "model": "gpt-5.4",
+        "sessionId": "example-session"
+      },
       "attempt": 1,
       "artifactRefs": [],
       "taskArtifacts": [],

@@ -1,6 +1,6 @@
 {
   "taskResult": {
-    "taskId": "frontend-smoke--requirements-analysis",
+    "taskId": "environment-preparation",
     "status": "completed",
     "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
     "notes": [
@@ -12,10 +12,10 @@
         "id": "requirements-summary",
         "kind": "report",
         "path": "spec2flow/outputs/execution/frontend-smoke/requirements-summary.json",
-        "taskId": "frontend-smoke--requirements-analysis"
+        "taskId": "environment-preparation"
       }
     ],
     "errors": [],
-    "submittedAt": "2026-03-23T06:35:48.375Z"
+    "submittedAt": "2026-03-23T15:48:24.796Z"
   }
 }

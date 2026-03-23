@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build a practical first version of Spec2Flow that can connect requirements analysis, code implementation support, test design, browser automation, defect feedback, and team collaboration into one usable workflow.
+Build a practical first version of Spec2Flow that can connect requirements analysis, code implementation support, test design, deterministic execution, defect feedback, and team collaboration into one usable workflow.
 
 ## MVP Scope
 
@@ -20,7 +20,7 @@ Expected outputs:
 - implementation checklist
 
 ### 2. Code Implementation
-Support Copilot-assisted implementation planning and code generation for:
+Support adapter-backed implementation planning and code generation for:
 - repository structure
 - key source directories
 - routes and pages
@@ -58,7 +58,8 @@ Support configurable startup and execution commands such as:
 - npm run dev
 - npm run start
 - docker compose up
-- Playwright smoke or targeted regression runs
+- canonical validation commands
+- Playwright smoke or targeted regression runs when browser coverage is needed
 
 Execution outputs should include:
 - execution summary
@@ -87,10 +88,11 @@ Support a simple collaboration loop based on GitHub-native primitives:
 
 ## MVP Tooling
 
-The MVP is intentionally centered on four tools:
+The MVP is intentionally centered on a narrow execution stack:
 
-- **Copilot** for requirement analysis, implementation support, and test design
-- **Playwright** for browser automation and evidence capture
+- **adapter-backed agent runtimes** for requirements analysis, implementation support, and test design
+- **repository-native command execution** for deterministic validation
+- **Playwright** for browser automation and evidence capture when needed
 - **GitHub Actions** for CI execution and artifact publishing
 - **GitHub Issues** for bug tracking and workflow coordination
 
@@ -111,10 +113,10 @@ Spec2Flow MVP is successful if it can:
 1. Ingest a spec or design doc and repository context
 2. Produce a requirement summary and implementation task list
 3. Produce a usable test plan and structured test cases
-4. Run at least one browser-based smoke flow with Playwright
+4. Run at least one meaningful validation path, including browser-based smoke coverage when needed
 5. Save execution evidence and summarize results
 6. Generate at least one bug draft that maps cleanly to a GitHub Issue
-7. Run the smoke flow in GitHub Actions with retained artifacts
+7. Run the validation path in GitHub Actions with retained artifacts
 
 ## Non-Goals
 
@@ -130,7 +132,7 @@ Spec2Flow MVP is successful if it can:
 - sample requirement summary
 - sample test plan
 - sample test case set
-- Playwright example
+- deterministic execution example
 - bug draft template
 - GitHub Actions workflow example
 - collaboration workflow documentation

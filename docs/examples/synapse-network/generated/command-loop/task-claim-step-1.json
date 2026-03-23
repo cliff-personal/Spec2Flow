@@ -2,11 +2,11 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "gateway-api-smoke--requirements-analysis",
-    "title": "Analyze gateway-api-smoke requirements",
-    "stage": "requirements-analysis",
-    "goal": "Summarize scope, impacted services, and acceptance criteria for gateway-api-smoke",
-    "executorType": "requirements-agent",
+    "taskId": "environment-preparation",
+    "title": "Prepare repository environment",
+    "stage": "environment-preparation",
+    "goal": "Load project adapter, topology, and risk policy for synapse-network",
+    "executorType": "controller-agent",
     "riskLevel": "low",
     "reviewPolicy": {
       "required": false,
@@ -16,6 +16,15 @@
     "modelAdapterCapabilityRef": null,
     "modelAdapterCapability": null,
     "repositoryContext": {
+      "requirementRef": null,
+      "requirementText": null,
+      "routeSelectionMode": "all-routes",
+      "selectedRoutes": [
+        "frontend-smoke",
+        "gateway-api-smoke",
+        "provider-registration-flow",
+        "withdrawal-risk-regression"
+      ],
       "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
       "topologyRef": "docs/examples/synapse-network/topology.yaml",
       "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
@@ -31,37 +40,33 @@
         "docs/06_Reference"
       ],
       "changedFiles": [],
-      "targetFiles": [
-        "gateway"
+      "targetFiles": [],
+      "verifyCommands": [
+        "sh scripts/local/setup_local_env.sh"
       ],
-      "verifyCommands": [],
-      "taskInputs": {
-        "routeName": "gateway-api-smoke",
-        "entryServices": [
-          "gateway",
-          "postgres",
-          "redis"
-        ],
-        "changedFiles": [],
-        "matchedRiskRules": []
-      }
+      "taskInputs": {}
     },
     "runtimeContext": {
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "requirements-analysis",
+      "currentStage": "environment-preparation",
+      "provider": {
+        "adapter": "spec2flow-cli",
+        "model": "gpt-5.4",
+        "sessionId": "example-session"
+      },
       "attempt": 1,
-      "artifactRefs": [],
+      "artifactRefs": [
+        "task-graph"
+      ],
       "taskArtifacts": [],
       "taskErrors": [],
-      "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
-      "dependsOn": [
-        "environment-preparation"
-      ]
+      "artifactsDir": "spec2flow/outputs/execution",
+      "dependsOn": []
     },
     "instructions": [
-      "Execute only the task identified by gateway-api-smoke--requirements-analysis.",
+      "Execute only the task identified by environment-preparation.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

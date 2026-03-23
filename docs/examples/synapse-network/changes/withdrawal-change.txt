@@ -1,2 +1,0 @@
-contracts/src/SettlementVault.sol
-gateway/src/services/finance/withdrawal_risk.py

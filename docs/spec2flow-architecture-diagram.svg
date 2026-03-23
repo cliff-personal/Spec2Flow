@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1220" viewBox="0 0 1600 1220" role="img" aria-labelledby="title desc">
+  <title id="title">Spec2Flow Architecture Diagram</title>
+  <desc id="desc">A diagram showing Spec2Flow controller orchestration, a task-scoped provider adapter, a tool-enabled agent session, optional skills and MCP tools, and deterministic executors feeding persisted results back into execution state.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f4ec; }
+      .panel { fill: #fffdf8; stroke: #3d3429; stroke-width: 2; rx: 18; ry: 18; }
+      .box { fill: #fffaf0; stroke: #3d3429; stroke-width: 2; rx: 14; ry: 14; }
+      .box-blue { fill: #d9e8f5; stroke: #27435d; stroke-width: 2; rx: 14; ry: 14; }
+      .box-green { fill: #dcebd7; stroke: #315236; stroke-width: 2; rx: 14; ry: 14; }
+      .box-amber { fill: #f5e3b8; stroke: #6a4a13; stroke-width: 2; rx: 14; ry: 14; }
+      .box-rose { fill: #f4d9d2; stroke: #6f3d34; stroke-width: 2; rx: 14; ry: 14; }
+      .title { font: 700 30px Georgia, 'Times New Roman', serif; fill: #1f1a14; }
+      .section { font: 700 20px Georgia, 'Times New Roman', serif; fill: #1f1a14; }
+      .label { font: 600 18px 'Trebuchet MS', Helvetica, sans-serif; fill: #1f1a14; }
+      .small { font: 500 16px 'Trebuchet MS', Helvetica, sans-serif; fill: #1f1a14; }
+      .tiny { font: 500 14px 'Trebuchet MS', Helvetica, sans-serif; fill: #3b3329; }
+      .arrow { stroke: #3d3429; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .dashed { stroke-dasharray: 10 8; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#3d3429" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1220" />
+
+  <text class="title" x="800" y="54" text-anchor="middle">Spec2Flow Agent-Orchestrated Architecture</text>
+  <text class="small" x="800" y="84" text-anchor="middle">Persisted orchestration in Spec2Flow, task-scoped execution in the provider adapter, optional specialization through skills and MCP</text>
+
+  <rect class="panel" x="90" y="120" width="1420" height="920" />
+  <text class="section" x="130" y="158">Workflow Runtime</text>
+
+  <rect class="box-amber" x="140" y="210" width="280" height="84" />
+  <text class="label" x="280" y="248" text-anchor="middle">User Requirement</text>
+  <text class="small" x="280" y="274" text-anchor="middle">Prompt text or requirement file</text>
+
+  <rect class="box-blue" x="140" y="360" width="280" height="112" />
+  <text class="label" x="280" y="402" text-anchor="middle">Spec2Flow Controller</text>
+  <text class="small" x="280" y="428" text-anchor="middle">Load repo config, select routes,</text>
+  <text class="small" x="280" y="452" text-anchor="middle">generate and claim tasks</text>
+
+  <rect class="box" x="140" y="540" width="280" height="154" />
+  <text class="label" x="280" y="578" text-anchor="middle">Persisted Runtime State</text>
+  <text class="small" x="280" y="608" text-anchor="middle">task-graph.json</text>
+  <text class="small" x="280" y="634" text-anchor="middle">execution-state.json</text>
+  <text class="small" x="280" y="660" text-anchor="middle">artifacts and summaries</text>
+
+  <rect class="box-green" x="560" y="360" width="320" height="112" />
+  <text class="label" x="720" y="402" text-anchor="middle">Task-Scoped Provider Adapter</text>
+  <text class="small" x="720" y="428" text-anchor="middle">Maps one claimed task into provider</text>
+  <text class="small" x="720" y="452" text-anchor="middle">prompt, permissions, and result schema</text>
+
+  <rect class="box-green" x="1000" y="300" width="360" height="188" />
+  <text class="label" x="1180" y="340" text-anchor="middle">Tool-Enabled Agent Session</text>
+  <text class="small" x="1180" y="372" text-anchor="middle">Read docs and code</text>
+  <text class="small" x="1180" y="400" text-anchor="middle">Edit repository files when stage allows</text>
+  <text class="small" x="1180" y="428" text-anchor="middle">Generate tests</text>
+  <text class="small" x="1180" y="456" text-anchor="middle">Run allowed validation commands</text>
+
+  <rect class="box" x="560" y="560" width="320" height="134" />
+  <text class="label" x="720" y="600" text-anchor="middle">Structured Adapter Result</text>
+  <text class="small" x="720" y="628" text-anchor="middle">deliverable, artifacts, status,</text>
+  <text class="small" x="720" y="654" text-anchor="middle">errors, session metadata</text>
+
+  <rect class="box-rose" x="1000" y="580" width="360" height="154" />
+  <text class="label" x="1180" y="620" text-anchor="middle">Deterministic Executors</text>
+  <text class="small" x="1180" y="650" text-anchor="middle">repo-native validation commands</text>
+  <text class="small" x="1180" y="678" text-anchor="middle">Playwright or CI when needed</text>
+  <text class="small" x="1180" y="706" text-anchor="middle">evidence capture and summaries</text>
+
+  <rect class="box-amber" x="1030" y="820" width="300" height="84" />
+  <text class="label" x="1180" y="858" text-anchor="middle">Optional Skills</text>
+  <text class="small" x="1180" y="884" text-anchor="middle">Reusable execution guidance</text>
+
+  <rect class="box-amber" x="1030" y="950" width="300" height="84" />
+  <text class="label" x="1180" y="988" text-anchor="middle">Optional MCP Tools</text>
+  <text class="small" x="1180" y="1014" text-anchor="middle">Structured access to external systems</text>
+
+  <rect class="box" x="140" y="820" width="280" height="154" />
+  <text class="label" x="280" y="858" text-anchor="middle">Run Outcomes</text>
+  <text class="small" x="280" y="888" text-anchor="middle">More ready tasks</text>
+  <text class="small" x="280" y="914" text-anchor="middle">Run completed</text>
+  <text class="small" x="280" y="940" text-anchor="middle">Blocked, failed, or review gate</text>
+
+  <path class="arrow" d="M280 294 L280 360" />
+  <path class="arrow" d="M420 416 L560 416" />
+  <path class="arrow" d="M720 472 L720 560" />
+  <path class="arrow" d="M880 416 L1000 416" />
+  <path class="arrow" d="M1180 488 L1180 580" />
+  <path class="arrow" d="M560 628 L420 628" />
+  <path class="arrow" d="M280 540 L280 472" />
+  <path class="arrow" d="M280 694 L280 820" />
+  <path class="arrow" d="M1000 666 L880 666 L880 628" />
+  <path class="arrow" d="M720 694 L720 760 L420 760 L420 628" />
+  <path class="arrow dashed" d="M1030 862 L920 862 L920 416 L1000 416" />
+  <path class="arrow dashed" d="M1030 992 L950 992 L950 416 L1000 416" />
+
+  <text class="tiny" x="460" y="404">claim next ready task</text>
+  <text class="tiny" x="900" y="404">task context + permissions</text>
+  <text class="tiny" x="905" y="654">validation evidence</text>
+  <text class="tiny" x="440" y="620">persist result</text>
+  <text class="tiny" x="444" y="752">resume / retry / unlock</text>
+  <text class="tiny" x="520" y="852">skills specialize agent behavior</text>
+  <text class="tiny" x="505" y="982">MCP expands external capabilities</text>
+
+  <text class="tiny" x="120" y="1090">Operating rule: Spec2Flow remains the system of record for workflow state. The agent acts only inside one claimed task with stage-scoped permissions.</text>
+  <text class="tiny" x="120" y="1116">Recommended session scope: one reusable provider session per runId + routeName + executorType.</text>
+</svg>

@@ -1,24 +1,21 @@
 # Spec2Flow
 
-**Spec2Flow** is an open-source AI workflow framework for turning product specs and source code into implementation work, test design, automated execution, defect feedback, and team collaboration.
+**Spec2Flow** is an open-source AI workflow framework for turning product requirements and repository context into a repeatable engineering loop.
+
+It is the control plane for an agent-friendly development workflow:
+
+**Requirements -> Implement -> Design Tests -> Execute -> Report -> Collaborate**
 
 ## Why Spec2Flow?
 
 Modern development is no longer just about writing code. Teams need a repeatable workflow that can:
 
-需求分析
-代码实现
-测试设计
-自动执行
-缺陷反馈
-协作流程
-
 - understand product and design documents
 - read and reason about an existing codebase
 - translate requirements into implementation tasks
 - generate test plans and test cases
-- start services and validate real flows
-- run browser automation against actual UI
+- run repository-native validation commands
+- run browser automation when UI coverage is needed
 - collect evidence and draft bug reports
 - connect execution results back into collaboration workflows
 
@@ -26,80 +23,25 @@ Spec2Flow aims to provide a practical foundation for that loop.
 
 ## Vision
 
-Spec2Flow connects product specs, source code, and automated execution into one continuous loop:
+Spec2Flow is designed to start simple and grow into a modular AI-driven development and testing workflow framework.
 
-**Requirements → Implement → Design Tests → Execute → Report → Collaborate**
+At the top level, the model is intentionally narrow:
 
-It is designed to start simple and grow into a modular AI-driven development and testing workflow framework.
+- the CLI orchestrates work
+- adapters connect external model runtimes
+- schemas define contracts
+- docs explain the system and remain part of the product
 
-## Project Goals
+## Workflow
 
-Spec2Flow is organized around six product goals:
+Spec2Flow is organized around a simple six-stage workflow:
 
-1. Requirements analysis
-2. Code implementation
-3. Test design
-4. Automated execution
-5. Defect feedback
-6. Collaboration workflow
-
-## Core Workflow
-
-### 1. Requirements Analysis
-Use Copilot to read product requirement documents, technical design docs, and repository context.
-
-Outputs:
-- scoped requirement summary
-- assumptions and open questions
-- implementation checklist
-- impacted modules list
-
-### 2. Code Implementation
-Use Copilot to turn approved requirements into implementation tasks, code changes, and reviewable pull requests.
-
-Outputs:
-- task breakdown
-- implementation notes
-- code changes
-- pull request summary
-
-### 3. Test Design
-Use Copilot to generate:
-- test scope
-- risk areas
-- smoke checklist
-- regression checklist
-- edge and error scenarios
-- structured test cases
-
-### 4. Automated Execution
-Use Playwright to:
-- start the target app or test environment
-- execute smoke and focused regression flows
-- capture screenshots, traces, logs, and videos when needed
-- summarize run results in a machine-readable format
-
-### 5. Defect Feedback
-Use execution results to draft evidence-backed bug reports that can be reviewed and published to GitHub Issues.
-
-Typical bug draft fields:
-- title
-- environment
-- reproduction steps
-- expected result
-- actual result
-- evidence references
-- severity suggestion
-
-### 6. Collaboration Workflow
-Use GitHub Actions and GitHub Issues to make the workflow repeatable and visible across the team.
-
-The default collaboration loop is:
-- track requirements and defects in GitHub Issues
-- implement changes with Copilot-assisted development
-- validate critical flows with Playwright locally and in CI
-- upload artifacts through GitHub Actions
-- review and close the loop through pull requests and issue updates
+1. **Requirements Analysis**: read docs and repository context, then produce a scoped requirement summary, assumptions, and impacted modules.
+2. **Code Implementation**: turn approved requirements into implementation tasks, code changes, and reviewable outputs.
+3. **Test Design**: generate structured test scope, risk areas, smoke coverage, regression coverage, and edge cases.
+4. **Automated Execution**: run deterministic validation commands, start environments when needed, and use Playwright for browser validation and evidence capture.
+5. **Defect Feedback**: turn failed execution results into evidence-backed bug drafts.
+6. **Collaboration Workflow**: route results through GitHub Actions, GitHub Issues, and pull request review.
 
 ## Primary Outputs
 
@@ -115,31 +57,42 @@ Spec2Flow should produce structured outputs for each stage:
 
 ## MVP Goals
 
-The first version focuses on a practical and lightweight workflow for solo developers and small teams:
+The first version is intentionally narrow. It should be able to:
 
-1. Read product and design documents
-2. Read repository code and project structure
-3. Turn requirements into implementation tasks
-4. Generate test plans and structured test cases
-5. Start local services or test environments
-6. Run browser-based automated tests with evidence capture
-7. Draft defect reports for failed cases
-8. Feed results into a collaboration workflow
+1. read product docs and repository context
+2. produce implementation tasks and test plans
+3. run canonical validation commands and browser checks when needed
+4. capture evidence and draft bug reports
+5. feed results back into a collaboration workflow
 
 ## Tooling Direction
 
-The first milestone is explicitly built around:
+The current baseline is explicitly built around:
 
-- **Copilot** for requirement analysis, implementation support, and test design
-- **Playwright** for browser automation and evidence capture
+- **Copilot-compatible adapters** for requirements analysis, implementation support, and test design
+- **Repository-native command execution** for deterministic validation
+- **Playwright** for browser automation and evidence capture when needed
 - **GitHub Actions** for repeatable CI execution and artifact upload
 - **GitHub Issues** for defect tracking and workflow coordination
 
 ## Suggested Architecture
 
-Spec2Flow follows a workflow-centered layered design:
+Spec2Flow follows a workflow-centered architecture with explicit orchestration boundaries:
 
-### Copilot Workflow Layer
+### Orchestration Layer
+Responsible for:
+- generating task graphs
+- persisting execution state
+- claiming ready tasks
+- recording task results and artifacts
+
+### Adapter Layer
+Responsible for:
+- mapping one claimed task into a provider-specific runtime
+- managing task-scoped agent execution
+- returning structured task results
+
+### Agent Workflow Layer
 Responsible for:
 - understanding specs
 - understanding code
@@ -150,8 +103,9 @@ Responsible for:
 
 ### Execution Layer
 Responsible for:
-- starting services
-- running Playwright tests
+- starting services or test environments
+- running validation commands
+- running Playwright tests when needed
 - collecting artifacts
 - producing structured execution results
 
@@ -164,11 +118,11 @@ Responsible for:
 
 ## Principles
 
-- **Practical first** - ship useful workflows before building a complex platform
-- **Execution over demos** - reliable automation matters more than flashy agent behavior
-- **Reviewable by default** - code, test output, and bug drafts should stay human-reviewable
-- **Modular by default** - agent, execution, and reporting should evolve independently
-- **Open-source friendly** - clear docs, simple structure, contributor-ready
+- **Simple first** - prefer explicit, explainable workflow boundaries
+- **Execution over demos** - reliable automation matters more than impressive prompts
+- **Docs and code stay in sync** - contracts, examples, and docs should reflect real behavior
+- **Modular by default** - orchestration, adapters, execution, and collaboration should evolve independently
+- **Verifiable by default** - meaningful changes should have a concrete validation path
 
 ## Roadmap Snapshot
 
@@ -197,12 +151,13 @@ Spec2Flow is still in the bootstrap stage.
 The next implementation target is to establish:
 - stable document structure
 - workflow schemas
-- a minimal Playwright execution baseline
+- a minimal execution baseline through canonical validation commands and Playwright where needed
 - a GitHub Actions workflow for repeatable validation
 - a GitHub Issues-based defect feedback loop
 
 ## Key Docs
 
+- [AGENTS.md](AGENTS.md)
 - [docs/mvp.md](docs/mvp.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/roadmap.md](docs/roadmap.md)
@@ -242,7 +197,9 @@ The next implementation target is to establish:
 Spec2Flow now includes a minimal CLI runtime for onboarding validation, task graph generation, and execution-state lifecycle management.
 
 - [package.json](package.json)
-- [packages/cli/src/spec2flow.mjs](packages/cli/src/spec2flow.mjs)
+- [packages/cli/src/cli/spec2flow-dist-entrypoint.ts](packages/cli/src/cli/spec2flow-dist-entrypoint.ts)
+
+The default runtime now executes the compiled CLI under `packages/cli/dist/cli/spec2flow-dist-entrypoint.js`. `npm install` triggers `prepare`, so the dist entrypoint is built before the example scripts run.
 
 Example commands:
 
@@ -330,7 +287,7 @@ If you need to bypass that check deliberately, pass `--skip-preflight`.
 `generate-task-graph` also supports diff-aware risk matching:
 
 ```bash
-node packages/cli/src/spec2flow.mjs generate-task-graph \
+npm run spec2flow -- generate-task-graph \
 	--project docs/examples/synapse-network/project.yaml \
 	--topology docs/examples/synapse-network/topology.yaml \
 	--risk docs/examples/synapse-network/risk.yaml \
@@ -343,7 +300,7 @@ node packages/cli/src/spec2flow.mjs generate-task-graph \
 `init-execution-state` expands every task in a task graph into a persisted runtime state file:
 
 ```bash
-node packages/cli/src/spec2flow.mjs init-execution-state \
+npm run spec2flow -- init-execution-state \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--run-id synapse-example-run \
 	--adapter spec2flow-cli \
@@ -355,7 +312,7 @@ node packages/cli/src/spec2flow.mjs init-execution-state \
 `update-execution-state` advances one subtask, appends notes or artifacts, and automatically promotes newly unblocked tasks to `ready`:
 
 ```bash
-node packages/cli/src/spec2flow.mjs update-execution-state \
+npm run spec2flow -- update-execution-state \
 	--state docs/examples/synapse-network/generated/execution-state.json \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--task-id environment-preparation \
@@ -366,7 +323,7 @@ node packages/cli/src/spec2flow.mjs update-execution-state \
 `claim-next-task` acts as the first controller primitive. It selects the next `ready` subtask, marks it `in-progress`, and emits the payload that a model adapter should consume:
 
 ```bash
-node packages/cli/src/spec2flow.mjs claim-next-task \
+npm run spec2flow -- claim-next-task \
 	--state docs/examples/synapse-network/generated/execution-state.json \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--adapter-capability docs/examples/synapse-network/model-adapter-capability.json \
@@ -376,7 +333,7 @@ node packages/cli/src/spec2flow.mjs claim-next-task \
 `submit-task-result` closes the loop for one claimed subtask. It writes the outcome back into `execution-state.json`, appends artifacts or errors, and promotes any newly unblocked downstream subtasks:
 
 ```bash
-node packages/cli/src/spec2flow.mjs submit-task-result \
+npm run spec2flow -- submit-task-result \
 	--state docs/examples/synapse-network/generated/execution-state.json \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--claim docs/examples/synapse-network/generated/task-claim.json \
@@ -390,7 +347,7 @@ node packages/cli/src/spec2flow.mjs submit-task-result \
 `simulate-model-run` is a provider-neutral reference adapter. It consumes a claim payload, produces a simulated adapter response, writes the result back into `execution-state.json`, and emits a combined execution record:
 
 ```bash
-node packages/cli/src/spec2flow.mjs simulate-model-run \
+npm run spec2flow -- simulate-model-run \
 	--state docs/examples/synapse-network/generated/execution-state.json \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--claim docs/examples/synapse-network/generated/task-claim.json \
@@ -401,7 +358,7 @@ node packages/cli/src/spec2flow.mjs simulate-model-run \
 `run-workflow-loop` ties the pieces together. It repeatedly claims the next ready task, runs the simulated adapter, and persists each step until the workflow completes or reaches a step cap:
 
 ```bash
-node packages/cli/src/spec2flow.mjs run-workflow-loop \
+npm run spec2flow -- run-workflow-loop \
 	--state docs/examples/synapse-network/generated/execution-state.json \
 	--task-graph docs/examples/synapse-network/generated/task-graph.json \
 	--adapter-capability docs/examples/synapse-network/model-adapter-capability.json \
@@ -424,7 +381,7 @@ Execution model:
 It can also collect changed files directly from `git diff`:
 
 ```bash
-node packages/cli/src/spec2flow.mjs generate-task-graph \
+npm run spec2flow -- generate-task-graph \
 	--project .spec2flow/project.yaml \
 	--topology .spec2flow/topology.yaml \
 	--risk .spec2flow/policies/risk.yaml \

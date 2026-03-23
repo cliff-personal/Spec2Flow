@@ -16,9 +16,9 @@
         "message": "github.com\n  X Failed to log in to github.com using token (GITHUB_TOKEN)\n  - Active account: true\n  - The token in GITHUB_TOKEN is invalid."
       },
       {
-        "name": "gh copilot prompt probe",
+        "name": "gh copilot agent probe",
         "status": "passed",
-        "message": "gh copilot -p returned valid JSON"
+        "message": "gh copilot completed a tool-enabled JSON probe"
       }
     ],
     "status": "passed"

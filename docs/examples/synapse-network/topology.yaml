@@ -103,6 +103,22 @@ topology:
         - npm run ci:frontend
       artifactTargets:
         - spec2flow/outputs/execution/frontend-smoke
+      requirementSignals:
+        summary: Frontend user flow and wallet UI changes.
+        keywords:
+          - frontend
+          - ui
+          - page
+          - wallet
+          - 前端
+          - 页面
+          - 钱包
+        phrases:
+          - frontend smoke
+          - user flow
+          - wallet page
+          - 前端改动
+          - 钱包页面
 
     - name: gateway-api-smoke
       entryServices:
@@ -113,6 +129,20 @@ topology:
         - npm run ci:gateway
       artifactTargets:
         - spec2flow/outputs/execution/gateway-api-smoke
+      requirementSignals:
+        summary: Gateway API and backend integration changes.
+        keywords:
+          - gateway
+          - api
+          - backend
+          - 接口
+          - 网关
+          - 后端
+        phrases:
+          - gateway api
+          - backend api
+          - 接口改动
+          - 网关接口
 
     - name: provider-registration-flow
       entryServices:
@@ -124,6 +154,22 @@ topology:
         - npm run ci:gateway
       artifactTargets:
         - spec2flow/outputs/execution/provider-registration-flow
+      requirementSignals:
+        summary: Provider onboarding and registration workflow changes.
+        keywords:
+          - provider
+          - registration
+          - onboarding
+          - kyc
+          - 服务商
+          - 注册
+          - 入驻
+        phrases:
+          - provider registration
+          - provider onboarding
+          - 服务商注册
+          - 服务商入驻
+          - kyc 校验
 
     - name: withdrawal-risk-regression
       entryServices:
@@ -136,3 +182,20 @@ topology:
         - npm run ci:contracts
       artifactTargets:
         - spec2flow/outputs/execution/withdrawal-risk-regression
+      requirementSignals:
+        summary: Withdrawal, finance, contract, and risk-control changes.
+        keywords:
+          - withdrawal
+          - finance
+          - contract
+          - risk
+          - 提现
+          - 财务
+          - 合约
+          - 风控
+        phrases:
+          - withdrawal regression
+          - withdrawal review
+          - 提现审核
+          - 提现风控
+          - 合约结算

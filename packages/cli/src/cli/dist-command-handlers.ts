@@ -1,0 +1,122 @@
+import type { AdapterRuntimeDocument } from '../types/index.js';
+import { runClaimNextTask } from './claim-next-task-command.js';
+import { runGenerateTaskGraph } from './generate-task-graph-command.js';
+import { runInitExecutionState } from './init-execution-state-command.js';
+import { runPreflightCopilotCli } from './preflight-copilot-cli-command.js';
+import { runTaskWithAdapter, type AdapterTaskRunDocument } from './run-task-with-adapter-command.js';
+import { runUpdateExecutionState } from './update-execution-state-command.js';
+import { runWorkflowLoop } from './run-workflow-loop-command.js';
+import { runSimulateModelRun, type SimulatedModelRunDocument } from './simulate-model-run-command.js';
+import { runSubmitTaskResult } from './submit-task-result-command.js';
+import { runValidateOnboarding, type ValidateOnboardingResultDocument } from './validate-onboarding-command.js';
+import type { CliOptions as PreflightCliOptions, CopilotPreflightReportDocument } from '../adapters/copilot-preflight.js';
+import type { ExecutionStateDocument, TaskClaimPayload, TaskGraphDocument, TaskResultDocument, WorkflowLoopSummaryDocument } from '../types/index.js';
+
+export type CliOptions = Record<string, string | boolean | undefined>;
+
+export interface DistCommandHandlerDependencies {
+  ensureAdapterPreflight: (options: CliOptions, adapterRuntimePayload: AdapterRuntimeDocument) => void;
+  execFileSync: typeof import('node:child_process').execFileSync;
+  fail: (message: string) => void;
+  getRouteNameFromTaskId: (taskId: string | null | undefined) => string;
+  parseCsvOption: (value: string | undefined) => string[];
+  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | WorkflowLoopSummaryDocument) => void;
+  readStructuredFile: (filePath: string) => any;
+  sanitizeStageName: (stage: string) => string;
+  setExitCode: (code: number) => void;
+  validateAdapterRuntimePayload: (adapterRuntimePayload: AdapterRuntimeDocument, runtimePath: string) => void;
+  writeJson: (filePath: string, payload: unknown) => void;
+}
+
+export function buildDistCommandHandlers(dependencies: DistCommandHandlerDependencies): Record<string, (options: CliOptions) => void> {
+  return {
+    'preflight-copilot-cli': (options) =>
+      runPreflightCopilotCli(options as PreflightCliOptions, {
+        execFileSync: dependencies.execFileSync,
+        fail: dependencies.fail,
+        printJson: dependencies.printJson,
+        readStructuredFile: (filePath) => dependencies.readStructuredFile(filePath) as AdapterRuntimeDocument,
+        setExitCode: dependencies.setExitCode,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload
+      }),
+    'validate-onboarding': (options) =>
+      runValidateOnboarding(options, {
+        fail: dependencies.fail,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        setExitCode: dependencies.setExitCode,
+        writeJson: dependencies.writeJson
+      }),
+    'generate-task-graph': (options) =>
+      runGenerateTaskGraph(options, {
+        fail: dependencies.fail,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        writeJson: dependencies.writeJson
+      }),
+    'init-execution-state': (options) =>
+      runInitExecutionState(options, {
+        fail: dependencies.fail,
+        printJson: dependencies.printJson,
+        readStructuredFile: (filePath) => dependencies.readStructuredFile(filePath) as TaskGraphDocument,
+        writeJson: dependencies.writeJson
+      }),
+    'update-execution-state': (options) =>
+      runUpdateExecutionState(options, {
+        fail: dependencies.fail,
+        parseCsvOption: dependencies.parseCsvOption,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        writeJson: dependencies.writeJson
+      }),
+    'claim-next-task': (options) =>
+      runClaimNextTask(options, {
+        fail: dependencies.fail,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        writeJson: dependencies.writeJson
+      }),
+    'simulate-model-run': (options) =>
+      runSimulateModelRun(options, {
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        parseCsvOption: dependencies.parseCsvOption,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        writeJson: dependencies.writeJson
+      }),
+    'run-task-with-adapter': (options) =>
+      runTaskWithAdapter(options, {
+        ensureAdapterPreflight: dependencies.ensureAdapterPreflight,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        parseCsvOption: dependencies.parseCsvOption,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        writeJson: dependencies.writeJson
+      }),
+    'run-workflow-loop': (options) =>
+      runWorkflowLoop(options, {
+        ensureAdapterPreflight: dependencies.ensureAdapterPreflight,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        parseCsvOption: dependencies.parseCsvOption,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        writeJson: dependencies.writeJson
+      }),
+    'submit-task-result': (options) =>
+      runSubmitTaskResult(options, {
+        fail: dependencies.fail,
+        printJson: dependencies.printJson,
+        readStructuredFile: dependencies.readStructuredFile,
+        writeJson: dependencies.writeJson
+      })
+  };
+}

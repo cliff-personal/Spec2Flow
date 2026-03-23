@@ -3,33 +3,17 @@
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
     "maxSteps": 8,
-    "stepsExecuted": 3,
-    "stopReason": "failed",
+    "stepsExecuted": 1,
+    "stopReason": "blocked",
     "claimedTaskIds": [
-      "gateway-api-smoke--requirements-analysis",
-      "provider-registration-flow--requirements-analysis",
-      "withdrawal-risk-regression--requirements-analysis"
+      "environment-preparation"
     ],
     "receipts": [
       {
-        "taskId": "gateway-api-smoke--requirements-analysis",
-        "status": "failed",
+        "taskId": "environment-preparation",
+        "status": "blocked",
         "claimRef": "docs/examples/synapse-network/generated/command-loop/task-claim-step-1.json",
         "adapterRunRef": "docs/examples/synapse-network/generated/command-loop/adapter-run-step-1.json",
-        "executionMode": "external-adapter"
-      },
-      {
-        "taskId": "provider-registration-flow--requirements-analysis",
-        "status": "failed",
-        "claimRef": "docs/examples/synapse-network/generated/command-loop/task-claim-step-2.json",
-        "adapterRunRef": "docs/examples/synapse-network/generated/command-loop/adapter-run-step-2.json",
-        "executionMode": "external-adapter"
-      },
-      {
-        "taskId": "withdrawal-risk-regression--requirements-analysis",
-        "status": "failed",
-        "claimRef": "docs/examples/synapse-network/generated/command-loop/task-claim-step-3.json",
-        "adapterRunRef": "docs/examples/synapse-network/generated/command-loop/adapter-run-step-3.json",
         "executionMode": "external-adapter"
       }
     ]

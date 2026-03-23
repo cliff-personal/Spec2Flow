@@ -28,6 +28,14 @@
               "type": "string",
               "minLength": 1
             },
+            "requirementRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "requirementText": {
+              "type": "string",
+              "minLength": 1
+            },
             "projectAdapterRef": {
               "type": "string",
               "minLength": 1
@@ -39,6 +47,24 @@
             "riskPolicyRef": {
               "type": "string",
               "minLength": 1
+            },
+            "changeSet": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "routeSelectionMode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "selectedRoutes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },

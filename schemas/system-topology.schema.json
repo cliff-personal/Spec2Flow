@@ -98,6 +98,21 @@
         "artifactTargets": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "requirementSignals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "summary": { "type": "string", "minLength": 1 },
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "phrases": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
         }
       }
     }

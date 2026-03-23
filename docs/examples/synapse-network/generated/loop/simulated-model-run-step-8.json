@@ -1,14 +1,14 @@
 {
-  "simulatedRun": {
-    "adapterName": "copilot-example",
-    "provider": "github-copilot",
+  "adapterRun": {
+    "adapterName": "github-copilot-cli-example",
+    "provider": "github-copilot-cli",
     "taskId": "gateway-api-smoke--code-implementation",
     "runId": "synapse-example-run",
     "stage": "code-implementation",
     "status": "completed",
     "summary": "simulated-code-implementation-completed",
     "notes": [
-      "simulated-adapter:copilot-example",
+      "simulated-adapter:github-copilot-cli-example",
       "simulated-stage:code-implementation"
     ],
     "artifacts": [
@@ -27,7 +27,7 @@
     "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
     "notes": [
       "summary:simulated-code-implementation-completed",
-      "simulated-adapter:copilot-example",
+      "simulated-adapter:github-copilot-cli-example",
       "simulated-stage:code-implementation"
     ],
     "artifacts": [
@@ -39,6 +39,6 @@
       }
     ],
     "errors": [],
-    "submittedAt": "2026-03-23T06:44:38.407Z"
+    "submittedAt": "2026-03-23T15:48:25.344Z"
   }
 }
