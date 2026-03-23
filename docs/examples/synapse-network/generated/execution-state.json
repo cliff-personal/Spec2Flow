@@ -2,190 +2,117 @@
   "executionState": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "status": "running",
-    "currentStage": "code-implementation",
+    "status": "pending",
+    "currentStage": "environment-preparation",
     "provider": {
       "adapter": "spec2flow-cli",
       "model": "gpt-5.4",
       "sessionId": "example-session"
     },
-    "startedAt": "2026-03-23T16:48:05.162Z",
-    "updatedAt": "2026-03-23T16:48:05.730Z",
+    "startedAt": "2026-03-23T16:59:45.542Z",
+    "updatedAt": "2026-03-23T16:59:45.542Z",
     "tasks": [
       {
         "taskId": "environment-preparation",
-        "status": "completed",
+        "status": "ready",
         "executor": "controller-agent",
-        "attempts": 1,
+        "attempts": 0,
         "artifactRefs": [
-          "task-graph",
-          "environment-preparation-environment-preparation-output"
+          "task-graph"
         ],
         "notes": [
           "stage:environment-preparation",
           "role-profile:environment-preparation-controller",
-          "risk:low",
-          "summary:simulated-environment-preparation-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:environment-preparation",
-          "artifact-contract:missing",
-          "artifact-contract-missing:environment-preparation-report"
-        ],
-        "startedAt": "2026-03-23T16:48:05.348Z",
-        "completedAt": "2026-03-23T16:48:05.392Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "frontend-smoke--requirements-analysis",
-        "status": "completed",
+        "status": "pending",
         "executor": "requirements-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "frontend-smoke--requirements-analysis-requirements-analysis-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:requirements-analysis",
           "role-profile:requirements-analysis-specialist",
-          "risk:low",
-          "summary:simulated-requirements-analysis-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:requirements-analysis",
-          "artifact-contract:missing",
-          "artifact-contract-missing:requirements-summary"
-        ],
-        "startedAt": "2026-03-23T16:48:05.438Z",
-        "completedAt": "2026-03-23T16:48:05.456Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "frontend-smoke--code-implementation",
-        "status": "completed",
+        "status": "pending",
         "executor": "implementation-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "frontend-smoke--code-implementation-code-implementation-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:code-implementation",
           "role-profile:code-implementation-specialist",
-          "risk:low",
-          "summary:simulated-code-implementation-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:code-implementation",
-          "artifact-contract:missing",
-          "artifact-contract-missing:implementation-summary,code-diff"
-        ],
-        "startedAt": "2026-03-23T16:48:05.492Z",
-        "completedAt": "2026-03-23T16:48:05.507Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "frontend-smoke--test-design",
-        "status": "completed",
+        "status": "pending",
         "executor": "test-design-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "frontend-smoke--test-design-test-design-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:test-design",
           "role-profile:test-design-specialist",
-          "risk:low",
-          "summary:simulated-test-design-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:test-design",
-          "artifact-contract:missing",
-          "artifact-contract-missing:test-plan,test-cases"
-        ],
-        "startedAt": "2026-03-23T16:48:05.541Z",
-        "completedAt": "2026-03-23T16:48:05.557Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "frontend-smoke--automated-execution",
-        "status": "completed",
+        "status": "pending",
         "executor": "execution-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "frontend-smoke--automated-execution-automated-execution-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:automated-execution",
           "role-profile:automated-execution-specialist",
-          "risk:low",
-          "summary:simulated-automated-execution-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:automated-execution",
-          "artifact-contract:missing",
-          "artifact-contract-missing:execution-report,verification-evidence"
-        ],
-        "startedAt": "2026-03-23T16:48:05.588Z",
-        "completedAt": "2026-03-23T16:48:05.603Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "frontend-smoke--defect-feedback",
-        "status": "completed",
+        "status": "pending",
         "executor": "defect-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "frontend-smoke--defect-feedback-defect-feedback-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:defect-feedback",
           "role-profile:defect-feedback-specialist",
-          "risk:low",
-          "route-trigger:automated-execution",
-          "route-reason:artifact-contract-missing",
-          "summary:simulated-defect-feedback-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:defect-feedback",
-          "artifact-contract:missing",
-          "artifact-contract-missing:defect-summary,bug-draft"
-        ],
-        "startedAt": "2026-03-23T16:48:05.632Z",
-        "completedAt": "2026-03-23T16:48:05.646Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "frontend-smoke--collaboration",
-        "status": "completed",
+        "status": "pending",
         "executor": "collaboration-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "frontend-smoke--collaboration-collaboration-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:collaboration",
           "role-profile:collaboration-specialist",
-          "risk:low",
-          "summary:simulated-collaboration-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:collaboration",
-          "artifact-contract:missing",
-          "artifact-contract-missing:collaboration-handoff"
-        ],
-        "startedAt": "2026-03-23T16:48:05.675Z",
-        "completedAt": "2026-03-23T16:48:05.689Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "gateway-api-smoke--requirements-analysis",
-        "status": "completed",
+        "status": "pending",
         "executor": "requirements-agent",
-        "attempts": 1,
-        "artifactRefs": [
-          "gateway-api-smoke--requirements-analysis-requirements-analysis-output"
-        ],
+        "attempts": 0,
+        "artifactRefs": [],
         "notes": [
           "stage:requirements-analysis",
           "role-profile:requirements-analysis-specialist",
-          "risk:low",
-          "summary:simulated-requirements-analysis-completed",
-          "simulated-adapter:github-copilot-cli-example",
-          "simulated-stage:requirements-analysis",
-          "artifact-contract:missing",
-          "artifact-contract-missing:requirements-summary"
-        ],
-        "startedAt": "2026-03-23T16:48:05.716Z",
-        "completedAt": "2026-03-23T16:48:05.730Z"
+          "risk:low"
+        ]
       },
       {
         "taskId": "gateway-api-smoke--code-implementation",
-        "status": "ready",
+        "status": "pending",
         "executor": "implementation-agent",
         "attempts": 0,
         "artifactRefs": [],
@@ -245,7 +172,7 @@
       },
       {
         "taskId": "provider-registration-flow--requirements-analysis",
-        "status": "ready",
+        "status": "pending",
         "executor": "requirements-agent",
         "attempts": 0,
         "artifactRefs": [],
@@ -317,7 +244,7 @@
       },
       {
         "taskId": "withdrawal-risk-regression--requirements-analysis",
-        "status": "ready",
+        "status": "pending",
         "executor": "requirements-agent",
         "attempts": 0,
         "artifactRefs": [],
@@ -408,54 +335,6 @@
         "id": "risk-policy",
         "kind": "other",
         "path": "docs/examples/synapse-network/risk.yaml"
-      },
-      {
-        "id": "environment-preparation-environment-preparation-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/environment-preparation/environment-preparation-output.json",
-        "taskId": "environment-preparation"
-      },
-      {
-        "id": "frontend-smoke--requirements-analysis-requirements-analysis-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/requirements-analysis-output.json",
-        "taskId": "frontend-smoke--requirements-analysis"
-      },
-      {
-        "id": "frontend-smoke--code-implementation-code-implementation-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/code-implementation-output.json",
-        "taskId": "frontend-smoke--code-implementation"
-      },
-      {
-        "id": "frontend-smoke--test-design-test-design-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/test-design-output.json",
-        "taskId": "frontend-smoke--test-design"
-      },
-      {
-        "id": "frontend-smoke--automated-execution-automated-execution-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/automated-execution-output.json",
-        "taskId": "frontend-smoke--automated-execution"
-      },
-      {
-        "id": "frontend-smoke--defect-feedback-defect-feedback-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/defect-feedback-output.json",
-        "taskId": "frontend-smoke--defect-feedback"
-      },
-      {
-        "id": "frontend-smoke--collaboration-collaboration-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/collaboration-output.json",
-        "taskId": "frontend-smoke--collaboration"
-      },
-      {
-        "id": "gateway-api-smoke--requirements-analysis-requirements-analysis-output",
-        "kind": "report",
-        "path": "spec2flow/outputs/execution/gateway-api-smoke/requirements-analysis-output.json",
-        "taskId": "gateway-api-smoke--requirements-analysis"
       }
     ],
     "errors": []

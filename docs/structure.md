@@ -8,14 +8,22 @@ Keep the repository simple to navigate for both humans and agents while leaving 
 
 ```text
 Spec2Flow/
+├─ .github/
+│  ├─ copilot-instructions.md
+│  └─ instructions/
+│     ├─ typescript-cli.instructions.md
+│     ├─ schemas.instructions.md
+│     └─ docs.instructions.md
 ├─ AGENTS.md
 ├─ package.json
 ├─ tsconfig.json
 ├─ tsconfig.build.json
+├─ vitest.config.ts
 ├─ README.md
 ├─ docs/
 │  ├─ mvp.md
 │  ├─ structure.md
+│  ├─ copilot.md
 │  ├─ roadmap.md
 │  ├─ architecture.md
 │  ├─ collaboration.md
@@ -76,11 +84,14 @@ This file should describe the current repository map first. Future package split
 
 ### Root Files
 
+- `.github/copilot-instructions.md`: repository-wide Copilot execution rules
+- `.github/instructions/`: scoped instructions for TypeScript, schemas, and docs
 - `README.md`: product overview and quick start context
 - `AGENTS.md`: repository rules, design principles, and documentation discipline
 - `package.json`: CLI entrypoints and example workflow commands
 - `tsconfig.json`: phase 0 TypeScript configuration for NodeNext typechecking without changing the current runtime entrypoint
 - `tsconfig.build.json`: build configuration that emits runnable CLI artifacts into `packages/cli/dist/`
+- `vitest.config.ts`: unit-test runner configuration for the TypeScript source tree
 
 ### `docs/`
 Versioned record system for product intent, architecture, usage, and examples.
@@ -88,6 +99,7 @@ Versioned record system for product intent, architecture, usage, and examples.
 Recommended reading order:
 - `README.md` for product overview
 - `AGENTS.md` for repository rules and doc governance
+- `docs/copilot.md` for Copilot customization and maintenance policy
 - `docs/architecture.md` for runtime boundaries
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration
@@ -130,8 +142,12 @@ Planning-domain logic for requirement interpretation, route selection, risk-awar
 ### `packages/cli/src/runtime/`
 Runtime-domain logic for execution-state initialization, task claims, task results, and workflow-loop progression.
 
+This directory also contains the first unit tests for runtime state and routing behavior.
+
 ### `packages/cli/src/adapters/`
 Adapter infrastructure for external model/runtime invocation, adapter payload normalization, and Copilot CLI preflight checks.
+
+This directory also contains adapter policy enforcement unit tests.
 
 ### `packages/cli/src/types/`
 Phase 1 TypeScript domain types for the workflow model, execution state, task claims, task results, adapter contracts, and workflow loop summaries.

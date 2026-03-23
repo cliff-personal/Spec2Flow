@@ -158,6 +158,7 @@ The next implementation target is to establish:
 ## Key Docs
 
 - [AGENTS.md](AGENTS.md)
+- [docs/copilot.md](docs/copilot.md)
 - [docs/mvp.md](docs/mvp.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/roadmap.md](docs/roadmap.md)
@@ -205,6 +206,8 @@ Example commands:
 
 ```bash
 npm install
+npm run build
+npm run test:unit
 npm run validate:synapse-example
 npm run generate:synapse-task-graph
 npm run generate:synapse-execution-state
