@@ -2,27 +2,26 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "gateway-api-smoke--requirements-analysis",
-    "title": "Analyze gateway-api-smoke requirements",
-    "stage": "requirements-analysis",
-    "goal": "Summarize scope, impacted services, and acceptance criteria for gateway-api-smoke",
-    "executorType": "requirements-agent",
+    "taskId": "frontend-smoke--collaboration",
+    "title": "Prepare frontend-smoke review handoff",
+    "stage": "collaboration",
+    "goal": "Prepare PR or issue-ready collaboration output for frontend-smoke",
+    "executorType": "collaboration-agent",
     "roleProfile": {
-      "profileId": "requirements-analysis-specialist",
-      "specialistRole": "requirements-agent",
-      "commandPolicy": "none",
+      "profileId": "collaboration-specialist",
+      "specialistRole": "collaboration-agent",
+      "commandPolicy": "collaboration-only",
       "canReadRepository": true,
       "canEditFiles": false,
       "canRunCommands": false,
       "canWriteArtifacts": true,
-      "canOpenCollaboration": false,
+      "canOpenCollaboration": true,
       "requiredAdapterSupports": [
         "toolCalling",
-        "jsonMode",
-        "longContext"
+        "jsonMode"
       ],
       "expectedArtifacts": [
-        "requirements-summary"
+        "collaboration-handoff"
       ]
     },
     "riskLevel": "low",
@@ -81,29 +80,21 @@
       ],
       "changedFiles": [],
       "targetFiles": [
+        "apps/frontend",
         "gateway"
       ],
       "verifyCommands": [],
       "taskInputs": {
-        "routeName": "gateway-api-smoke",
-        "entryServices": [
-          "gateway",
-          "postgres",
-          "redis"
-        ],
-        "changedFiles": [],
         "matchedRiskRules": [],
         "requirementText": "",
-        "routeSelectionMode": "all-routes",
-        "matchedRequirementPhrases": [],
-        "matchedRequirementKeywords": []
+        "routeSelectionMode": "all-routes"
       }
     },
     "runtimeContext": {
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "requirements-analysis",
+      "currentStage": "collaboration",
       "provider": {
         "adapter": "spec2flow-cli",
         "model": "gpt-5.4",
@@ -113,15 +104,15 @@
       "artifactRefs": [],
       "taskArtifacts": [],
       "taskErrors": [],
-      "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+      "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
       "dependsOn": [
-        "environment-preparation"
+        "frontend-smoke--defect-feedback"
       ]
     },
     "instructions": [
-      "Execute only the task identified by gateway-api-smoke--requirements-analysis.",
-      "Follow role profile requirements-analysis-specialist with command policy none.",
-      "Expected artifacts: requirements-summary.",
+      "Execute only the task identified by frontend-smoke--collaboration.",
+      "Follow role profile collaboration-specialist with command policy collaboration-only.",
+      "Expected artifacts: collaboration-handoff.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

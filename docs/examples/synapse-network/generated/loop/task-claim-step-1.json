@@ -2,27 +2,26 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "frontend-smoke--requirements-analysis",
-    "title": "Analyze frontend-smoke requirements",
-    "stage": "requirements-analysis",
-    "goal": "Summarize scope, impacted services, and acceptance criteria for frontend-smoke",
-    "executorType": "requirements-agent",
+    "taskId": "environment-preparation",
+    "title": "Prepare repository environment",
+    "stage": "environment-preparation",
+    "goal": "Load project adapter, topology, and risk policy for synapse-network",
+    "executorType": "controller-agent",
     "roleProfile": {
-      "profileId": "requirements-analysis-specialist",
-      "specialistRole": "requirements-agent",
-      "commandPolicy": "none",
+      "profileId": "environment-preparation-controller",
+      "specialistRole": "controller-agent",
+      "commandPolicy": "bootstrap-only",
       "canReadRepository": true,
       "canEditFiles": false,
-      "canRunCommands": false,
+      "canRunCommands": true,
       "canWriteArtifacts": true,
       "canOpenCollaboration": false,
       "requiredAdapterSupports": [
         "toolCalling",
-        "jsonMode",
-        "longContext"
+        "jsonMode"
       ],
       "expectedArtifacts": [
-        "requirements-summary"
+        "environment-preparation-report"
       ]
     },
     "riskLevel": "low",
@@ -80,48 +79,35 @@
         "docs/06_Reference"
       ],
       "changedFiles": [],
-      "targetFiles": [
-        "apps/frontend",
-        "gateway"
+      "targetFiles": [],
+      "verifyCommands": [
+        "sh scripts/local/setup_local_env.sh"
       ],
-      "verifyCommands": [],
-      "taskInputs": {
-        "routeName": "frontend-smoke",
-        "entryServices": [
-          "frontend",
-          "gateway"
-        ],
-        "changedFiles": [],
-        "matchedRiskRules": [],
-        "requirementText": "",
-        "routeSelectionMode": "all-routes",
-        "matchedRequirementPhrases": [],
-        "matchedRequirementKeywords": []
-      }
+      "taskInputs": {}
     },
     "runtimeContext": {
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "requirements-analysis",
+      "currentStage": "environment-preparation",
       "provider": {
         "adapter": "spec2flow-cli",
         "model": "gpt-5.4",
         "sessionId": "example-session"
       },
       "attempt": 1,
-      "artifactRefs": [],
+      "artifactRefs": [
+        "task-graph"
+      ],
       "taskArtifacts": [],
       "taskErrors": [],
-      "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
-      "dependsOn": [
-        "environment-preparation"
-      ]
+      "artifactsDir": "spec2flow/outputs/execution",
+      "dependsOn": []
     },
     "instructions": [
-      "Execute only the task identified by frontend-smoke--requirements-analysis.",
-      "Follow role profile requirements-analysis-specialist with command policy none.",
-      "Expected artifacts: requirements-summary.",
+      "Execute only the task identified by environment-preparation.",
+      "Follow role profile environment-preparation-controller with command policy bootstrap-only.",
+      "Expected artifacts: environment-preparation-report.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

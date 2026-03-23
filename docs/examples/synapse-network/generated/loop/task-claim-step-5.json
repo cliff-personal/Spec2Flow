@@ -2,28 +2,27 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "frontend-smoke--defect-feedback",
-    "title": "Summarize frontend-smoke execution failures",
-    "stage": "defect-feedback",
-    "goal": "Generate structured bug drafts and evidence if frontend-smoke validation fails",
-    "executorType": "defect-agent",
+    "taskId": "frontend-smoke--automated-execution",
+    "title": "Execute frontend-smoke validation",
+    "stage": "automated-execution",
+    "goal": "Run declared verification commands for frontend-smoke",
+    "executorType": "execution-agent",
     "roleProfile": {
-      "profileId": "defect-feedback-specialist",
-      "specialistRole": "defect-agent",
-      "commandPolicy": "none",
+      "profileId": "automated-execution-specialist",
+      "specialistRole": "execution-agent",
+      "commandPolicy": "verification-only",
       "canReadRepository": true,
       "canEditFiles": false,
-      "canRunCommands": false,
+      "canRunCommands": true,
       "canWriteArtifacts": true,
       "canOpenCollaboration": false,
       "requiredAdapterSupports": [
         "toolCalling",
-        "jsonMode",
-        "longContext"
+        "jsonMode"
       ],
       "expectedArtifacts": [
-        "defect-summary",
-        "bug-draft"
+        "execution-report",
+        "verification-evidence"
       ]
     },
     "riskLevel": "low",
@@ -85,7 +84,9 @@
         "apps/frontend",
         "gateway"
       ],
-      "verifyCommands": [],
+      "verifyCommands": [
+        "npm run ci:frontend"
+      ],
       "taskInputs": {
         "matchedRiskRules": [],
         "requirementText": "",
@@ -96,7 +97,7 @@
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "defect-feedback",
+      "currentStage": "automated-execution",
       "provider": {
         "adapter": "spec2flow-cli",
         "model": "gpt-5.4",
@@ -108,13 +109,13 @@
       "taskErrors": [],
       "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
       "dependsOn": [
-        "frontend-smoke--automated-execution"
+        "frontend-smoke--test-design"
       ]
     },
     "instructions": [
-      "Execute only the task identified by frontend-smoke--defect-feedback.",
-      "Follow role profile defect-feedback-specialist with command policy none.",
-      "Expected artifacts: defect-summary, bug-draft.",
+      "Execute only the task identified by frontend-smoke--automated-execution.",
+      "Follow role profile automated-execution-specialist with command policy verification-only.",
+      "Expected artifacts: execution-report, verification-evidence.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

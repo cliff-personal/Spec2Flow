@@ -10,10 +10,10 @@ import {
   validateExecutionStatePayload
 } from './execution-state-service.js';
 import { fail, writeJson } from '../shared/fs-utils.js';
-import type { ArtifactRef, ErrorItem, ExecutionStateDocument, ExecutionStatus } from '../types/execution-state.js';
-import type { TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
+import type { ArtifactRef, ErrorItem, ExecutionStateDocument, ExecutionStatus, TaskState } from '../types/execution-state.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
+import type { Task, TaskExecutorType, TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
 
 export interface ApplyTaskResultPayload {
   taskId: string;
@@ -63,6 +63,81 @@ function validateTaskResultPayload(taskResultPayload: TaskResultDocument): void 
   const valid = validators.taskResult(taskResultPayload);
   if (!valid) {
     fail(`task-result validation failed: ${JSON.stringify(validators.taskResult.errors ?? [])}`);
+  }
+}
+
+function getRouteTaskId(taskId: string, stage: string): string | null {
+  if (!taskId.includes('--')) {
+    return null;
+  }
+
+  const [routeName] = taskId.split('--');
+  return routeName ? `${routeName}--${stage}` : null;
+}
+
+function addTaskNotes(taskState: TaskState, notes: string[]): void {
+  const nextNotes = appendUniqueItems(taskState.notes, notes);
+  if (nextNotes !== undefined) {
+    taskState.notes = nextNotes;
+  }
+}
+
+function setTaskStateStatus(
+  taskState: TaskState,
+  status: TaskStatus,
+  now: string,
+  executor?: TaskExecutorType
+): void {
+  taskState.status = status;
+  if (executor) {
+    taskState.executor = executor;
+  }
+  setTaskTerminalTimestamp(taskState, status, now);
+}
+
+function routeAutomatedExecutionOutcome(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskId: string,
+  taskStatus: TaskStatus,
+  artifactContract: ArtifactContractSummary,
+  now: string
+): void {
+  const defectTaskId = getRouteTaskId(taskId, 'defect-feedback');
+  const collaborationTaskId = getRouteTaskId(taskId, 'collaboration');
+
+  if (!defectTaskId || !collaborationTaskId) {
+    return;
+  }
+
+  const defectTask = taskGraphTaskIndex.get(defectTaskId);
+  const collaborationTask = taskGraphTaskIndex.get(collaborationTaskId);
+  const defectTaskState = taskStateIndex.get(defectTaskId);
+  const collaborationTaskState = taskStateIndex.get(collaborationTaskId);
+
+  if (!defectTask || !collaborationTask || !defectTaskState || !collaborationTaskState) {
+    return;
+  }
+
+  const shouldRouteToDefect = taskStatus === 'failed' || taskStatus === 'blocked' || artifactContract.status === 'missing';
+
+  if (shouldRouteToDefect) {
+    addTaskNotes(defectTaskState, [
+      `route-trigger:automated-execution`,
+      `route-reason:${taskStatus === 'failed' || taskStatus === 'blocked' ? taskStatus : 'artifact-contract-missing'}`
+    ]);
+    if (collaborationTaskState.status === 'ready') {
+      collaborationTaskState.status = 'pending';
+    }
+    return;
+  }
+
+  if (defectTaskState.status === 'pending') {
+    setTaskStateStatus(defectTaskState, 'skipped', now, defectTask.executorType);
+    addTaskNotes(defectTaskState, [
+      'route-auto-skip:defect-feedback',
+      'route-reason:execution-artifact-contract-satisfied'
+    ]);
   }
 }
 
@@ -119,6 +194,10 @@ export function applyTaskResult(
     if (contractNotes !== undefined) {
       taskState.notes = contractNotes;
     }
+  }
+
+  if (taskGraphTask.stage === 'automated-execution') {
+    routeAutomatedExecutionOutcome(taskGraphTaskIndex, taskStateIndex, payload.taskId, payload.taskStatus, artifactContract, now);
   }
 
   promoteReadyTasks(taskGraphPayload, executionStatePayload);

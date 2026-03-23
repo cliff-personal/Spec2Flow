@@ -2,43 +2,53 @@
   "adapterRun": {
     "adapterName": "github-copilot-cli-example",
     "provider": "github-copilot-cli",
-    "taskId": "frontend-smoke--requirements-analysis",
+    "taskId": "environment-preparation",
     "runId": "synapse-example-run",
-    "stage": "requirements-analysis",
+    "stage": "environment-preparation",
     "status": "completed",
-    "summary": "simulated-requirements-analysis-completed",
+    "summary": "simulated-environment-preparation-completed",
     "notes": [
       "simulated-adapter:github-copilot-cli-example",
-      "simulated-stage:requirements-analysis"
+      "simulated-stage:environment-preparation"
     ],
     "artifacts": [
       {
-        "id": "frontend-smoke--requirements-analysis-requirements-analysis-output",
+        "id": "environment-preparation-environment-preparation-output",
         "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/requirements-analysis-output.json",
-        "taskId": "frontend-smoke--requirements-analysis"
+        "path": "spec2flow/outputs/execution/environment-preparation/environment-preparation-output.json",
+        "taskId": "environment-preparation"
       }
     ],
     "errors": []
   },
   "receipt": {
-    "taskId": "frontend-smoke--requirements-analysis",
+    "taskId": "environment-preparation",
     "status": "completed",
     "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
     "notes": [
-      "summary:simulated-requirements-analysis-completed",
+      "summary:simulated-environment-preparation-completed",
       "simulated-adapter:github-copilot-cli-example",
-      "simulated-stage:requirements-analysis"
+      "simulated-stage:environment-preparation"
     ],
     "artifacts": [
       {
-        "id": "frontend-smoke--requirements-analysis-requirements-analysis-output",
+        "id": "environment-preparation-environment-preparation-output",
         "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/requirements-analysis-output.json",
-        "taskId": "frontend-smoke--requirements-analysis"
+        "path": "spec2flow/outputs/execution/environment-preparation/environment-preparation-output.json",
+        "taskId": "environment-preparation"
       }
     ],
+    "artifactContract": {
+      "status": "missing",
+      "expectedArtifacts": [
+        "environment-preparation-report"
+      ],
+      "presentArtifacts": [],
+      "missingArtifacts": [
+        "environment-preparation-report"
+      ]
+    },
     "errors": [],
-    "submittedAt": "2026-03-23T16:19:33.141Z"
+    "submittedAt": "2026-03-23T16:41:01.869Z"
   }
 }

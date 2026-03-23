@@ -2,14 +2,14 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "frontend-smoke--test-design",
-    "title": "Design frontend-smoke validation",
-    "stage": "test-design",
-    "goal": "Produce route-specific smoke or regression coverage for frontend-smoke",
-    "executorType": "test-design-agent",
+    "taskId": "frontend-smoke--code-implementation",
+    "title": "Implement frontend-smoke changes",
+    "stage": "code-implementation",
+    "goal": "Apply code changes for frontend-smoke within the declared service boundaries",
+    "executorType": "implementation-agent",
     "roleProfile": {
-      "profileId": "test-design-specialist",
-      "specialistRole": "test-design-agent",
+      "profileId": "code-implementation-specialist",
+      "specialistRole": "implementation-agent",
       "commandPolicy": "safe-repo-commands",
       "canReadRepository": true,
       "canEditFiles": true,
@@ -22,8 +22,8 @@
         "codeEditing"
       ],
       "expectedArtifacts": [
-        "test-plan",
-        "test-cases"
+        "implementation-summary",
+        "code-diff"
       ]
     },
     "riskLevel": "low",
@@ -85,9 +85,7 @@
         "apps/frontend",
         "gateway"
       ],
-      "verifyCommands": [
-        "npm run ci:frontend"
-      ],
+      "verifyCommands": [],
       "taskInputs": {
         "matchedRiskRules": [],
         "requirementText": "",
@@ -98,7 +96,7 @@
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "test-design",
+      "currentStage": "code-implementation",
       "provider": {
         "adapter": "spec2flow-cli",
         "model": "gpt-5.4",
@@ -110,13 +108,13 @@
       "taskErrors": [],
       "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
       "dependsOn": [
-        "frontend-smoke--code-implementation"
+        "frontend-smoke--requirements-analysis"
       ]
     },
     "instructions": [
-      "Execute only the task identified by frontend-smoke--test-design.",
-      "Follow role profile test-design-specialist with command policy safe-repo-commands.",
-      "Expected artifacts: test-plan, test-cases.",
+      "Execute only the task identified by frontend-smoke--code-implementation.",
+      "Follow role profile code-implementation-specialist with command policy safe-repo-commands.",
+      "Expected artifacts: implementation-summary, code-diff.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

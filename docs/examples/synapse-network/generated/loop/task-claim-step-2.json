@@ -2,28 +2,27 @@
   "taskClaim": {
     "runId": "synapse-example-run",
     "workflowName": "synapse-network-workflow",
-    "taskId": "frontend-smoke--code-implementation",
-    "title": "Implement frontend-smoke changes",
-    "stage": "code-implementation",
-    "goal": "Apply code changes for frontend-smoke within the declared service boundaries",
-    "executorType": "implementation-agent",
+    "taskId": "frontend-smoke--requirements-analysis",
+    "title": "Analyze frontend-smoke requirements",
+    "stage": "requirements-analysis",
+    "goal": "Summarize scope, impacted services, and acceptance criteria for frontend-smoke",
+    "executorType": "requirements-agent",
     "roleProfile": {
-      "profileId": "code-implementation-specialist",
-      "specialistRole": "implementation-agent",
-      "commandPolicy": "safe-repo-commands",
+      "profileId": "requirements-analysis-specialist",
+      "specialistRole": "requirements-agent",
+      "commandPolicy": "none",
       "canReadRepository": true,
-      "canEditFiles": true,
-      "canRunCommands": true,
+      "canEditFiles": false,
+      "canRunCommands": false,
       "canWriteArtifacts": true,
       "canOpenCollaboration": false,
       "requiredAdapterSupports": [
         "toolCalling",
         "jsonMode",
-        "codeEditing"
+        "longContext"
       ],
       "expectedArtifacts": [
-        "implementation-summary",
-        "code-diff"
+        "requirements-summary"
       ]
     },
     "riskLevel": "low",
@@ -87,16 +86,24 @@
       ],
       "verifyCommands": [],
       "taskInputs": {
+        "routeName": "frontend-smoke",
+        "entryServices": [
+          "frontend",
+          "gateway"
+        ],
+        "changedFiles": [],
         "matchedRiskRules": [],
         "requirementText": "",
-        "routeSelectionMode": "all-routes"
+        "routeSelectionMode": "all-routes",
+        "matchedRequirementPhrases": [],
+        "matchedRequirementKeywords": []
       }
     },
     "runtimeContext": {
       "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
       "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
       "currentRunStatus": "running",
-      "currentStage": "code-implementation",
+      "currentStage": "requirements-analysis",
       "provider": {
         "adapter": "spec2flow-cli",
         "model": "gpt-5.4",
@@ -108,13 +115,13 @@
       "taskErrors": [],
       "artifactsDir": "spec2flow/outputs/execution/frontend-smoke",
       "dependsOn": [
-        "frontend-smoke--requirements-analysis"
+        "environment-preparation"
       ]
     },
     "instructions": [
-      "Execute only the task identified by frontend-smoke--code-implementation.",
-      "Follow role profile code-implementation-specialist with command policy safe-repo-commands.",
-      "Expected artifacts: implementation-summary, code-diff.",
+      "Execute only the task identified by frontend-smoke--requirements-analysis.",
+      "Follow role profile requirements-analysis-specialist with command policy none.",
+      "Expected artifacts: requirements-summary.",
       "Respect the declared target files, verification commands, and review policy.",
       "Persist outputs back into execution-state.json before moving to downstream tasks."
     ]

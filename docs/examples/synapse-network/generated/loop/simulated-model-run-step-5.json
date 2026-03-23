@@ -2,43 +2,55 @@
   "adapterRun": {
     "adapterName": "github-copilot-cli-example",
     "provider": "github-copilot-cli",
-    "taskId": "frontend-smoke--defect-feedback",
+    "taskId": "frontend-smoke--automated-execution",
     "runId": "synapse-example-run",
-    "stage": "defect-feedback",
+    "stage": "automated-execution",
     "status": "completed",
-    "summary": "simulated-defect-feedback-completed",
+    "summary": "simulated-automated-execution-completed",
     "notes": [
       "simulated-adapter:github-copilot-cli-example",
-      "simulated-stage:defect-feedback"
+      "simulated-stage:automated-execution"
     ],
     "artifacts": [
       {
-        "id": "frontend-smoke--defect-feedback-defect-feedback-output",
+        "id": "frontend-smoke--automated-execution-automated-execution-output",
         "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/defect-feedback-output.json",
-        "taskId": "frontend-smoke--defect-feedback"
+        "path": "spec2flow/outputs/execution/frontend-smoke/automated-execution-output.json",
+        "taskId": "frontend-smoke--automated-execution"
       }
     ],
     "errors": []
   },
   "receipt": {
-    "taskId": "frontend-smoke--defect-feedback",
+    "taskId": "frontend-smoke--automated-execution",
     "status": "completed",
     "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
     "notes": [
-      "summary:simulated-defect-feedback-completed",
+      "summary:simulated-automated-execution-completed",
       "simulated-adapter:github-copilot-cli-example",
-      "simulated-stage:defect-feedback"
+      "simulated-stage:automated-execution"
     ],
     "artifacts": [
       {
-        "id": "frontend-smoke--defect-feedback-defect-feedback-output",
+        "id": "frontend-smoke--automated-execution-automated-execution-output",
         "kind": "report",
-        "path": "spec2flow/outputs/execution/frontend-smoke/defect-feedback-output.json",
-        "taskId": "frontend-smoke--defect-feedback"
+        "path": "spec2flow/outputs/execution/frontend-smoke/automated-execution-output.json",
+        "taskId": "frontend-smoke--automated-execution"
       }
     ],
+    "artifactContract": {
+      "status": "missing",
+      "expectedArtifacts": [
+        "execution-report",
+        "verification-evidence"
+      ],
+      "presentArtifacts": [],
+      "missingArtifacts": [
+        "execution-report",
+        "verification-evidence"
+      ]
+    },
     "errors": [],
-    "submittedAt": "2026-03-23T16:19:33.251Z"
+    "submittedAt": "2026-03-23T16:41:02.040Z"
   }
 }

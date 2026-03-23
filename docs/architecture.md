@@ -296,6 +296,12 @@ The controller should route failures based on failure type:
 
 This avoids forcing every bug into the same linear loop.
 
+For the normal execution-to-review path, the controller should also interpret stage artifacts:
+
+1. if `automated-execution` finishes with a satisfied artifact contract, the controller may auto-skip `defect-feedback`
+2. if `automated-execution` finishes with a missing artifact contract, the controller should route into `defect-feedback`
+3. `collaboration` should not unlock until the routed defect path is either skipped or completed
+
 ## Session Strategy
 
 Multi-agent design is primarily a specialization model, not a session-count model.
