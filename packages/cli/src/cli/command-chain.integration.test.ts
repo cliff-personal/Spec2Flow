@@ -95,6 +95,87 @@ function buildTaskGraphFixture(taskGraphPath: string): TaskGraphDocument {
   };
 }
 
+function buildDefectLoopTaskGraphFixture(): TaskGraphDocument {
+  const executionTask: Task = {
+    id: 'frontend-smoke--automated-execution',
+    stage: 'automated-execution',
+    title: 'Run frontend smoke automation',
+    goal: 'Execute the frontend smoke validation path',
+    executorType: 'execution-agent',
+    roleProfile: {
+      profileId: 'execution-agent',
+      specialistRole: 'execution-agent',
+      commandPolicy: 'verification-only',
+      canReadRepository: true,
+      canEditFiles: false,
+      canRunCommands: true,
+      canWriteArtifacts: true,
+      canOpenCollaboration: false,
+      requiredAdapterSupports: [],
+      expectedArtifacts: ['execution-report']
+    },
+    status: 'ready',
+    verifyCommands: ['npm run test:unit']
+  };
+
+  const defectTask: Task = {
+    id: 'frontend-smoke--defect-feedback',
+    stage: 'defect-feedback',
+    title: 'Analyze frontend smoke failure',
+    goal: 'Draft defect feedback from automation evidence',
+    executorType: 'defect-agent',
+    roleProfile: {
+      profileId: 'defect-agent',
+      specialistRole: 'defect-agent',
+      commandPolicy: 'none',
+      canReadRepository: true,
+      canEditFiles: false,
+      canRunCommands: false,
+      canWriteArtifacts: true,
+      canOpenCollaboration: false,
+      requiredAdapterSupports: [],
+      expectedArtifacts: ['bug-draft']
+    },
+    status: 'pending',
+    dependsOn: [executionTask.id]
+  };
+
+  const collaborationTask: Task = {
+    id: 'frontend-smoke--collaboration',
+    stage: 'collaboration',
+    title: 'Prepare collaboration handoff',
+    goal: 'Prepare issue or PR handoff after defect handling',
+    executorType: 'collaboration-agent',
+    roleProfile: {
+      profileId: 'collaboration-agent',
+      specialistRole: 'collaboration-agent',
+      commandPolicy: 'collaboration-only',
+      canReadRepository: true,
+      canEditFiles: false,
+      canRunCommands: false,
+      canWriteArtifacts: true,
+      canOpenCollaboration: true,
+      requiredAdapterSupports: [],
+      expectedArtifacts: ['collaboration-handoff']
+    },
+    status: 'pending',
+    dependsOn: [defectTask.id]
+  };
+
+  return {
+    taskGraph: {
+      id: 'graph-defect-loop',
+      workflowName: 'defect-loop-fixture',
+      source: {
+        selectedRoutes: ['frontend-smoke'],
+        routeSelectionMode: 'requirements',
+        requirementText: 'Validate defect routing after failed execution artifacts.'
+      },
+      tasks: [executionTask, defectTask, collaborationTask]
+    }
+  };
+}
+
 function writeFixtureState(taskGraphPath: string, statePath: string): void {
   const taskGraphPayload = buildTaskGraphFixture(taskGraphPath);
   writeJson(taskGraphPath, taskGraphPayload);
@@ -282,5 +363,84 @@ describe('command chain integration', () => {
     expect(resumedClaim.taskClaim?.taskId).toBe('frontend-smoke--code-implementation');
     expect(resumedClaim.taskClaim?.runtimeContext.attempt).toBe(1);
     expect(resumedClaim.taskClaim?.stage).toBe('code-implementation');
+  });
+
+  it('routes automated-execution into defect-feedback when the artifact contract is missing', () => {
+    const tempDir = createTempDir();
+    const taskGraphPath = path.join(tempDir, 'task-graph.json');
+    const statePath = path.join(tempDir, 'execution-state.json');
+    const executionClaimPath = path.join(tempDir, 'execution-task-claim.json');
+    const defectClaimPath = path.join(tempDir, 'defect-task-claim.json');
+    const logArtifactPath = path.join(tempDir, 'execution-log.txt');
+
+    const taskGraphPayload = buildDefectLoopTaskGraphFixture();
+    writeJson(taskGraphPath, taskGraphPayload);
+    const executionStatePayload = buildExecutionState(taskGraphPayload, {
+      'run-id': 'defect-loop-run',
+      adapter: 'github-copilot-cli',
+      model: 'gpt-5.4',
+      'session-id': 'defect-loop-session'
+    }, {
+      taskGraph: taskGraphPath
+    });
+    writeJson(statePath, executionStatePayload);
+    fs.writeFileSync(logArtifactPath, 'execution log\n', 'utf8');
+
+    runClaimNextTask({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      output: executionClaimPath
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    const executionClaim = readStructuredFile(executionClaimPath) as TaskClaimPayload;
+    expect(executionClaim.taskClaim?.taskId).toBe('frontend-smoke--automated-execution');
+
+    runSubmitTaskResult({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      claim: executionClaimPath,
+      'result-status': 'completed',
+      summary: 'execution finished without required report',
+      'add-artifacts': `execution-log|log|${logArtifactPath}`
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    const stateAfterExecution = readExecutionState(statePath);
+    const automatedExecutionTask = stateAfterExecution.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--automated-execution');
+    const defectTask = stateAfterExecution.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--defect-feedback');
+    const collaborationTask = stateAfterExecution.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--collaboration');
+
+    expect(automatedExecutionTask?.status).toBe('completed');
+    expect(automatedExecutionTask?.notes).toContain('artifact-contract:missing');
+    expect(automatedExecutionTask?.notes).toContain('artifact-contract-missing:execution-report');
+    expect(defectTask?.status).toBe('ready');
+    expect(defectTask?.notes).toContain('route-trigger:automated-execution');
+    expect(defectTask?.notes).toContain('route-reason:artifact-contract-missing');
+    expect(collaborationTask?.status).toBe('pending');
+    expect(stateAfterExecution.executionState.currentStage).toBe('defect-feedback');
+
+    runClaimNextTask({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      output: defectClaimPath
+    }, {
+      fail: createFail(),
+      printJson: vi.fn(),
+      readStructuredFile,
+      writeJson
+    });
+
+    const defectClaim = readStructuredFile(defectClaimPath) as TaskClaimPayload;
+    expect(defectClaim.taskClaim?.taskId).toBe('frontend-smoke--defect-feedback');
+    expect(defectClaim.taskClaim?.stage).toBe('defect-feedback');
   });
 });
