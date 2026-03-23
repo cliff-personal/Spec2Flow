@@ -4,11 +4,11 @@ import * as addFormatsModule from 'ajv-formats';
 import type { ValidateFunction } from 'ajv';
 import { readJsonFile, rootDir } from './fs-utils.js';
 
-const Ajv2020 = Ajv2020Module.default as unknown as {
-  new (options?: { allErrors?: boolean; strict?: boolean }): {
-    compile: (schema: unknown) => ValidateFunction;
-  };
+type AjvConstructor = new (options?: { allErrors?: boolean; strict?: boolean }) => {
+  compile(schema: unknown): ValidateFunction;
 };
+
+const Ajv2020 = Ajv2020Module.default as unknown as AjvConstructor;
 const addFormats = addFormatsModule.default as unknown as (ajv: unknown) => void;
 
 export interface SchemaValidators {
@@ -16,6 +16,7 @@ export interface SchemaValidators {
   topology: ValidateFunction;
   risk: ValidateFunction;
   executionState: ValidateFunction;
+  taskResult: ValidateFunction;
   adapterRuntime: ValidateFunction;
 }
 
@@ -28,6 +29,7 @@ export function getSchemaValidators(): SchemaValidators {
     topology: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/system-topology.schema.json'))),
     risk: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/risk-policy.schema.json'))),
     executionState: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/execution-state.schema.json'))),
+    taskResult: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/task-result.schema.json'))),
     adapterRuntime: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/model-adapter-runtime.schema.json')))
   };
 }

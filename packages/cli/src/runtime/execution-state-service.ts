@@ -10,7 +10,7 @@ import type {
   TaskState
 } from '../types/execution-state.js';
 import type { TaskGraphDocument, Task, TaskStage, TaskStatus } from '../types/task-graph.js';
-import type { TaskResultDocument } from '../types/task-result.js';
+import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
 
@@ -264,6 +264,7 @@ export function buildTaskResultReceipt(
   statePath: string,
   notes: string[],
   artifacts: ArtifactRef[],
+  artifactContract: ArtifactContractSummary,
   errors: ErrorItem[]
 ): TaskResultDocument {
   return {
@@ -273,6 +274,7 @@ export function buildTaskResultReceipt(
       executionStateRef: statePath,
       notes,
       artifacts,
+      artifactContract,
       errors,
       submittedAt: new Date().toISOString()
     }

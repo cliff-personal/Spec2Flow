@@ -12,7 +12,8 @@ import {
 import { fail, writeJson } from '../shared/fs-utils.js';
 import type { ArtifactRef, ErrorItem, ExecutionStateDocument, ExecutionStatus } from '../types/execution-state.js';
 import type { TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
-import type { TaskResultDocument } from '../types/task-result.js';
+import { getSchemaValidators } from '../shared/schema-registry.js';
+import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
 
 export interface ApplyTaskResultPayload {
   taskId: string;
@@ -23,6 +24,46 @@ export interface ApplyTaskResultPayload {
   executor?: string;
   workflowStatus?: ExecutionStatus;
   currentStage?: TaskStage;
+}
+
+function normalizeArtifactSearchValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildArtifactContractSummary(expectedArtifacts: string[], artifacts: ArtifactRef[]): ArtifactContractSummary {
+  if (expectedArtifacts.length === 0) {
+    return {
+      status: 'not-applicable',
+      expectedArtifacts: [],
+      presentArtifacts: [],
+      missingArtifacts: []
+    };
+  }
+
+  const presentArtifacts = expectedArtifacts.filter((expectedArtifact) => {
+    const normalizedExpectedArtifact = normalizeArtifactSearchValue(expectedArtifact);
+    return artifacts.some((artifact) => {
+      const searchableValues = [artifact.id, artifact.kind, artifact.path]
+        .map((value) => normalizeArtifactSearchValue(String(value)));
+      return searchableValues.some((value) => value.includes(normalizedExpectedArtifact));
+    });
+  });
+  const missingArtifacts = expectedArtifacts.filter((expectedArtifact) => !presentArtifacts.includes(expectedArtifact));
+
+  return {
+    status: missingArtifacts.length === 0 ? 'satisfied' : 'missing',
+    expectedArtifacts,
+    presentArtifacts,
+    missingArtifacts
+  };
+}
+
+function validateTaskResultPayload(taskResultPayload: TaskResultDocument): void {
+  const validators = getSchemaValidators();
+  const valid = validators.taskResult(taskResultPayload);
+  if (!valid) {
+    fail(`task-result validation failed: ${JSON.stringify(validators.taskResult.errors ?? [])}`);
+  }
 }
 
 export function applyTaskResult(
@@ -53,6 +94,7 @@ export function applyTaskResult(
   if (payload.executor !== undefined) {
     taskState.executor = payload.executor;
   }
+  const artifactContract = buildArtifactContractSummary(taskGraphTask.roleProfile.expectedArtifacts, payload.artifacts);
   setTaskTerminalTimestamp(taskState, payload.taskStatus, now);
 
   if (payload.artifacts.length > 0) {
@@ -69,6 +111,16 @@ export function applyTaskResult(
     ];
   }
 
+  if (artifactContract.status === 'missing') {
+    const contractNotes = appendUniqueItems(taskState.notes, [
+      `artifact-contract:missing`,
+      `artifact-contract-missing:${artifactContract.missingArtifacts.join(',')}`
+    ]);
+    if (contractNotes !== undefined) {
+      taskState.notes = contractNotes;
+    }
+  }
+
   promoteReadyTasks(taskGraphPayload, executionStatePayload);
   executionStatePayload.executionState.status = payload.workflowStatus ?? inferExecutionStateStatus(executionStatePayload.executionState.tasks);
   const nextCurrentStage = payload.currentStage ?? inferCurrentStage(taskGraphPayload, executionStatePayload);
@@ -79,5 +131,15 @@ export function applyTaskResult(
   validateExecutionStatePayload(executionStatePayload, statePath);
   writeJson(statePath, executionStatePayload);
 
-  return buildTaskResultReceipt(payload.taskId, payload.taskStatus, statePath, payload.notes, payload.artifacts, payload.errors);
+  const receipt = buildTaskResultReceipt(
+    payload.taskId,
+    payload.taskStatus,
+    statePath,
+    payload.notes,
+    payload.artifacts,
+    artifactContract,
+    payload.errors
+  );
+  validateTaskResultPayload(receipt);
+  return receipt;
 }
