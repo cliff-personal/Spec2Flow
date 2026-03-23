@@ -48,8 +48,19 @@ Use it to answer two questions quickly:
 ### How do I adopt or run the workflow?
 
 - [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
+- [docs/playbooks/index.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/index.md)
 - [docs/collaboration.md](/Users/cliff/workspace/Spec2Flow/docs/collaboration.md)
 - [docs/examples/synapse-network/README.md](/Users/cliff/workspace/Spec2Flow/docs/examples/synapse-network/README.md)
+
+### What should an agent do in each workflow stage?
+
+- [docs/playbooks/index.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/index.md)
+- [docs/playbooks/requirements-analysis.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/requirements-analysis.md)
+- [docs/playbooks/code-implementation.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/code-implementation.md)
+- [docs/playbooks/test-design.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/test-design.md)
+- [docs/playbooks/automated-execution.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/automated-execution.md)
+- [docs/playbooks/defect-feedback.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/defect-feedback.md)
+- [docs/playbooks/collaboration.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/collaboration.md)
 
 ### What are the enforceable contracts?
 
@@ -86,6 +97,11 @@ Use it to answer two questions quickly:
 ### Workflow adoption and commands
 
 - primary: [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
+
+### Stage-scoped execution guidance
+
+- primary: [docs/playbooks/index.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/index.md)
+- supporting: [docs/Harness_engineering.md](/Users/cliff/workspace/Spec2Flow/docs/Harness_engineering.md)
 
 ### Runtime contracts
 

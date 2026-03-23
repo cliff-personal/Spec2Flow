@@ -27,6 +27,14 @@ Spec2Flow/
 │  ├─ structure.md
 │  ├─ copilot.md
 │  ├─ Harness_engineering.md
+│  ├─ playbooks/
+│  │  ├─ index.md
+│  │  ├─ requirements-analysis.md
+│  │  ├─ code-implementation.md
+│  │  ├─ test-design.md
+│  │  ├─ automated-execution.md
+│  │  ├─ defect-feedback.md
+│  │  └─ collaboration.md
 │  ├─ roadmap.md
 │  ├─ architecture.md
 │  ├─ collaboration.md
@@ -107,9 +115,13 @@ Recommended reading order:
 - `docs/index.md` for the shortest AI-facing docs map
 - `docs/copilot.md` for Copilot customization and maintenance policy
 - `docs/Harness_engineering.md` for AI-facing repository optimization guidance
+- `docs/playbooks/index.md` for stage-scoped execution guidance
 - `docs/architecture.md` for runtime boundaries
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration
+
+### `docs/playbooks/`
+Short operational guides for each route stage. These files are the preferred AI-facing context once a task has already been claimed and the stage is known.
 
 ### `schemas/`
 Structured definitions for:
