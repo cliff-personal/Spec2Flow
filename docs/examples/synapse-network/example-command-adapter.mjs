@@ -374,6 +374,32 @@ function getStageExecutionPlan(claim) {
   return createStagePlan(artifactsDir);
 }
 
+function normalizeStringList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry) => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean);
+}
+
+function normalizeActivity(value) {
+  if (!value || typeof value !== 'object') {
+    return {
+      commands: [],
+      editedFiles: [],
+      artifactFiles: [],
+      collaborationActions: []
+    };
+  }
+
+  return {
+    commands: normalizeStringList(value.commands),
+    editedFiles: normalizeStringList(value.editedFiles),
+    artifactFiles: normalizeStringList(value.artifactFiles),
+    collaborationActions: normalizeStringList(value.collaborationActions)
+  };
+}
+
 function buildCopilotPrompt(claimPayload, claimPath) {
   const claim = claimPayload.taskClaim;
   const refs = getContextReferences(claimPayload, claimPath).map((filePath) => `@${filePath}`);
@@ -384,10 +410,12 @@ function buildCopilotPrompt(claimPayload, claimPath) {
   return [
     'Execute exactly one Spec2Flow task claim and return JSON only.',
     'Use the repository instructions automatically loaded by Copilot CLI.',
-    'Return a JSON object with keys: status, summary, notes, deliverable, errors.',
+    'Return a JSON object with keys: status, summary, notes, activity, deliverable, errors.',
     'status must be one of completed, blocked, or failed.',
     'summary must be a short sentence.',
     'notes must be an array of short strings.',
+    'activity must be an object with arrays: commands, editedFiles, artifactFiles, collaborationActions.',
+    'activity must describe only the actions you actually performed with Copilot tools during this task.',
     'deliverable must be JSON-compatible and should contain the useful task output.',
     'errors must be an array of objects with code, message, and optional recoverable.',
     'Use Copilot CLI tools when needed; do not pretend to have executed commands or edited files.',
@@ -395,6 +423,11 @@ function buildCopilotPrompt(claimPayload, claimPath) {
     `Task id: ${claim.taskId}.`,
     `Stage: ${claim.stage}.`,
     `Goal: ${claim.goal}.`,
+    `Role profile: ${claim.roleProfile.profileId}.`,
+    `Command policy: ${claim.roleProfile.commandPolicy}.`,
+    `Repository edits allowed: ${claim.roleProfile.canEditFiles}.`,
+    `Command execution allowed: ${claim.roleProfile.canRunCommands}.`,
+    `Collaboration actions allowed: ${claim.roleProfile.canOpenCollaboration}.`,
     `Target files: ${targetFiles}.`,
     `Verify commands: ${verificationSummary}.`,
     `Context files: ${refs.join(' ')}.`,
@@ -507,6 +540,7 @@ function buildAdapterRun(claimPayload, runResult) {
   const artifactPath = buildArtifactPath(claim);
   const resolvedArtifactPath = path.resolve(process.cwd(), artifactPath);
   const taskResult = runResult.taskResult ?? {};
+  const activity = normalizeActivity(taskResult.activity);
 
   ensureDirForFile(resolvedArtifactPath);
   fs.writeFileSync(
@@ -522,6 +556,7 @@ function buildAdapterRun(claimPayload, runResult) {
       stage: claim.stage,
       summary: taskResult.summary ?? `${claim.taskId}-completed`,
       notes: taskResult.notes ?? [],
+      activity,
       deliverable: taskResult.deliverable ?? null,
       integration: 'copilot-cli'
     }, null, 2)}\n`,
@@ -545,6 +580,7 @@ function buildAdapterRun(claimPayload, runResult) {
         ...(runResult.session?.sessionKey ? [`session-key:${runResult.session.sessionKey}`] : []),
         ...(Array.isArray(taskResult.notes) ? taskResult.notes : [])
       ],
+      activity,
       artifacts: [
         {
           id: `${claim.taskId}-${stageName}-model-output`,
@@ -579,6 +615,12 @@ function buildFailureRun(claimPayload, error) {
         `task:${claim.taskId ?? 'unknown-task'}`,
         'adapter-execution-failed'
       ],
+      activity: {
+        commands: [],
+        editedFiles: [],
+        artifactFiles: [],
+        collaborationActions: []
+      },
       artifacts: [],
       errors: [
         {

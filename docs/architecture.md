@@ -209,6 +209,7 @@ This means a stage is not only a status label. It is also an execution contract 
 - what repository access is allowed
 - what deterministic commands may run
 - what structured artifact should be produced
+- what adapter-reported activity must be rejected before state is persisted when it violates role policy
 
 ## Stage-to-Specialist Mapping
 

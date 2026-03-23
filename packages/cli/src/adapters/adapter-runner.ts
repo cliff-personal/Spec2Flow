@@ -45,6 +45,152 @@ export interface SimulatedAdapterOptions {
   'result-status'?: string;
 }
 
+const repoMutationCommandPattern = /^(?:git\s+(?:add|commit|push|merge|rebase|reset|checkout)\b|gh\s+pr\b)/i;
+
+function normalizeCommandValue(command: string): string {
+  return command.trim().replaceAll(/\s+/g, ' ').toLowerCase();
+}
+
+function matchesAllowedCommand(command: string, allowedCommands: string[]): boolean {
+  const normalizedCommand = normalizeCommandValue(command);
+
+  return allowedCommands.some((allowedCommand) => {
+    const normalizedAllowedCommand = normalizeCommandValue(allowedCommand);
+    return normalizedCommand === normalizedAllowedCommand || normalizedCommand.startsWith(`${normalizedAllowedCommand} `);
+  });
+}
+
+function collectCapabilityViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  const { roleProfile, taskId } = claim;
+  const { activity } = runOutput.adapterRun;
+  const violations: string[] = [];
+
+  if (!roleProfile.canRunCommands && activity.commands.length > 0) {
+    violations.push(`task ${taskId} reported shell commands while role profile ${roleProfile.profileId} forbids command execution`);
+  }
+
+  if (!roleProfile.canEditFiles && activity.editedFiles.length > 0) {
+    violations.push(`task ${taskId} reported file edits while role profile ${roleProfile.profileId} forbids repository edits`);
+  }
+
+  if (!roleProfile.canWriteArtifacts && activity.artifactFiles.length > 0) {
+    violations.push(`task ${taskId} reported artifact writes while role profile ${roleProfile.profileId} forbids artifact output`);
+  }
+
+  if (!roleProfile.canOpenCollaboration && activity.collaborationActions.length > 0) {
+    violations.push(`task ${taskId} reported collaboration actions while role profile ${roleProfile.profileId} forbids collaboration side effects`);
+  }
+
+  return violations;
+}
+
+function collectNonePolicyViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  const { taskId } = claim;
+  const { activity } = runOutput.adapterRun;
+
+  return activity.commands.length > 0 ? [`task ${taskId} used shell commands under command policy none`] : [];
+}
+
+function collectCollaborationOnlyViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  const { taskId } = claim;
+  const { activity } = runOutput.adapterRun;
+  const violations: string[] = [];
+
+  if (activity.commands.length > 0) {
+    violations.push(`task ${taskId} used shell commands under collaboration-only policy`);
+  }
+
+  if (activity.editedFiles.length > 0) {
+    violations.push(`task ${taskId} edited repository files under collaboration-only policy`);
+  }
+
+  return violations;
+}
+
+function collectAllowlistedCommandViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  const { roleProfile, repositoryContext, taskId } = claim;
+  const { activity } = runOutput.adapterRun;
+  const allowedCommands = repositoryContext.verifyCommands ?? [];
+  const violations: string[] = [];
+
+  if (allowedCommands.length === 0 && activity.commands.length > 0) {
+    violations.push(`task ${taskId} reported shell commands but no allowlisted verify commands exist for ${roleProfile.commandPolicy}`);
+    return violations;
+  }
+
+  const disallowedCommands = activity.commands.filter((command) => !matchesAllowedCommand(command, allowedCommands));
+  return disallowedCommands.map(
+    (command) => `task ${taskId} used non-allowlisted command under ${roleProfile.commandPolicy}: ${command}`
+  );
+}
+
+function collectSafeRepoCommandViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  const { taskId } = claim;
+  const { activity } = runOutput.adapterRun;
+
+  return activity.commands
+    .filter((command) => repoMutationCommandPattern.test(command.trim()))
+    .map((command) => `task ${taskId} used blocked repository mutation command under safe-repo-commands: ${command}`);
+}
+
+function collectCommandPolicyViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  const { commandPolicy } = claim.roleProfile;
+
+  switch (commandPolicy) {
+    case 'none':
+      return collectNonePolicyViolations(claim, runOutput);
+    case 'collaboration-only':
+      return collectCollaborationOnlyViolations(claim, runOutput);
+    case 'bootstrap-only':
+    case 'verification-only':
+      return collectAllowlistedCommandViolations(claim, runOutput);
+    case 'safe-repo-commands':
+      return collectSafeRepoCommandViolations(claim, runOutput);
+    default:
+      return [];
+  }
+}
+
+function collectRolePolicyViolations(claim: NonNullable<TaskClaimPayload['taskClaim']>, runOutput: AdapterRunDocument): string[] {
+  return [
+    ...collectCapabilityViolations(claim, runOutput),
+    ...collectCommandPolicyViolations(claim, runOutput)
+  ];
+}
+
+function applyRolePolicyToRunOutput(
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  runOutput: AdapterRunDocument
+): AdapterRunDocument {
+  const violations = collectRolePolicyViolations(claim, runOutput);
+
+  if (violations.length === 0) {
+    return runOutput;
+  }
+
+  return {
+    adapterRun: {
+      ...runOutput.adapterRun,
+      status: 'failed',
+      summary: `role policy violation for ${claim.taskId}`,
+      notes: [
+        ...runOutput.adapterRun.notes,
+        'role-policy:failed',
+        ...violations.map((violation) => `policy-violation:${violation}`)
+      ],
+      errors: [
+        ...runOutput.adapterRun.errors,
+        ...violations.map((violation) => ({
+          code: 'role-policy-violation',
+          message: violation,
+          taskId: claim.taskId,
+          recoverable: false
+        }))
+      ]
+    }
+  };
+}
+
 export function buildSimulatedAdapterOutput(
   claimPayload: TaskClaimPayload,
   adapterCapabilityPayload: AdapterCapabilityDocument | null | undefined,
@@ -86,6 +232,12 @@ export function buildSimulatedAdapterOutput(
         `simulated-stage:${claim.stage}`,
         ...options.parseCsvOption(options.notes)
       ],
+      activity: {
+        commands: [],
+        editedFiles: [],
+        artifactFiles: [outputPath],
+        collaborationActions: []
+      },
       artifacts: [
         {
           id: artifactId,
@@ -220,20 +372,21 @@ export function executeTaskRun(
         getRouteNameFromTaskId,
         parseCsvOption
       });
+  const validatedRunOutput = applyRolePolicyToRunOutput(claim, runOutput);
 
   const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
     taskId: claim.taskId,
-    taskStatus: runOutput.adapterRun.status,
-    notes: [`summary:${runOutput.adapterRun.summary}`, ...runOutput.adapterRun.notes],
-    artifacts: runOutput.adapterRun.artifacts,
-    errors: runOutput.adapterRun.errors,
-    ...(executor !== undefined ? { executor } : {}),
-    ...(workflowStatus !== undefined ? { workflowStatus } : {}),
-    ...(currentStage !== undefined ? { currentStage } : {})
+    taskStatus: validatedRunOutput.adapterRun.status,
+    notes: [`summary:${validatedRunOutput.adapterRun.summary}`, ...validatedRunOutput.adapterRun.notes],
+    artifacts: validatedRunOutput.adapterRun.artifacts,
+    errors: validatedRunOutput.adapterRun.errors,
+    ...(executor === undefined ? {} : { executor }),
+    ...(workflowStatus === undefined ? {} : { workflowStatus }),
+    ...(currentStage === undefined ? {} : { currentStage })
   });
 
   return {
-    adapterRun: runOutput.adapterRun,
+    adapterRun: validatedRunOutput.adapterRun,
     receipt: receipt.taskResult,
     mode: adapterRuntimePayload ? 'external-adapter' : 'simulation'
   };

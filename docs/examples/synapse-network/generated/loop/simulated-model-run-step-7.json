@@ -11,6 +11,14 @@
       "simulated-adapter:github-copilot-cli-example",
       "simulated-stage:collaboration"
     ],
+    "activity": {
+      "commands": [],
+      "editedFiles": [],
+      "artifactFiles": [
+        "spec2flow/outputs/execution/frontend-smoke/collaboration-output.json"
+      ],
+      "collaborationActions": []
+    },
     "artifacts": [
       {
         "id": "frontend-smoke--collaboration-collaboration-output",
@@ -49,6 +57,6 @@
       ]
     },
     "errors": [],
-    "submittedAt": "2026-03-23T16:41:02.118Z"
+    "submittedAt": "2026-03-23T16:45:13.930Z"
   }
 }

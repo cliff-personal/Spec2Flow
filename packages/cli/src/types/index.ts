@@ -35,6 +35,7 @@ export type {
 export type { TaskResult, TaskResultDocument } from './task-result.js';
 export type { AdapterOutputMode, AdapterRuntime, AdapterRuntimeDocument } from './adapter-runtime.js';
 export type {
+  AdapterRunActivity,
   AdapterRun,
   AdapterRunDocument,
   TaskExecutionMode,

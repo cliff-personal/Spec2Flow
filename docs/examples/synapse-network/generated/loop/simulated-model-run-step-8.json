@@ -11,6 +11,14 @@
       "simulated-adapter:github-copilot-cli-example",
       "simulated-stage:requirements-analysis"
     ],
+    "activity": {
+      "commands": [],
+      "editedFiles": [],
+      "artifactFiles": [
+        "spec2flow/outputs/execution/gateway-api-smoke/requirements-analysis-output.json"
+      ],
+      "collaborationActions": []
+    },
     "artifacts": [
       {
         "id": "gateway-api-smoke--requirements-analysis-requirements-analysis-output",
@@ -49,6 +57,6 @@
       ]
     },
     "errors": [],
-    "submittedAt": "2026-03-23T16:41:02.156Z"
+    "submittedAt": "2026-03-23T16:45:13.965Z"
   }
 }

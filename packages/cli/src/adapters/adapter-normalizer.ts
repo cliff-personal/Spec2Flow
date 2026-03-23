@@ -1,5 +1,13 @@
 import { fail, fileExists, readStructuredFile, resolveFromCwd } from '../shared/fs-utils.js';
-import type { AdapterRunDocument, AdapterRuntime, AdapterRuntimeDocument, ArtifactRef, ErrorItem, TaskClaimPayload } from '../types/index.js';
+import type {
+  AdapterRunActivity,
+  AdapterRunDocument,
+  AdapterRuntime,
+  AdapterRuntimeDocument,
+  ArtifactRef,
+  ErrorItem,
+  TaskClaimPayload
+} from '../types/index.js';
 
 export type AdapterTemplateContext = Record<string, string>;
 
@@ -16,6 +24,13 @@ export interface AdapterArtifactLike {
   kind?: ArtifactRef['kind'];
   path: string;
   taskId?: string;
+}
+
+interface AdapterRunActivityLike {
+  commands?: unknown;
+  editedFiles?: unknown;
+  artifactFiles?: unknown;
+  collaborationActions?: unknown;
 }
 
 export function buildAdapterTemplateContext(
@@ -90,6 +105,25 @@ export function normalizeAdapterErrors(errors: AdapterErrorLike[] | undefined, t
   }));
 }
 
+function normalizeActivityList(values: unknown): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return values.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean);
+}
+
+export function normalizeAdapterRunActivity(activity: unknown): AdapterRunActivity {
+  const activityPayload = activity && typeof activity === 'object' ? activity as AdapterRunActivityLike : {};
+
+  return {
+    commands: normalizeActivityList(activityPayload.commands),
+    editedFiles: normalizeActivityList(activityPayload.editedFiles),
+    artifactFiles: normalizeActivityList(activityPayload.artifactFiles),
+    collaborationActions: normalizeActivityList(activityPayload.collaborationActions)
+  };
+}
+
 export function extractJsonPayload(content: string): string {
   const trimmed = content.trim();
   const firstObjectStart = trimmed.indexOf('{');
@@ -159,6 +193,7 @@ export function normalizeAdapterRunPayload(
       status: adapterRun.status ?? 'completed',
       summary: adapterRun.summary ?? `${claim.taskId}-completed`,
       notes: adapterRun.notes ?? [],
+      activity: normalizeAdapterRunActivity(adapterRun.activity),
       artifacts: normalizeAdapterArtifacts(adapterRun.artifacts, claim.taskId),
       errors: normalizeAdapterErrors(adapterRun.errors, claim.taskId)
     }

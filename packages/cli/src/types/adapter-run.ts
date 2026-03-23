@@ -2,6 +2,13 @@ import type { ArtifactRef, ErrorItem } from './execution-state.js';
 import type { TaskStage, TaskStatus } from './task-graph.js';
 import type { TaskResult } from './task-result.js';
 
+export interface AdapterRunActivity {
+  commands: string[];
+  editedFiles: string[];
+  artifactFiles: string[];
+  collaborationActions: string[];
+}
+
 export interface AdapterRun {
   adapterName: string;
   provider: string;
@@ -11,6 +18,7 @@ export interface AdapterRun {
   status: TaskStatus;
   summary: string;
   notes: string[];
+  activity: AdapterRunActivity;
   artifacts: ArtifactRef[];
   errors: ErrorItem[];
 }
