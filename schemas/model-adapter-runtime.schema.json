@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/model-adapter-runtime.schema.json",
+  "title": "Spec2Flow Model Adapter Runtime",
+  "description": "Declares how Spec2Flow should execute an external model provider adapter.",
+  "type": "object",
+  "required": ["adapterRuntime"],
+  "additionalProperties": false,
+  "properties": {
+    "adapterRuntime": {
+      "type": "object",
+      "required": ["name", "command", "outputMode"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "args": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "cwd": { "type": "string", "minLength": 1 },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "outputMode": {
+          "type": "string",
+          "enum": ["stdout", "file"]
+        },
+        "outputPath": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "simulatedRun": {
+    "adapterName": "copilot-example",
+    "provider": "github-copilot",
+    "taskId": "frontend-smoke--requirements-analysis",
+    "runId": "synapse-example-run",
+    "stage": "requirements-analysis",
+    "status": "completed",
+    "summary": "simulated-requirements-analysis-completed",
+    "notes": [
+      "simulated-adapter:copilot-example",
+      "simulated-stage:requirements-analysis"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--requirements-analysis-requirements-analysis-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/requirements-analysis-output.json",
+        "taskId": "frontend-smoke--requirements-analysis"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "frontend-smoke--requirements-analysis",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:simulated-requirements-analysis-completed",
+      "simulated-adapter:copilot-example",
+      "simulated-stage:requirements-analysis"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--requirements-analysis-requirements-analysis-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/requirements-analysis-output.json",
+        "taskId": "frontend-smoke--requirements-analysis"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T06:39:30.063Z"
+  }
+}

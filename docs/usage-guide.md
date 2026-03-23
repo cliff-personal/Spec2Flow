@@ -52,6 +52,54 @@ The project uses Playwright and local scripts to validate critical user flows.
 ### 4. Publish Team Signals
 The project uses GitHub Actions and GitHub Issues to publish run status, artifacts, and defect follow-up.
 
+## Runtime Loop
+
+The minimal runtime loop in an adopting repository is:
+
+1. generate `task-graph.json`
+2. initialize `execution-state.json`
+3. claim the next ready `taskId`
+4. send the emitted claim payload to the model adapter
+5. apply deterministic edits or command execution
+6. submit the task result back into Spec2Flow state
+7. repeat until the run is completed, blocked, or failed
+
+For early adoption or integration testing, `simulate-model-run` can stand in for a real provider adapter so the team can validate controller behavior before wiring Copilot or another API.
+
+Once that works, the next step is to add a `model-adapter-runtime.json` file and point `run-task-with-adapter` or `run-workflow-loop --adapter-runtime ...` at a real external adapter command.
+
+That adapter command can be a thin wrapper around Copilot CLI, OpenAI, Azure OpenAI, Claude, or an internal agent platform. Spec2Flow does not need to know those provider details as long as the command returns one normalized JSON result.
+
+The bundled example adapter in this repository now uses GitHub Copilot CLI via `gh copilot -p`.
+
+To use it:
+
+1. install Copilot CLI or ensure `gh copilot` can download and run it
+2. run `gh copilot login`
+3. verify auth with `gh auth status`
+4. optionally set `adapterRuntime.model` in `model-adapter-runtime.json` to pin a model that your Copilot CLI account can actually use
+
+If you do not set `adapterRuntime.model`, the adapter will let Copilot CLI choose its default model. This is the safest default because model availability differs by account and plan.
+
+Run a preflight before the first workflow execution:
+
+```bash
+node packages/cli/src/spec2flow.mjs preflight-copilot-cli \
+  --adapter-runtime docs/examples/synapse-network/model-adapter-runtime.json
+```
+
+The preflight confirms command availability, authentication, and that `gh copilot -p` can complete a minimal JSON probe with the configured model or the account default.
+
+For Copilot-backed adapter runs, Spec2Flow executes that preflight automatically before `run-task-with-adapter` and `run-workflow-loop`.
+
+Use `--skip-preflight` only when you intentionally want to bypass the guardrail, for example while debugging the adapter itself.
+
+The adapter intentionally uses one-shot prompt mode rather than long-lived `/resume` sessions, because each Spec2Flow claim is meant to be a tightly scoped execution unit.
+
+After that, `run-workflow-loop` can act as the first autonomous controller loop for local rehearsals, integration tests, and eventually provider-backed execution.
+
+In practical terms, one feature request becomes one workflow run identified by `runId`, and that run contains many `taskId` values.
+
 ## Recommended Integration Layout
 
 Another repository does not need to copy the entire Spec2Flow repository structure.

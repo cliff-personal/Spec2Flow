@@ -1,0 +1,21 @@
+{
+  "adapterRuntime": {
+    "name": "github-copilot-cli-adapter",
+    "provider": "github-copilot-cli",
+     "model": "gpt-5.4",
+    "command": "node",
+    "args": [
+      "docs/examples/synapse-network/example-command-adapter.mjs",
+      "--claim",
+      "${claimPath}"
+    ],
+    "env": {
+      "SPEC2FLOW_COPILOT_MODEL": "${adapterModel}",
+      "SPEC2FLOW_STATE": "${statePath}",
+      "SPEC2FLOW_TASK_GRAPH": "${taskGraphPath}",
+      "SPEC2FLOW_TASK_ID": "${taskId}",
+      "SPEC2FLOW_RUN_ID": "${runId}"
+    },
+    "outputMode": "stdout"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "adapterRun": {
+    "adapterName": "copilot-command-example",
+    "provider": "github-copilot",
+    "taskId": "gateway-api-smoke--code-implementation",
+    "runId": "synapse-example-run",
+    "stage": "code-implementation",
+    "status": "completed",
+    "summary": "external-code-implementation-completed",
+    "notes": [
+      "external-adapter:gateway-api-smoke--code-implementation",
+      "goal:Apply code changes for gateway-api-smoke within the declared service boundaries",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "gateway-api-smoke--code-implementation-code-implementation-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/code-implementation-external-output.json",
+        "taskId": "gateway-api-smoke--code-implementation"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "gateway-api-smoke--code-implementation",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:external-code-implementation-completed",
+      "external-adapter:gateway-api-smoke--code-implementation",
+      "goal:Apply code changes for gateway-api-smoke within the declared service boundaries",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "gateway-api-smoke--code-implementation-code-implementation-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/code-implementation-external-output.json",
+        "taskId": "gateway-api-smoke--code-implementation"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T07:00:16.750Z"
+  }
+}

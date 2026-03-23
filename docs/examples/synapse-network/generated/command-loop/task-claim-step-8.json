@@ -1,0 +1,62 @@
+{
+  "taskClaim": {
+    "runId": "synapse-example-run",
+    "workflowName": "synapse-network-workflow",
+    "taskId": "gateway-api-smoke--code-implementation",
+    "title": "Implement gateway-api-smoke changes",
+    "stage": "code-implementation",
+    "goal": "Apply code changes for gateway-api-smoke within the declared service boundaries",
+    "executorType": "implementation-agent",
+    "riskLevel": "low",
+    "reviewPolicy": {
+      "required": false,
+      "reviewAgentCount": 0,
+      "requireHumanApproval": false
+    },
+    "modelAdapterCapabilityRef": null,
+    "modelAdapterCapability": null,
+    "repositoryContext": {
+      "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
+      "topologyRef": "docs/examples/synapse-network/topology.yaml",
+      "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
+      "docs": [
+        "docs/01_Product_Vision",
+        "docs/01_Product_Frontend",
+        "docs/02_System_Architecture",
+        "docs/03_Core_Workflows",
+        "docs/04_Database_Design",
+        "docs/Gateway_Database_Design.md",
+        "docs/05_DevOps_Deployment",
+        "docs/api.md",
+        "docs/06_Reference"
+      ],
+      "changedFiles": [],
+      "targetFiles": [
+        "gateway"
+      ],
+      "verifyCommands": [],
+      "taskInputs": {
+        "matchedRiskRules": []
+      }
+    },
+    "runtimeContext": {
+      "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+      "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
+      "currentRunStatus": "running",
+      "currentStage": "code-implementation",
+      "attempt": 1,
+      "artifactRefs": [],
+      "taskArtifacts": [],
+      "taskErrors": [],
+      "artifactsDir": "spec2flow/outputs/execution/gateway-api-smoke",
+      "dependsOn": [
+        "gateway-api-smoke--requirements-analysis"
+      ]
+    },
+    "instructions": [
+      "Execute only the task identified by gateway-api-smoke--code-implementation.",
+      "Respect the declared target files, verification commands, and review policy.",
+      "Persist outputs back into execution-state.json before moving to downstream tasks."
+    ]
+  }
+}

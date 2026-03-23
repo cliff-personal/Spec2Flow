@@ -1,0 +1,25 @@
+{
+  "adapter": {
+    "name": "github-copilot-cli-example",
+    "provider": "github-copilot-cli",
+    "supports": {
+      "toolCalling": true,
+      "jsonMode": true,
+      "longContext": true,
+      "multiAgentDispatch": true,
+      "codeEditing": true,
+      "browserAutomation": false,
+      "streaming": true,
+      "functionRetryHints": true
+    },
+    "limits": {
+      "maxContextTokens": 128000,
+      "maxParallelAgents": 4,
+      "maxToolCallsPerTurn": 12
+    },
+    "fallbacks": [
+      "reduce-context-files",
+      "switch-to-analysis-only"
+    ]
+  }
+}

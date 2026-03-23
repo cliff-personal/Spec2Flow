@@ -1,0 +1,46 @@
+{
+  "adapterRun": {
+    "adapterName": "copilot-command-example",
+    "provider": "github-copilot",
+    "taskId": "frontend-smoke--collaboration",
+    "runId": "synapse-example-run",
+    "stage": "collaboration",
+    "status": "completed",
+    "summary": "external-collaboration-completed",
+    "notes": [
+      "external-adapter:frontend-smoke--collaboration",
+      "goal:Prepare PR or issue-ready collaboration output for frontend-smoke",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--collaboration-collaboration-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/collaboration-external-output.json",
+        "taskId": "frontend-smoke--collaboration"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "frontend-smoke--collaboration",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:external-collaboration-completed",
+      "external-adapter:frontend-smoke--collaboration",
+      "goal:Prepare PR or issue-ready collaboration output for frontend-smoke",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--collaboration-collaboration-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/collaboration-external-output.json",
+        "taskId": "frontend-smoke--collaboration"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T07:00:16.637Z"
+  }
+}

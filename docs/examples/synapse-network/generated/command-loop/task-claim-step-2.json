@@ -1,0 +1,70 @@
+{
+  "taskClaim": {
+    "runId": "synapse-example-run",
+    "workflowName": "synapse-network-workflow",
+    "taskId": "provider-registration-flow--requirements-analysis",
+    "title": "Analyze provider-registration-flow requirements",
+    "stage": "requirements-analysis",
+    "goal": "Summarize scope, impacted services, and acceptance criteria for provider-registration-flow",
+    "executorType": "requirements-agent",
+    "riskLevel": "low",
+    "reviewPolicy": {
+      "required": false,
+      "reviewAgentCount": 0,
+      "requireHumanApproval": false
+    },
+    "modelAdapterCapabilityRef": null,
+    "modelAdapterCapability": null,
+    "repositoryContext": {
+      "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
+      "topologyRef": "docs/examples/synapse-network/topology.yaml",
+      "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
+      "docs": [
+        "docs/01_Product_Vision",
+        "docs/01_Product_Frontend",
+        "docs/02_System_Architecture",
+        "docs/03_Core_Workflows",
+        "docs/04_Database_Design",
+        "docs/Gateway_Database_Design.md",
+        "docs/05_DevOps_Deployment",
+        "docs/api.md",
+        "docs/06_Reference"
+      ],
+      "changedFiles": [],
+      "targetFiles": [
+        "gateway",
+        "provider_service"
+      ],
+      "verifyCommands": [],
+      "taskInputs": {
+        "routeName": "provider-registration-flow",
+        "entryServices": [
+          "gateway",
+          "provider_service",
+          "postgres"
+        ],
+        "changedFiles": [],
+        "matchedRiskRules": []
+      }
+    },
+    "runtimeContext": {
+      "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+      "taskGraphRef": "docs/examples/synapse-network/generated/task-graph.json",
+      "currentRunStatus": "running",
+      "currentStage": "requirements-analysis",
+      "attempt": 1,
+      "artifactRefs": [],
+      "taskArtifacts": [],
+      "taskErrors": [],
+      "artifactsDir": "spec2flow/outputs/execution/provider-registration-flow",
+      "dependsOn": [
+        "environment-preparation"
+      ]
+    },
+    "instructions": [
+      "Execute only the task identified by provider-registration-flow--requirements-analysis.",
+      "Respect the declared target files, verification commands, and review policy.",
+      "Persist outputs back into execution-state.json before moving to downstream tasks."
+    ]
+  }
+}

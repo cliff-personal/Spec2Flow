@@ -1,0 +1,44 @@
+{
+  "adapterRun": {
+    "adapterName": "github-copilot-cli-adapter",
+    "provider": "github-copilot-cli",
+    "taskId": "gateway-api-smoke--requirements-analysis",
+    "runId": "synapse-example-run",
+    "stage": "requirements-analysis",
+    "status": "failed",
+    "summary": "adapter failed for gateway-api-smoke--requirements-analysis",
+    "notes": [
+      "task:gateway-api-smoke--requirements-analysis",
+      "adapter-execution-failed"
+    ],
+    "artifacts": [],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 71 (line 1 column 72)",
+        "taskId": "gateway-api-smoke--requirements-analysis",
+        "recoverable": false
+      }
+    ]
+  },
+  "receipt": {
+    "taskId": "gateway-api-smoke--requirements-analysis",
+    "status": "failed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:adapter failed for gateway-api-smoke--requirements-analysis",
+      "task:gateway-api-smoke--requirements-analysis",
+      "adapter-execution-failed"
+    ],
+    "artifacts": [],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 71 (line 1 column 72)",
+        "taskId": "gateway-api-smoke--requirements-analysis",
+        "recoverable": false
+      }
+    ],
+    "submittedAt": "2026-03-23T08:58:41.490Z"
+  }
+}

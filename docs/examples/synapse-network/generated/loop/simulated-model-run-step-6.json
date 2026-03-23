@@ -1,0 +1,44 @@
+{
+  "simulatedRun": {
+    "adapterName": "copilot-example",
+    "provider": "github-copilot",
+    "taskId": "frontend-smoke--collaboration",
+    "runId": "synapse-example-run",
+    "stage": "collaboration",
+    "status": "completed",
+    "summary": "simulated-collaboration-completed",
+    "notes": [
+      "simulated-adapter:copilot-example",
+      "simulated-stage:collaboration"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--collaboration-collaboration-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/collaboration-output.json",
+        "taskId": "frontend-smoke--collaboration"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "frontend-smoke--collaboration",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:simulated-collaboration-completed",
+      "simulated-adapter:copilot-example",
+      "simulated-stage:collaboration"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--collaboration-collaboration-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/collaboration-output.json",
+        "taskId": "frontend-smoke--collaboration"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T06:44:38.365Z"
+  }
+}

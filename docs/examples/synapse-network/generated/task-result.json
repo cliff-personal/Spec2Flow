@@ -1,0 +1,21 @@
+{
+  "taskResult": {
+    "taskId": "frontend-smoke--requirements-analysis",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:requirements-ready",
+      "scope-confirmed"
+    ],
+    "artifacts": [
+      {
+        "id": "requirements-summary",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/requirements-summary.json",
+        "taskId": "frontend-smoke--requirements-analysis"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T06:35:48.375Z"
+  }
+}

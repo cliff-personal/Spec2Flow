@@ -1,0 +1,44 @@
+{
+  "adapterRun": {
+    "adapterName": "github-copilot-cli-adapter",
+    "provider": "github-copilot-cli",
+    "taskId": "withdrawal-risk-regression--requirements-analysis",
+    "runId": "synapse-example-run",
+    "stage": "requirements-analysis",
+    "status": "failed",
+    "summary": "adapter failed for withdrawal-risk-regression--requirements-analysis",
+    "notes": [
+      "task:withdrawal-risk-regression--requirements-analysis",
+      "adapter-execution-failed"
+    ],
+    "artifacts": [],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 74 (line 1 column 75)",
+        "taskId": "withdrawal-risk-regression--requirements-analysis",
+        "recoverable": false
+      }
+    ]
+  },
+  "receipt": {
+    "taskId": "withdrawal-risk-regression--requirements-analysis",
+    "status": "failed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:adapter failed for withdrawal-risk-regression--requirements-analysis",
+      "task:withdrawal-risk-regression--requirements-analysis",
+      "adapter-execution-failed"
+    ],
+    "artifacts": [],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 74 (line 1 column 75)",
+        "taskId": "withdrawal-risk-regression--requirements-analysis",
+        "recoverable": false
+      }
+    ],
+    "submittedAt": "2026-03-23T09:01:03.976Z"
+  }
+}

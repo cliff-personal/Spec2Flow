@@ -1,0 +1,69 @@
+{
+  "workflowLoop": {
+    "runId": "synapse-example-run",
+    "workflowName": "synapse-network-workflow",
+    "maxSteps": 8,
+    "stepsExecuted": 8,
+    "stopReason": "max-steps-reached",
+    "claimedTaskIds": [
+      "frontend-smoke--requirements-analysis",
+      "frontend-smoke--code-implementation",
+      "frontend-smoke--test-design",
+      "frontend-smoke--automated-execution",
+      "frontend-smoke--defect-feedback",
+      "frontend-smoke--collaboration",
+      "gateway-api-smoke--requirements-analysis",
+      "gateway-api-smoke--code-implementation"
+    ],
+    "receipts": [
+      {
+        "taskId": "frontend-smoke--requirements-analysis",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-1.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-1.json"
+      },
+      {
+        "taskId": "frontend-smoke--code-implementation",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-2.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-2.json"
+      },
+      {
+        "taskId": "frontend-smoke--test-design",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-3.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-3.json"
+      },
+      {
+        "taskId": "frontend-smoke--automated-execution",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-4.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-4.json"
+      },
+      {
+        "taskId": "frontend-smoke--defect-feedback",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-5.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-5.json"
+      },
+      {
+        "taskId": "frontend-smoke--collaboration",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-6.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-6.json"
+      },
+      {
+        "taskId": "gateway-api-smoke--requirements-analysis",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-7.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-7.json"
+      },
+      {
+        "taskId": "gateway-api-smoke--code-implementation",
+        "status": "completed",
+        "claimRef": "docs/examples/synapse-network/generated/loop/task-claim-step-8.json",
+        "simulatedRunRef": "docs/examples/synapse-network/generated/loop/simulated-model-run-step-8.json"
+      }
+    ]
+  }
+}

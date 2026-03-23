@@ -1,0 +1,44 @@
+{
+  "simulatedRun": {
+    "adapterName": "copilot-example",
+    "provider": "github-copilot",
+    "taskId": "gateway-api-smoke--code-implementation",
+    "runId": "synapse-example-run",
+    "stage": "code-implementation",
+    "status": "completed",
+    "summary": "simulated-code-implementation-completed",
+    "notes": [
+      "simulated-adapter:copilot-example",
+      "simulated-stage:code-implementation"
+    ],
+    "artifacts": [
+      {
+        "id": "gateway-api-smoke--code-implementation-code-implementation-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/code-implementation-output.json",
+        "taskId": "gateway-api-smoke--code-implementation"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "gateway-api-smoke--code-implementation",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:simulated-code-implementation-completed",
+      "simulated-adapter:copilot-example",
+      "simulated-stage:code-implementation"
+    ],
+    "artifacts": [
+      {
+        "id": "gateway-api-smoke--code-implementation-code-implementation-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/code-implementation-output.json",
+        "taskId": "gateway-api-smoke--code-implementation"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T06:44:38.407Z"
+  }
+}

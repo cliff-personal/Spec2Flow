@@ -1,0 +1,44 @@
+{
+  "adapterRun": {
+    "adapterName": "github-copilot-cli-adapter",
+    "provider": "github-copilot-cli",
+    "taskId": "withdrawal-risk-regression--requirements-analysis",
+    "runId": "synapse-example-run",
+    "stage": "requirements-analysis",
+    "status": "failed",
+    "summary": "adapter failed for withdrawal-risk-regression--requirements-analysis",
+    "notes": [
+      "task:withdrawal-risk-regression--requirements-analysis",
+      "adapter-execution-failed"
+    ],
+    "artifacts": [],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "Error: Model \"gpt-5\" from --model flag is not available.",
+        "taskId": "withdrawal-risk-regression--requirements-analysis",
+        "recoverable": false
+      }
+    ]
+  },
+  "receipt": {
+    "taskId": "withdrawal-risk-regression--requirements-analysis",
+    "status": "failed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:adapter failed for withdrawal-risk-regression--requirements-analysis",
+      "task:withdrawal-risk-regression--requirements-analysis",
+      "adapter-execution-failed"
+    ],
+    "artifacts": [],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "Error: Model \"gpt-5\" from --model flag is not available.",
+        "taskId": "withdrawal-risk-regression--requirements-analysis",
+        "recoverable": false
+      }
+    ],
+    "submittedAt": "2026-03-23T07:57:48.584Z"
+  }
+}

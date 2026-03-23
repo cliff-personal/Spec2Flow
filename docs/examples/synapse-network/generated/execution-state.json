@@ -1,0 +1,361 @@
+{
+  "executionState": {
+    "runId": "synapse-example-run",
+    "workflowName": "synapse-network-workflow",
+    "status": "failed",
+    "currentStage": "code-implementation",
+    "provider": {
+      "adapter": "spec2flow-cli",
+      "model": "gpt-5.4",
+      "sessionId": "example-session"
+    },
+    "startedAt": "2026-03-23T08:02:36.738Z",
+    "updatedAt": "2026-03-23T09:01:03.956Z",
+    "tasks": [
+      {
+        "taskId": "environment-preparation",
+        "status": "completed",
+        "executor": "controller-agent",
+        "attempts": 0,
+        "artifactRefs": [
+          "task-graph"
+        ],
+        "notes": [
+          "stage:environment-preparation",
+          "risk:low",
+          "bootstrap-ok"
+        ],
+        "startedAt": "2026-03-23T08:02:36.822Z",
+        "completedAt": "2026-03-23T08:02:36.822Z"
+      },
+      {
+        "taskId": "frontend-smoke--requirements-analysis",
+        "status": "failed",
+        "executor": "requirements-agent",
+        "attempts": 1,
+        "notes": [
+          "stage:requirements-analysis",
+          "risk:low",
+          "summary:adapter failed for frontend-smoke--requirements-analysis",
+          "task:frontend-smoke--requirements-analysis",
+          "adapter-execution-failed"
+        ],
+        "startedAt": "2026-03-23T08:02:36.988Z",
+        "completedAt": "2026-03-23T08:57:04.233Z"
+      },
+      {
+        "taskId": "frontend-smoke--code-implementation",
+        "status": "pending",
+        "executor": "implementation-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:code-implementation",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "frontend-smoke--test-design",
+        "status": "pending",
+        "executor": "test-design-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:test-design",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "frontend-smoke--automated-execution",
+        "status": "pending",
+        "executor": "execution-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:automated-execution",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "frontend-smoke--defect-feedback",
+        "status": "pending",
+        "executor": "defect-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:defect-feedback",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "frontend-smoke--collaboration",
+        "status": "pending",
+        "executor": "review-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:collaboration",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "gateway-api-smoke--requirements-analysis",
+        "status": "failed",
+        "executor": "requirements-agent",
+        "attempts": 1,
+        "notes": [
+          "stage:requirements-analysis",
+          "risk:low",
+          "summary:adapter failed for gateway-api-smoke--requirements-analysis",
+          "task:gateway-api-smoke--requirements-analysis",
+          "adapter-execution-failed"
+        ],
+        "startedAt": "2026-03-23T08:57:40.714Z",
+        "completedAt": "2026-03-23T08:58:41.470Z"
+      },
+      {
+        "taskId": "gateway-api-smoke--code-implementation",
+        "status": "pending",
+        "executor": "implementation-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:code-implementation",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "gateway-api-smoke--test-design",
+        "status": "pending",
+        "executor": "test-design-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:test-design",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "gateway-api-smoke--automated-execution",
+        "status": "pending",
+        "executor": "execution-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:automated-execution",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "gateway-api-smoke--defect-feedback",
+        "status": "pending",
+        "executor": "defect-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:defect-feedback",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "gateway-api-smoke--collaboration",
+        "status": "pending",
+        "executor": "review-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:collaboration",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "provider-registration-flow--requirements-analysis",
+        "status": "failed",
+        "executor": "requirements-agent",
+        "attempts": 1,
+        "notes": [
+          "stage:requirements-analysis",
+          "risk:low",
+          "summary:adapter failed for provider-registration-flow--requirements-analysis",
+          "task:provider-registration-flow--requirements-analysis",
+          "adapter-execution-failed"
+        ],
+        "startedAt": "2026-03-23T08:58:41.491Z",
+        "completedAt": "2026-03-23T09:00:06.487Z"
+      },
+      {
+        "taskId": "provider-registration-flow--code-implementation",
+        "status": "pending",
+        "executor": "implementation-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:code-implementation",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "provider-registration-flow--test-design",
+        "status": "pending",
+        "executor": "test-design-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:test-design",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "provider-registration-flow--automated-execution",
+        "status": "pending",
+        "executor": "execution-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:automated-execution",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "provider-registration-flow--defect-feedback",
+        "status": "pending",
+        "executor": "defect-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:defect-feedback",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "provider-registration-flow--collaboration",
+        "status": "pending",
+        "executor": "review-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:collaboration",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "withdrawal-risk-regression--requirements-analysis",
+        "status": "failed",
+        "executor": "requirements-agent",
+        "attempts": 1,
+        "notes": [
+          "stage:requirements-analysis",
+          "risk:low",
+          "summary:adapter failed for withdrawal-risk-regression--requirements-analysis",
+          "task:withdrawal-risk-regression--requirements-analysis",
+          "adapter-execution-failed"
+        ],
+        "startedAt": "2026-03-23T09:00:06.505Z",
+        "completedAt": "2026-03-23T09:01:03.956Z"
+      },
+      {
+        "taskId": "withdrawal-risk-regression--code-implementation",
+        "status": "pending",
+        "executor": "implementation-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:code-implementation",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "withdrawal-risk-regression--test-design",
+        "status": "pending",
+        "executor": "test-design-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:test-design",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "withdrawal-risk-regression--automated-execution",
+        "status": "pending",
+        "executor": "execution-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:automated-execution",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "withdrawal-risk-regression--defect-feedback",
+        "status": "pending",
+        "executor": "defect-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:defect-feedback",
+          "risk:low"
+        ]
+      },
+      {
+        "taskId": "withdrawal-risk-regression--collaboration",
+        "status": "pending",
+        "executor": "review-agent",
+        "attempts": 0,
+        "artifactRefs": [],
+        "notes": [
+          "stage:collaboration",
+          "risk:low"
+        ]
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "task-graph",
+        "kind": "report",
+        "path": "docs/examples/synapse-network/generated/task-graph.json"
+      },
+      {
+        "id": "project-adapter",
+        "kind": "other",
+        "path": "docs/examples/synapse-network/project.yaml"
+      },
+      {
+        "id": "topology",
+        "kind": "other",
+        "path": "docs/examples/synapse-network/topology.yaml"
+      },
+      {
+        "id": "risk-policy",
+        "kind": "other",
+        "path": "docs/examples/synapse-network/risk.yaml"
+      }
+    ],
+    "errors": [
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 68 (line 1 column 69)",
+        "taskId": "frontend-smoke--requirements-analysis",
+        "recoverable": false
+      },
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 71 (line 1 column 72)",
+        "taskId": "gateway-api-smoke--requirements-analysis",
+        "recoverable": false
+      },
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 63 (line 1 column 64)",
+        "taskId": "provider-registration-flow--requirements-analysis",
+        "recoverable": false
+      },
+      {
+        "code": "adapter-execution-failed",
+        "message": "copilot cli output is not valid JSON: Bad control character in string literal in JSON at position 74 (line 1 column 75)",
+        "taskId": "withdrawal-risk-regression--requirements-analysis",
+        "recoverable": false
+      }
+    ]
+  }
+}

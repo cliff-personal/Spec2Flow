@@ -1,0 +1,44 @@
+{
+  "simulatedRun": {
+    "adapterName": "copilot-example",
+    "provider": "github-copilot",
+    "taskId": "frontend-smoke--automated-execution",
+    "runId": "synapse-example-run",
+    "stage": "automated-execution",
+    "status": "completed",
+    "summary": "simulated-automated-execution-completed",
+    "notes": [
+      "simulated-adapter:copilot-example",
+      "simulated-stage:automated-execution"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--automated-execution-automated-execution-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/automated-execution-output.json",
+        "taskId": "frontend-smoke--automated-execution"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "frontend-smoke--automated-execution",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:simulated-automated-execution-completed",
+      "simulated-adapter:copilot-example",
+      "simulated-stage:automated-execution"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--automated-execution-automated-execution-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/automated-execution-output.json",
+        "taskId": "frontend-smoke--automated-execution"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T06:44:38.317Z"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "adapterRun": {
+    "adapterName": "copilot-command-example",
+    "provider": "github-copilot",
+    "taskId": "gateway-api-smoke--requirements-analysis",
+    "runId": "synapse-example-run",
+    "stage": "requirements-analysis",
+    "status": "completed",
+    "summary": "external-requirements-analysis-completed",
+    "notes": [
+      "external-adapter:gateway-api-smoke--requirements-analysis",
+      "goal:Summarize scope, impacted services, and acceptance criteria for gateway-api-smoke",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "gateway-api-smoke--requirements-analysis-requirements-analysis-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/requirements-analysis-external-output.json",
+        "taskId": "gateway-api-smoke--requirements-analysis"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "gateway-api-smoke--requirements-analysis",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:external-requirements-analysis-completed",
+      "external-adapter:gateway-api-smoke--requirements-analysis",
+      "goal:Summarize scope, impacted services, and acceptance criteria for gateway-api-smoke",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "gateway-api-smoke--requirements-analysis-requirements-analysis-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/gateway-api-smoke/requirements-analysis-external-output.json",
+        "taskId": "gateway-api-smoke--requirements-analysis"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T07:00:16.693Z"
+  }
+}

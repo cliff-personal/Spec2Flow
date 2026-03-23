@@ -5,7 +5,8 @@
     "source": {
       "projectAdapterRef": "docs/examples/synapse-network/project.yaml",
       "topologyRef": "docs/examples/synapse-network/topology.yaml",
-      "riskPolicyRef": "docs/examples/synapse-network/risk.yaml"
+      "riskPolicyRef": "docs/examples/synapse-network/risk.yaml",
+      "changeSet": []
     },
     "tasks": [
       {
@@ -42,7 +43,9 @@
           "entryServices": [
             "frontend",
             "gateway"
-          ]
+          ],
+          "changedFiles": [],
+          "matchedRiskRules": []
         },
         "targetFiles": [
           "apps/frontend",
@@ -66,6 +69,9 @@
         "dependsOn": [
           "frontend-smoke--requirements-analysis"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "apps/frontend",
           "gateway"
@@ -88,6 +94,9 @@
         "dependsOn": [
           "frontend-smoke--code-implementation"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "apps/frontend",
           "gateway"
@@ -113,6 +122,9 @@
         "dependsOn": [
           "frontend-smoke--test-design"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "apps/frontend",
           "gateway"
@@ -138,6 +150,9 @@
         "dependsOn": [
           "frontend-smoke--automated-execution"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "apps/frontend",
           "gateway"
@@ -160,6 +175,9 @@
         "dependsOn": [
           "frontend-smoke--defect-feedback"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "apps/frontend",
           "gateway"
@@ -188,7 +206,9 @@
             "gateway",
             "postgres",
             "redis"
-          ]
+          ],
+          "changedFiles": [],
+          "matchedRiskRules": []
         },
         "targetFiles": [
           "gateway"
@@ -211,6 +231,9 @@
         "dependsOn": [
           "gateway-api-smoke--requirements-analysis"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway"
         ],
@@ -232,6 +255,9 @@
         "dependsOn": [
           "gateway-api-smoke--code-implementation"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway"
         ],
@@ -256,6 +282,9 @@
         "dependsOn": [
           "gateway-api-smoke--test-design"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway"
         ],
@@ -280,6 +309,9 @@
         "dependsOn": [
           "gateway-api-smoke--automated-execution"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway"
         ],
@@ -301,6 +333,9 @@
         "dependsOn": [
           "gateway-api-smoke--defect-feedback"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway"
         ],
@@ -328,7 +363,9 @@
             "gateway",
             "provider_service",
             "postgres"
-          ]
+          ],
+          "changedFiles": [],
+          "matchedRiskRules": []
         },
         "targetFiles": [
           "gateway",
@@ -352,6 +389,9 @@
         "dependsOn": [
           "provider-registration-flow--requirements-analysis"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "provider_service"
@@ -374,6 +414,9 @@
         "dependsOn": [
           "provider-registration-flow--code-implementation"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "provider_service"
@@ -400,6 +443,9 @@
         "dependsOn": [
           "provider-registration-flow--test-design"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "provider_service"
@@ -426,6 +472,9 @@
         "dependsOn": [
           "provider-registration-flow--automated-execution"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "provider_service"
@@ -448,6 +497,9 @@
         "dependsOn": [
           "provider-registration-flow--defect-feedback"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "provider_service"
@@ -477,7 +529,9 @@
             "contracts",
             "postgres",
             "anvil"
-          ]
+          ],
+          "changedFiles": [],
+          "matchedRiskRules": []
         },
         "targetFiles": [
           "gateway",
@@ -501,6 +555,9 @@
         "dependsOn": [
           "withdrawal-risk-regression--requirements-analysis"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "contracts"
@@ -523,6 +580,9 @@
         "dependsOn": [
           "withdrawal-risk-regression--code-implementation"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "contracts"
@@ -549,6 +609,9 @@
         "dependsOn": [
           "withdrawal-risk-regression--test-design"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "contracts"
@@ -575,6 +638,9 @@
         "dependsOn": [
           "withdrawal-risk-regression--automated-execution"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "contracts"
@@ -597,6 +663,9 @@
         "dependsOn": [
           "withdrawal-risk-regression--defect-feedback"
         ],
+        "inputs": {
+          "matchedRiskRules": []
+        },
         "targetFiles": [
           "gateway",
           "contracts"

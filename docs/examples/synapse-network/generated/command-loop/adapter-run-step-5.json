@@ -1,0 +1,46 @@
+{
+  "adapterRun": {
+    "adapterName": "copilot-command-example",
+    "provider": "github-copilot",
+    "taskId": "frontend-smoke--defect-feedback",
+    "runId": "synapse-example-run",
+    "stage": "defect-feedback",
+    "status": "completed",
+    "summary": "external-defect-feedback-completed",
+    "notes": [
+      "external-adapter:frontend-smoke--defect-feedback",
+      "goal:Generate structured bug drafts and evidence if frontend-smoke validation fails",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--defect-feedback-defect-feedback-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/defect-feedback-external-output.json",
+        "taskId": "frontend-smoke--defect-feedback"
+      }
+    ],
+    "errors": []
+  },
+  "receipt": {
+    "taskId": "frontend-smoke--defect-feedback",
+    "status": "completed",
+    "executionStateRef": "docs/examples/synapse-network/generated/execution-state.json",
+    "notes": [
+      "summary:external-defect-feedback-completed",
+      "external-adapter:frontend-smoke--defect-feedback",
+      "goal:Generate structured bug drafts and evidence if frontend-smoke validation fails",
+      "state:docs/examples/synapse-network/generated/execution-state.json"
+    ],
+    "artifacts": [
+      {
+        "id": "frontend-smoke--defect-feedback-defect-feedback-external-output",
+        "kind": "report",
+        "path": "spec2flow/outputs/execution/frontend-smoke/defect-feedback-external-output.json",
+        "taskId": "frontend-smoke--defect-feedback"
+      }
+    ],
+    "errors": [],
+    "submittedAt": "2026-03-23T07:00:16.576Z"
+  }
+}
