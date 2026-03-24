@@ -23,8 +23,8 @@ This document is the working implementation plan for the platform-shaped version
 | Task intake from one requirement | Accept one task and create one workflow run | `generate-task-graph --requirement`; `packages/cli/src/planning/task-graph-service.ts` | `partial` | No durable run intake API, no shared run store, no web submission surface |
 | DAG decomposition into six-stage subtasks | One request expands into stage-aware tasks | `packages/cli/src/planning/task-graph-service.ts` | `implemented` | None for the local controller path |
 | Persisted workflow truth outside model memory | Controller remains the system of record | `execution-state.json`; `packages/cli/src/runtime/execution-state-service.ts` | `implemented` | Shared PostgreSQL truth is still missing |
-| Shared multi-run persistence | Multiple runs and tasks persist durably for many workers | `migrate-platform-db`; `init-platform-run`; `packages/cli/src/platform/` | `partial` | PostgreSQL schema and repository layer now exist, but scheduler-backed runtime truth and read/query surfaces are still incomplete |
-| Scheduler with task leasing | Ready tasks can be leased safely to concurrent workers | `packages/cli/src/runtime/workflow-loop-service.ts` | `partial` | No leases, heartbeats, worker registry, timeout recovery, or dead-letter handling |
+| Shared multi-run persistence | Multiple runs and tasks persist durably for many workers | `migrate-platform-db`; `init-platform-run`; `lease-next-platform-task`; `get-platform-run-state`; `packages/cli/src/platform/` | `partial` | PostgreSQL schema, repository layer, lease state, and snapshot queries now exist, but DB-backed worker execution and richer query APIs are still incomplete |
+| Scheduler with task leasing | Ready tasks can be leased safely to concurrent workers | `lease-next-platform-task`; `heartbeat-platform-task`; `start-platform-task`; `expire-platform-leases`; `packages/cli/src/platform/platform-scheduler-service.ts` | `partial` | Lease ownership, heartbeat, and timeout recovery now exist, but there is still no worker registry or dead-letter queue service |
 | Stage-specialized workers | Requirements, implementation, test, execution, defect, and collaboration run as role-scoped workers | Stage executor types and role profiles exist | `partial` | No worker processes/services separated from the CLI loop |
 | Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/task-result-service.ts` reroutes by failure class | `partial` | No retry budgets, no repair-attempt records, no loop stop policy, no repair orchestration service |
 | Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts` | `partial` | No service orchestration, no browser automation evidence pipeline, no richer environment convergence |
@@ -100,7 +100,7 @@ Unimplemented markers:
 
 ## Phase 2: Scheduler And Lease Model
 
-Status: `gap`
+Status: `partial`
 
 Goal:
 
@@ -130,10 +130,11 @@ Exit signal:
 
 Unimplemented markers:
 
-- `gap`: task lease persistence
-- `gap`: heartbeat protocol
-- `gap`: dead-letter or timeout handling
+- `implemented`: task lease persistence in PostgreSQL
+- `implemented`: heartbeat protocol
+- `implemented`: timeout recovery and retryable requeue
 - `gap`: worker registry
+- `gap`: dead-letter queue or terminal failure service beyond `blocked`
 
 ## Phase 3: Worker Runtime Extraction
 

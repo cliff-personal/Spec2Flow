@@ -2,6 +2,18 @@ import type { ArtifactKind } from './execution-state.js';
 import type { ReviewPolicy } from './review-policy.js';
 import type { RiskLevel, TaskExecutorType, TaskRoleProfile, TaskStage, TaskStatus } from './task-graph.js';
 
+export type PlatformRunStatus = 'pending' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled';
+
+export type PlatformTaskStatus =
+  | TaskStatus
+  | 'leased'
+  | 'retryable-failed'
+  | 'cancelled';
+
+export interface PlatformWorkerIdentity {
+  workerId: string;
+}
+
 export interface PlatformRepositoryRecord {
   repositoryId: string;
   name: string;
@@ -15,11 +27,15 @@ export interface PlatformRunRecord {
   repositoryId: string;
   workflowName: string;
   requestText?: string | null;
-  status: string;
+  status: PlatformRunStatus;
   currentStage: TaskStage | null;
   riskLevel: RiskLevel | null;
   requestPayload?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }
 
 export interface PlatformTaskRecord {
@@ -29,7 +45,7 @@ export interface PlatformTaskRecord {
   title: string;
   goal: string;
   executorType: TaskExecutorType;
-  status: TaskStatus;
+  status: PlatformTaskStatus;
   riskLevel?: RiskLevel | null;
   dependsOn: string[];
   targetFiles: string[];
@@ -39,6 +55,30 @@ export interface PlatformTaskRecord {
   reviewPolicy?: ReviewPolicy | null;
   artifactsDir?: string | null;
   attempts?: number;
+  retryCount?: number;
+  maxRetries?: number;
+  currentLeaseId?: string | null;
+  leasedByWorkerId?: string | null;
+  leaseExpiresAt?: string | null;
+  lastHeartbeatAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface PlatformTaskLeaseRecord {
+  runId: string;
+  taskId: string;
+  stage: TaskStage;
+  status: Extract<PlatformTaskStatus, 'leased' | 'in-progress'>;
+  workerId: string;
+  leaseId: string;
+  attemptNumber: number;
+  leaseExpiresAt: string;
+  lastHeartbeatAt: string;
+  leaseTtlSeconds: number;
+  heartbeatIntervalSeconds: number;
 }
 
 export interface PlatformEventRecord {
@@ -47,6 +87,7 @@ export interface PlatformEventRecord {
   taskId?: string | null;
   eventType: string;
   payload: Record<string, unknown>;
+  createdAt?: string | null;
 }
 
 export interface PlatformArtifactRecord {
@@ -57,4 +98,12 @@ export interface PlatformArtifactRecord {
   path: string;
   schemaType?: string | null;
   metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+}
+
+export interface PlatformRunStateSnapshot {
+  run: PlatformRunRecord | null;
+  tasks: PlatformTaskRecord[];
+  recentEvents: PlatformEventRecord[];
+  artifacts: PlatformArtifactRecord[];
 }

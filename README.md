@@ -226,6 +226,11 @@ npm run run:synapse-task-with-adapter
 npm run run:synapse-copilot-cli-loop
 npm run run:synapse-workflow-loop
 npm run init:platform-run -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --task-graph docs/examples/synapse-network/generated/task-graph.json --repository-id spec2flow --repository-name Spec2Flow --repo-root .
+npm run lease:platform-task -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform --worker-id worker-1
+npm run heartbeat:platform-task -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform --task-id some-task-id --worker-id worker-1
+npm run start:platform-task -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform --task-id some-task-id --worker-id worker-1
+npm run expire:platform-leases -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform
+npm run get:platform-run-state -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform
 npm run generate:synapse-task-graph:frontend-change
 npm run generate:synapse-task-graph:withdrawal-change
 ```

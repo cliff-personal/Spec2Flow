@@ -156,12 +156,20 @@ In practical terms, one feature request becomes one workflow run identified by `
 
 ## Platform Persistence Bootstrap
 
-Spec2Flow now also includes the first PostgreSQL-backed platform persistence slice for Phase 1 work.
+Spec2Flow now includes the first two PostgreSQL-backed platform slices:
 
-The new commands are:
+- Phase 1: runtime persistence bootstrap
+- Phase 2: scheduler primitives for lease, heartbeat, expiry recovery, and run-state reads
+
+The PostgreSQL commands are:
 
 - `migrate-platform-db`: apply the platform schema migrations
 - `init-platform-run`: persist one repository, one run, its tasks, initial events, and task-graph artifact metadata into PostgreSQL
+- `lease-next-platform-task`: atomically lease one ready task for one worker
+- `heartbeat-platform-task`: renew a task lease for the owning worker
+- `start-platform-task`: transition one leased task into `in-progress`
+- `expire-platform-leases`: requeue or block stale leased work after timeout
+- `get-platform-run-state`: read one DB-backed run snapshot with tasks, events, and artifacts
 
 Example bootstrap flow:
 
@@ -177,6 +185,36 @@ npm run init:platform-run -- \
   --repository-id spec2flow \
   --repository-name Spec2Flow \
   --repo-root .
+
+npm run lease:platform-task -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase2 \
+  --worker-id worker-1
+
+npm run heartbeat:platform-task -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase2 \
+  --task-id environment-preparation \
+  --worker-id worker-1
+
+npm run start:platform-task -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase2 \
+  --task-id environment-preparation \
+  --worker-id worker-1
+
+npm run expire:platform-leases -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase2
+
+npm run get:platform-run-state -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase2
 ```
 
 This persistence layer does not replace `task-graph.json` or `execution-state.json` yet.
@@ -190,6 +228,13 @@ It establishes the first shared runtime truth for:
 - `events`
 - `review_gates`
 - `publications`
+
+Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
+
+- `tasks.status` can now move through `ready`, `leased`, `in-progress`, `blocked`, `completed`, and retry-oriented recovery states
+- lease ownership is stored in PostgreSQL through `leased_by_worker_id`, `lease_expires_at`, and `last_heartbeat_at`
+- stale leases can be recovered without editing JSON files by running `expire-platform-leases`
+- `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
 
 ## Recommended Integration Layout
 

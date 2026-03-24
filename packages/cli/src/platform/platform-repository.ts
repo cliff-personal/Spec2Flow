@@ -279,10 +279,16 @@ export async function insertPlatformTasks(
           role_profile,
           review_policy,
           artifacts_dir,
-          attempts
+          attempts,
+          retry_count,
+          max_retries,
+          current_lease_id,
+          leased_by_worker_id,
+          lease_expires_at,
+          last_heartbeat_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
-          $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16
+          $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22
         )
       `,
       [
@@ -301,7 +307,13 @@ export async function insertPlatformTasks(
         JSON.stringify(task.roleProfile),
         JSON.stringify(task.reviewPolicy ?? null),
         task.artifactsDir ?? null,
-        task.attempts ?? 0
+        task.attempts ?? 0,
+        task.retryCount ?? 0,
+        task.maxRetries ?? 3,
+        task.currentLeaseId ?? null,
+        task.leasedByWorkerId ?? null,
+        task.leaseExpiresAt ?? null,
+        task.lastHeartbeatAt ?? null
       ]
     );
   }

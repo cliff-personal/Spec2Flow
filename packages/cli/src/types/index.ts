@@ -62,5 +62,10 @@ export type {
   PlatformEventRecord,
   PlatformRepositoryRecord,
   PlatformRunRecord,
-  PlatformTaskRecord
+  PlatformRunStateSnapshot,
+  PlatformRunStatus,
+  PlatformTaskLeaseRecord,
+  PlatformTaskRecord,
+  PlatformTaskStatus,
+  PlatformWorkerIdentity
 } from './platform-persistence.js';

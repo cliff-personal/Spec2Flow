@@ -41,7 +41,12 @@ CREATE TABLE IF NOT EXISTS __SPEC2FLOW_SCHEMA__.tasks (
   review_policy JSONB,
   artifacts_dir TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  max_retries INTEGER NOT NULL DEFAULT 3,
   current_lease_id TEXT,
+  leased_by_worker_id TEXT,
+  lease_expires_at TIMESTAMPTZ,
+  last_heartbeat_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at TIMESTAMPTZ,
@@ -59,7 +64,9 @@ CREATE TABLE IF NOT EXISTS __SPEC2FLOW_SCHEMA__.task_attempts (
   provider_name TEXT,
   model_name TEXT,
   session_key TEXT,
+  leased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   lease_expires_at TIMESTAMPTZ,
+  last_heartbeat_at TIMESTAMPTZ,
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
   status TEXT NOT NULL,
@@ -123,6 +130,9 @@ CREATE INDEX IF NOT EXISTS spec2flow_runs_repository_idx
 
 CREATE INDEX IF NOT EXISTS spec2flow_tasks_status_idx
   ON __SPEC2FLOW_SCHEMA__.tasks (run_id, status, stage);
+
+CREATE INDEX IF NOT EXISTS spec2flow_tasks_lease_expiry_idx
+  ON __SPEC2FLOW_SCHEMA__.tasks (status, lease_expires_at);
 
 CREATE INDEX IF NOT EXISTS spec2flow_events_run_idx
   ON __SPEC2FLOW_SCHEMA__.events (run_id, created_at ASC);
