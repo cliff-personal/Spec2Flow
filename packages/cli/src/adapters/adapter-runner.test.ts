@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeTaskRun } from './adapter-runner.js';
 import type { TaskClaimPayload } from '../types/task-claim.js';
 import type { ExecutionStateDocument } from '../types/execution-state.js';
@@ -391,6 +391,115 @@ function createCodeImplementationTestFiles(): {
   };
 }
 
+function createTestDesignTestFiles(): {
+  statePath: string;
+  taskGraphPath: string;
+  claimPayload: TaskClaimPayload;
+  repositoryRoot: string;
+  artifactsDir: string;
+} {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-test-design-'));
+  const repositoryRoot = path.join(tempDir, 'repo');
+  const artifactsDir = path.join(repositoryRoot, 'spec2flow', 'outputs', 'execution', 'frontend-smoke');
+  const statePath = path.join(repositoryRoot, 'execution-state.json');
+  const taskGraphPath = path.join(repositoryRoot, 'task-graph.json');
+  tempDirs.push(tempDir);
+
+  fs.mkdirSync(artifactsDir, { recursive: true });
+
+  const executionStatePayload: ExecutionStateDocument = {
+    executionState: {
+      runId: 'run-1',
+      workflowName: 'workflow',
+      status: 'running',
+      currentStage: 'test-design',
+      tasks: [
+        {
+          taskId: 'frontend-smoke--test-design',
+          status: 'ready',
+          executor: 'test-design-agent',
+          artifactRefs: [],
+          notes: []
+        }
+      ],
+      artifacts: [],
+      errors: []
+    }
+  };
+  const roleProfile: TaskRoleProfile = {
+    profileId: 'test-design-specialist',
+    specialistRole: 'test-design-agent',
+    commandPolicy: 'safe-repo-commands',
+    canReadRepository: true,
+    canEditFiles: true,
+    canRunCommands: true,
+    canWriteArtifacts: true,
+    canOpenCollaboration: false,
+    requiredAdapterSupports: [],
+    expectedArtifacts: ['test-plan', 'test-cases']
+  };
+  const taskGraphPayload: TaskGraphDocument = {
+    taskGraph: {
+      id: 'workflow',
+      workflowName: 'workflow',
+      tasks: [
+        {
+          id: 'frontend-smoke--test-design',
+          stage: 'test-design',
+          title: 'Design tests',
+          goal: 'Design tests',
+          executorType: 'test-design-agent',
+          roleProfile,
+          status: 'ready'
+        }
+      ]
+    }
+  };
+
+  fs.mkdirSync(repositoryRoot, { recursive: true });
+  fs.writeFileSync(statePath, `${JSON.stringify(executionStatePayload, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(taskGraphPath, `${JSON.stringify(taskGraphPayload, null, 2)}\n`, 'utf8');
+
+  return {
+    statePath,
+    taskGraphPath,
+    repositoryRoot,
+    artifactsDir,
+    claimPayload: {
+      taskClaim: {
+        runId: 'run-1',
+        workflowName: 'workflow',
+        taskId: 'frontend-smoke--test-design',
+        title: 'Design tests',
+        stage: 'test-design',
+        goal: 'Design tests',
+        executorType: 'test-design-agent',
+        roleProfile,
+        repositoryContext: {
+          docs: [],
+          changedFiles: [],
+          targetFiles: ['frontend'],
+          verifyCommands: [],
+          taskInputs: {}
+        },
+        runtimeContext: {
+          executionStateRef: statePath,
+          taskGraphRef: taskGraphPath,
+          currentRunStatus: 'running',
+          currentStage: 'test-design',
+          attempt: 1,
+          artifactRefs: [],
+          taskArtifacts: [],
+          taskErrors: [],
+          artifactsDir,
+          dependsOn: []
+        },
+        instructions: []
+      }
+    }
+  };
+}
+
 function createCollaborationTestFiles(): {
   statePath: string;
   taskGraphPath: string;
@@ -619,6 +728,41 @@ describe('adapter-runner', () => {
     ]));
     expect(result.receipt.artifactContract.status).toBe('satisfied');
     expect(result.receipt.artifactContract.presentArtifacts).toEqual(['requirements-summary']);
+  });
+
+  it('does not treat artifact output paths as repository edits during requirements analysis', () => {
+    const { statePath, taskGraphPath, claimPayload } = createTestFiles('none', false);
+    const tempDir = path.dirname(statePath);
+    const requirementsArtifactPath = path.join(tempDir, 'requirements-summary.json');
+    const runtimePath = path.join(tempDir, 'adapter-runtime.json');
+    const adapterScript = `process.stdout.write(JSON.stringify({adapterRun:{status:"completed",summary:"requirements-ready",notes:[],activity:{commands:[],editedFiles:[${JSON.stringify(requirementsArtifactPath)}],artifactFiles:[${JSON.stringify(requirementsArtifactPath)}],collaborationActions:[]},artifacts:[{id:"requirements-summary",kind:"report",path:${JSON.stringify(requirementsArtifactPath)}}],errors:[]}}))`;
+    writeRequirementSummaryArtifact(requirementsArtifactPath, 'frontend-smoke--requirements-analysis');
+    fs.writeFileSync(runtimePath, `${JSON.stringify({
+      adapterRuntime: {
+        name: 'requirements-artifact-overlap-adapter',
+        provider: 'test-adapter',
+        command: 'node',
+        args: [
+          '-e',
+          adapterScript
+        ],
+        cwd: tempDir,
+        outputMode: 'stdout'
+      }
+    }, null, 2)}\n`, 'utf8');
+
+    const result = executeTaskRun(statePath, taskGraphPath, claimPayload, {
+      'adapter-runtime': runtimePath
+    }, {
+      validateAdapterRuntimePayload: () => undefined,
+      sanitizeStageName: (stage) => stage,
+      getRouteNameFromTaskId: (taskId) => taskId?.split('--')[0] ?? '',
+      parseCsvOption: (value) => value ? value.split(',').map((entry) => entry.trim()).filter(Boolean) : []
+    });
+
+    expect(result.adapterRun.status).toBe('completed');
+    expect(result.adapterRun.activity.editedFiles).toEqual([]);
+    expect(result.receipt.artifactContract.status).toBe('satisfied');
   });
 
   it('synthesizes requirements-summary from model output deliverable when the adapter omits the artifact file', () => {
@@ -1034,6 +1178,136 @@ describe('adapter-runner', () => {
     expect(codeDiffPayload).toContain('+export const value = 2;');
   });
 
+  it('normalizes an invalid implementation-summary artifact from the model deliverable when no new edits are reported', () => {
+    const { statePath, taskGraphPath, claimPayload, repositoryRoot } = createCodeImplementationTestFiles();
+    const runtimePath = path.join(repositoryRoot, 'adapter-runtime.json');
+    const artifactsDir = claimPayload.taskClaim?.runtimeContext.artifactsDir ?? '';
+    const implementationSummaryPath = path.join(artifactsDir, 'implementation-summary.json');
+    const codeDiffPath = path.join(artifactsDir, 'code-diff.patch');
+    const modelOutputPath = path.join(artifactsDir, 'code-implementation-copilot-cli-output.json');
+    const adapterScript = `const fs=require('node:fs'); const artifactsDir=${JSON.stringify(artifactsDir)}; const implementationSummaryPath=${JSON.stringify(implementationSummaryPath)}; const codeDiffPath=${JSON.stringify(codeDiffPath)}; const modelOutputPath=${JSON.stringify(modelOutputPath)}; fs.mkdirSync(artifactsDir, { recursive: true }); fs.writeFileSync(implementationSummaryPath, JSON.stringify({ taskId: 'frontend-smoke--code-implementation', status: 'completed', summary: 'observed existing implementation', observedRepositoryChanges: { app: ['already changed'] }, validation: [{ command: 'npm test', result: 'passed' }], note: 'existing worktree already had implementation' }, null, 2)); fs.writeFileSync(codeDiffPath, ${JSON.stringify('diff --git a/src/app.ts b/src/app.ts\n')}); fs.writeFileSync(modelOutputPath, JSON.stringify({ deliverable: { summary: 'observed existing implementation', validatedTests: [{ command: 'npm test', result: 'passed' }], scopedWorktreeStatus: ['src/app.ts'], note: 'existing worktree already had implementation' } }, null, 2)); process.stdout.write(JSON.stringify({adapterRun:{status:'completed',summary:'observed existing implementation',notes:[],activity:{commands:['npm test'],editedFiles:[],artifactFiles:[${JSON.stringify(implementationSummaryPath)},${JSON.stringify(codeDiffPath)}],collaborationActions:[]},artifacts:[{id:'frontend-smoke--code-implementation-code-implementation-model-output',kind:'report',path:${JSON.stringify(modelOutputPath)},taskId:'frontend-smoke--code-implementation'}],errors:[]}}));`;
+    fs.writeFileSync(runtimePath, `${JSON.stringify({
+      adapterRuntime: {
+        name: 'implementation-normalization-adapter',
+        provider: 'test-adapter',
+        command: 'node',
+        args: [
+          '-e',
+          adapterScript
+        ],
+        cwd: repositoryRoot,
+        outputMode: 'stdout'
+      }
+    }, null, 2)}\n`, 'utf8');
+
+    const result = executeTaskRun(statePath, taskGraphPath, claimPayload, {
+      'adapter-runtime': runtimePath
+    }, {
+      validateAdapterRuntimePayload: () => undefined,
+      sanitizeStageName: (stage) => stage,
+      getRouteNameFromTaskId: (taskId) => taskId?.split('--')[0] ?? '',
+      parseCsvOption: (value) => value ? value.split(',').map((entry) => entry.trim()).filter(Boolean) : []
+    });
+
+    expect(result.adapterRun.notes).toContain('controller-normalized:implementation-summary');
+    expect(result.receipt.artifactContract.status).toBe('satisfied');
+
+    const implementationSummaryPayload = JSON.parse(fs.readFileSync(implementationSummaryPath, 'utf8')) as {
+      stage: string;
+      goal: string;
+      summary: string;
+      changedFiles: Array<{ path: string; changeType: string }>;
+      validationCommands?: string[];
+      notes?: string[];
+    };
+    expect(implementationSummaryPayload.stage).toBe('code-implementation');
+    expect(implementationSummaryPayload.goal).toBe('Implement');
+    expect(implementationSummaryPayload.summary).toBe('observed existing implementation');
+    expect(implementationSummaryPayload.changedFiles).toEqual([
+      {
+        path: 'src/app.ts',
+        changeType: 'modified'
+      }
+    ]);
+    expect(implementationSummaryPayload.validationCommands).toEqual(['npm test']);
+    expect(implementationSummaryPayload.notes).toEqual(['existing worktree already had implementation']);
+  });
+
+  it('normalizes invalid test-design artifacts into schema-backed test-plan and test-cases payloads', () => {
+    const { statePath, taskGraphPath, claimPayload, repositoryRoot, artifactsDir } = createTestDesignTestFiles();
+    const runtimePath = path.join(repositoryRoot, 'adapter-runtime.json');
+    const modelOutputPath = path.join(artifactsDir, 'test-design-copilot-cli-output.json');
+    const testPlanPath = path.join(artifactsDir, 'test-plan.json');
+    const testCasesPath = path.join(artifactsDir, 'test-cases.json');
+    const adapterScript = `const fs=require('node:fs'); const artifactsDir=${JSON.stringify(artifactsDir)}; const modelOutputPath=${JSON.stringify(modelOutputPath)}; const testPlanPath=${JSON.stringify(testPlanPath)}; const testCasesPath=${JSON.stringify(testCasesPath)}; fs.mkdirSync(artifactsDir, { recursive: true }); fs.writeFileSync(modelOutputPath, JSON.stringify({ deliverable: { focus: ['Protect the frontend smoke path and provider contract.'] } }, null, 2)); fs.writeFileSync(testPlanPath, JSON.stringify({ taskId: 'frontend-smoke--test-design', workflow: 'frontend-smoke', stage: 'test-design', focus: ['Protect the frontend smoke path and provider contract.'], validationStrategy: { targetedCommands: ['npm test'], deferredSuiteCommands: ['npm run ci'], reasonDeferred: 'Keep the stage lightweight.' } }, null, 2)); fs.writeFileSync(testCasesPath, JSON.stringify({ taskId: 'frontend-smoke--test-design', cases: [{ id: 'frontend-smoke-path', service: 'frontend', type: 'smoke', route: 'GET /smoke', assertions: ['returns success', 'renders smoke content'] }] }, null, 2)); process.stdout.write(JSON.stringify({adapterRun:{status:'completed',summary:'test-design-ready',notes:[],activity:{commands:['npm test'],editedFiles:['src/smoke.test.ts'],artifactFiles:[testPlanPath,testCasesPath],collaborationActions:[]},artifacts:[{id:'frontend-smoke--test-design-test-design-model-output',kind:'report',path:modelOutputPath,taskId:'frontend-smoke--test-design'},{id:'test-plan',kind:'report',path:testPlanPath,taskId:'frontend-smoke--test-design'},{id:'test-cases',kind:'report',path:testCasesPath,taskId:'frontend-smoke--test-design'}],errors:[]}}));`;
+    fs.writeFileSync(runtimePath, `${JSON.stringify({
+      adapterRuntime: {
+        name: 'test-design-normalization-adapter',
+        provider: 'test-adapter',
+        command: 'node',
+        args: [
+          '-e',
+          adapterScript
+        ],
+        cwd: repositoryRoot,
+        outputMode: 'stdout'
+      }
+    }, null, 2)}\n`, 'utf8');
+
+    const result = executeTaskRun(statePath, taskGraphPath, claimPayload, {
+      'adapter-runtime': runtimePath
+    }, {
+      validateAdapterRuntimePayload: () => undefined,
+      sanitizeStageName: (stage) => stage,
+      getRouteNameFromTaskId: (taskId) => taskId?.split('--')[0] ?? '',
+      parseCsvOption: (value) => value ? value.split(',').map((entry) => entry.trim()).filter(Boolean) : []
+    });
+
+    expect(result.adapterRun.notes).toContain('controller-normalized:test-plan');
+    expect(result.adapterRun.notes).toContain('controller-normalized:test-cases');
+    expect(result.receipt.artifactContract.status).toBe('satisfied');
+
+    const testPlanPayload = JSON.parse(fs.readFileSync(testPlanPath, 'utf8')) as {
+      stage: string;
+      goal: string;
+      summary: string;
+      cases: Array<{ id: string; title: string; level: string; priority: string; objective?: string }>;
+      notes?: string[];
+    };
+    expect(testPlanPayload.stage).toBe('test-design');
+    expect(testPlanPayload.goal).toBe('Design tests');
+    expect(testPlanPayload.summary).toBe('test-design-ready');
+    expect(testPlanPayload.cases).toEqual([
+      {
+        id: 'frontend-smoke-path',
+        title: 'GET /smoke',
+        level: 'smoke',
+        priority: 'high',
+        objective: 'returns success',
+        targetFiles: ['frontend']
+      }
+    ]);
+    expect(testPlanPayload.notes).toContain('Keep the stage lightweight.');
+
+    const testCasesPayload = JSON.parse(fs.readFileSync(testCasesPath, 'utf8')) as {
+      stage: string;
+      goal: string;
+      cases: Array<{ id: string; title: string; priority: string; automationCandidate: boolean; expectedResults: string[] }>;
+    };
+    expect(testCasesPayload.stage).toBe('test-design');
+    expect(testCasesPayload.goal).toBe('Design tests');
+    expect(testCasesPayload.cases).toEqual([
+      expect.objectContaining({
+        id: 'frontend-smoke-path',
+        title: 'GET /smoke',
+        priority: 'high',
+        automationCandidate: true,
+        expectedResults: ['returns success', 'renders smoke content'],
+        targetFiles: ['frontend']
+      })
+    ]);
+  });
+
   it('returns a structured failed receipt when the adapter runtime times out', () => {
     const { statePath, taskGraphPath, claimPayload } = createTestFiles('none', false);
     const tempDir = path.dirname(statePath);
@@ -1070,6 +1344,45 @@ describe('adapter-runner', () => {
     expect(result.receipt.status).toBe('failed');
   });
 
+  it('does not misclassify signal termination as a timeout when the runtime has no timeout configured', () => {
+    const { statePath, taskGraphPath, claimPayload } = createTestFiles('none', false);
+    const tempDir = path.dirname(statePath);
+    const runtimePath = path.join(tempDir, 'signal-adapter-runtime.json');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    fs.writeFileSync(runtimePath, `${JSON.stringify({
+      adapterRuntime: {
+        name: 'signal-adapter',
+        provider: 'test-adapter',
+        command: 'node',
+        args: [
+          '-e',
+          "process.stderr.write('terminated-without-timeout'); process.kill(process.pid, 'SIGTERM')"
+        ],
+        outputMode: 'stdout'
+      }
+    }, null, 2)}\n`, 'utf8');
+
+    expect(() => executeTaskRun(statePath, taskGraphPath, claimPayload, {
+      'adapter-runtime': runtimePath
+    }, {
+      validateAdapterRuntimePayload: () => undefined,
+      sanitizeStageName: (stage) => stage,
+      getRouteNameFromTaskId: (taskId) => taskId?.split('--')[0] ?? '',
+      parseCsvOption: (value) => value ? value.split(',').map((entry) => entry.trim()).filter(Boolean) : []
+    })).toThrow('process.exit:1');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('adapter command failed'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('signal=SIGTERM'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('terminated-without-timeout'));
+
+    exitSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it('synthesizes collaboration-handoff from model output and blocks on approval gate', () => {
     const { statePath, taskGraphPath, claimPayload, repositoryRoot, artifactsDir } = createCollaborationTestFiles();
     const runtimePath = path.join(repositoryRoot, 'adapter-runtime.json');
@@ -1097,6 +1410,86 @@ describe('adapter-runner', () => {
 
     expect(result.adapterRun.artifacts).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'collaboration-handoff' })
+    ]));
+    expect(result.adapterRun.errors).toEqual([]);
+    expect(result.receipt.artifactContract.status).toBe('satisfied');
+    expect(result.receipt.status).toBe('blocked');
+  });
+
+  it('normalizes an existing invalid collaboration-handoff artifact and recovers blocked writes', () => {
+    const { statePath, taskGraphPath, claimPayload, repositoryRoot, artifactsDir } = createCollaborationTestFiles();
+    const runtimePath = path.join(repositoryRoot, 'adapter-runtime.json');
+    const modelOutputPath = path.join(artifactsDir, 'collaboration-copilot-cli-output.json');
+    const handoffPath = path.join(artifactsDir, 'collaboration-handoff.json');
+
+    fs.mkdirSync(path.dirname(handoffPath), { recursive: true });
+    fs.writeFileSync(handoffPath, `${JSON.stringify({
+      taskId: 'frontend-smoke--collaboration',
+      stage: 'collaboration',
+      route: 'frontend-smoke',
+      title: 'Frontend smoke PR/issue handoff',
+      status: 'ready_for_review',
+      summary: 'Prepared a PR-ready collaboration handoff for frontend smoke.',
+      upstreamArtifacts: ['spec2flow/outputs/execution/frontend-smoke/requirements-summary.json'],
+      notableFindings: [
+        {
+          severity: 'medium',
+          type: 'follow-up',
+          recommendedAction: 'Open a follow-up issue for remaining smoke coverage gaps.'
+        }
+      ],
+      prReadySummary: {
+        title: 'Align frontend smoke checks with route expectations'
+      },
+      issueReadyFollowUp: {
+        title: 'Track remaining frontend smoke coverage gaps'
+      }
+    }, null, 2)}\n`, 'utf8');
+
+    const adapterScript = `const fs=require('node:fs'); const path=require('node:path'); const modelOutputPath=${JSON.stringify(modelOutputPath)}; fs.mkdirSync(path.dirname(modelOutputPath), { recursive: true }); fs.writeFileSync(modelOutputPath, JSON.stringify({ deliverable: { handoffArtifact: ${JSON.stringify(handoffPath)}, title: 'Frontend smoke PR/issue handoff', route: 'frontend-smoke', summary: 'Prepared a PR-ready collaboration handoff for frontend smoke.', reviewFocus: ['Confirm smoke checks stay route-scoped.'], prReadySummary: { title: 'Align frontend smoke checks with route expectations' }, issueReadyFollowUp: { title: 'Track remaining frontend smoke coverage gaps' }, notableFindings: [{ recommendedAction: 'Open a follow-up issue for remaining smoke coverage gaps.' }] } }, null, 2)); process.stdout.write(JSON.stringify({adapterRun:{status:'blocked',summary:'artifact write blocked',notes:['collaboration-stage artifact pending'],activity:{commands:[],editedFiles:[],artifactFiles:[${JSON.stringify(handoffPath)}],collaborationActions:['Prepared review handoff']},artifacts:[{id:'collaboration-handoff',kind:'report',path:${JSON.stringify(handoffPath)},taskId:'frontend-smoke--collaboration'},{id:'frontend-smoke--collaboration-collaboration-model-output',kind:'report',path:modelOutputPath,taskId:'frontend-smoke--collaboration'}],errors:[{code:'artifact-write-blocked',message:'write denied',taskId:'frontend-smoke--collaboration',recoverable:true}]}}));`;
+    fs.writeFileSync(runtimePath, `${JSON.stringify({
+      adapterRuntime: {
+        name: 'collaboration-normalization-adapter',
+        provider: 'test-adapter',
+        command: 'node',
+        args: ['-e', adapterScript],
+        cwd: repositoryRoot,
+        outputMode: 'stdout'
+      }
+    }, null, 2)}\n`, 'utf8');
+
+    const result = executeTaskRun(statePath, taskGraphPath, claimPayload, {
+      'adapter-runtime': runtimePath
+    }, {
+      validateAdapterRuntimePayload: () => undefined,
+      sanitizeStageName: (stage) => stage,
+      getRouteNameFromTaskId: (taskId) => taskId?.split('--')[0] ?? '',
+      parseCsvOption: (value) => value ? value.split(',').map((entry) => entry.trim()).filter(Boolean) : []
+    });
+
+    const normalizedHandoff = JSON.parse(fs.readFileSync(handoffPath, 'utf8'));
+
+    expect(normalizedHandoff).toMatchObject({
+      taskId: 'frontend-smoke--collaboration',
+      stage: 'collaboration',
+      handoffType: 'pull-request',
+      readiness: 'awaiting-approval',
+      approvalRequired: true,
+      artifactRefs: ['spec2flow/outputs/execution/frontend-smoke/requirements-summary.json'],
+      nextActions: expect.arrayContaining([
+        'Request human approval for the collaboration handoff.',
+        'Open follow-up issue: Track remaining frontend smoke coverage gaps.',
+        'Open a follow-up issue for remaining smoke coverage gaps.'
+      ]),
+      reviewPolicy: {
+        required: true,
+        reviewAgentCount: 1,
+        requireHumanApproval: true
+      }
+    });
+    expect(result.adapterRun.notes).toEqual(expect.arrayContaining([
+      'controller-normalized:collaboration-handoff',
+      'controller-recovered:artifact-write-blocked'
     ]));
     expect(result.adapterRun.errors).toEqual([]);
     expect(result.receipt.artifactContract.status).toBe('satisfied');

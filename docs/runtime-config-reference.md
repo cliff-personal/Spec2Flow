@@ -267,8 +267,8 @@ Override choices exposed by the adapter template context:
 
 Use them this way:
 - `${specialistSessionKey}`: built-in default and correct for most repositories
-- `${executorSessionKey}`: use when run-scoped specialist isolation matters more than continuity
-- `${routeExecutorSessionKey}`: use when route-level isolation matters more than reuse
+- `${executorSessionKey}`: under the default `auto` mode it is canonicalized back to the stable specialist session, so use `always` only when you intentionally want durable run-scoped separation
+- `${routeExecutorSessionKey}`: under the default `auto` mode it is canonicalized back to the stable specialist session, so use `always` only when you intentionally want durable route-level separation
 - `${taskSessionKey}`: use only when maximum isolation is worth the extra session churn
 
 ### `SPEC2FLOW_COPILOT_SESSION_ID`
@@ -297,7 +297,11 @@ Optional persistence-policy override.
 Built-in default behavior:
 - no explicit env is required
 - stable specialist keys persist
-- dynamic multi-part keys are ephemeral
+- dynamic multi-part keys are canonicalized to the stable specialist session key instead of spawning new durable run-scoped sessions
+
+Preflight behavior:
+- successful Copilot preflight results are cached per runtime fingerprint for 15 minutes under `.spec2flow/runtime/copilot-preflight-cache`
+- repeated workflow runs against the same runtime reuse the cached pass result and skip the extra `pwd` probe session during that cache window
 
 Override guidance:
 - do not set this for normal operation

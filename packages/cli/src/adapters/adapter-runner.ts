@@ -59,8 +59,42 @@ export interface SimulatedAdapterOptions {
 }
 
 const repoMutationCommandPattern = /^(?:git\s+(?:add|commit|push|merge|rebase|reset|checkout)\b|gh\s+pr\b)/i;
+const defaultExternalAdapterMaxBufferBytes = 16 * 1024 * 1024;
+
+interface ExternalAdapterCommandError {
+  code?: string | number;
+  killed?: boolean;
+  signal?: string;
+  stderr?: { toString(): string } | string;
+  stdout?: { toString(): string } | string;
+  message?: string;
+}
 
 type ImplementationChangeType = 'added' | 'modified' | 'deleted' | 'renamed';
+type TestPlanCaseLevel = 'smoke' | 'integration' | 'regression' | 'edge';
+type TestCasePriority = 'low' | 'medium' | 'high' | 'critical';
+type CollaborationHandoffType = 'pull-request' | 'issue' | 'review' | 'status-update';
+type CollaborationReadiness = 'ready' | 'blocked' | 'awaiting-approval';
+
+interface NormalizedTestPlanCase {
+  id: string;
+  title: string;
+  level: TestPlanCaseLevel;
+  priority: TestCasePriority;
+  objective?: string;
+  targetFiles?: string[];
+}
+
+interface NormalizedTestCase {
+  id: string;
+  title: string;
+  priority: TestCasePriority;
+  automationCandidate: boolean;
+  preconditions?: string[];
+  steps: string[];
+  expectedResults: string[];
+  targetFiles?: string[];
+}
 
 function normalizeCommandValue(command: string): string {
   return command.trim().replaceAll(/\s+/g, ' ').toLowerCase();
@@ -390,6 +424,511 @@ function isValidRequirementSummaryPayload(payload: unknown): boolean {
   return validators.requirementSummary(payload);
 }
 
+function normalizeImplementationChangedFiles(
+  deliverablePayload: Record<string, unknown>,
+  fallbackEditedFiles: string[],
+  changeTypes: Map<string, ImplementationChangeType>
+): Array<{ path: string; changeType: ImplementationChangeType; summary?: string }> | undefined {
+  const changedFiles = deliverablePayload.changedFiles;
+  if (Array.isArray(changedFiles)) {
+    const normalizedChangedFiles = changedFiles
+      .map((entry) => {
+        if (typeof entry === 'string' && entry.trim()) {
+          const filePath = entry.trim();
+          return {
+            path: filePath,
+            changeType: changeTypes.get(filePath) ?? 'modified'
+          };
+        }
+
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          return null;
+        }
+
+        const filePath = getObjectStringProperty(entry, 'path');
+        if (!filePath) {
+          return null;
+        }
+
+        const changeTypeValue = getObjectStringProperty(entry, 'changeType');
+        const changeType = changeTypeValue === 'added'
+          || changeTypeValue === 'modified'
+          || changeTypeValue === 'deleted'
+          || changeTypeValue === 'renamed'
+          ? changeTypeValue
+          : changeTypes.get(filePath) ?? 'modified';
+        const summary = getObjectStringProperty(entry, 'summary');
+
+        return {
+          path: filePath,
+          changeType,
+          ...(summary ? { summary } : {})
+        };
+      })
+      .filter((entry): entry is { path: string; changeType: ImplementationChangeType; summary?: string } => Boolean(entry));
+
+    if (normalizedChangedFiles.length > 0) {
+      return normalizedChangedFiles;
+    }
+  }
+
+  const scopedWorktreeStatus = normalizeStringList(deliverablePayload.scopedWorktreeStatus);
+  if (scopedWorktreeStatus && scopedWorktreeStatus.length > 0) {
+    return scopedWorktreeStatus.map((filePath) => ({
+      path: filePath,
+      changeType: changeTypes.get(filePath) ?? 'modified'
+    }));
+  }
+
+  if (fallbackEditedFiles.length === 0) {
+    return undefined;
+  }
+
+  return fallbackEditedFiles.map((filePath) => ({
+    path: filePath,
+    changeType: changeTypes.get(filePath) ?? 'modified'
+  }));
+}
+
+function buildImplementationSummaryPayload(
+  deliverablePayload: Record<string, unknown> | null,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  fallbackEditedFiles: string[],
+  changeTypes: Map<string, ImplementationChangeType>,
+  summary: string,
+  executedCommands: string[],
+  diffRefs: string[]
+): Record<string, unknown> | null {
+  const normalizedDeliverable = deliverablePayload ?? {};
+  const changedFiles = normalizeImplementationChangedFiles(normalizedDeliverable, fallbackEditedFiles, changeTypes);
+  if (!changedFiles || changedFiles.length === 0) {
+    return null;
+  }
+
+  const deliverableSummary = getObjectStringProperty(normalizedDeliverable, 'summary');
+  const note = getObjectStringProperty(normalizedDeliverable, 'note');
+  const validatedTests = Array.isArray(normalizedDeliverable.validatedTests)
+    ? normalizedDeliverable.validatedTests
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
+        .map((entry) => getObjectStringProperty(entry, 'command'))
+        .filter((entry): entry is string => Boolean(entry))
+    : [];
+  const validationCommands = Array.from(new Set([...executedCommands, ...validatedTests]));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    taskId: claim.taskId,
+    stage: 'code-implementation',
+    goal: claim.goal,
+    summary: deliverableSummary ?? summary,
+    changedFiles,
+    ...(validationCommands.length > 0 ? { validationCommands } : {}),
+    ...(diffRefs.length > 0 ? { diffRefs } : {}),
+    ...(note ? { notes: [note] } : {})
+  };
+}
+
+function isValidImplementationSummaryPayload(payload: unknown): boolean {
+  const validators = getSchemaValidators();
+  return validators.implementationSummary(payload);
+}
+
+function isValidTestPlanPayload(payload: unknown): boolean {
+  const validators = getSchemaValidators();
+  return validators.testPlan(payload);
+}
+
+function isValidTestCasesPayload(payload: unknown): boolean {
+  const validators = getSchemaValidators();
+  return validators.testCases(payload);
+}
+
+function isValidCollaborationHandoffPayload(payload: unknown): boolean {
+  const validators = getSchemaValidators();
+  return validators.collaborationHandoff(payload);
+}
+
+function isCollaborationHandoffType(value: string | undefined): value is CollaborationHandoffType {
+  return value === 'pull-request'
+    || value === 'issue'
+    || value === 'review'
+    || value === 'status-update';
+}
+
+function isCollaborationReadiness(value: string | undefined): value is CollaborationReadiness {
+  return value === 'ready'
+    || value === 'blocked'
+    || value === 'awaiting-approval';
+}
+
+function inferCollaborationHandoffType(sourcePayload: Record<string, unknown>): CollaborationHandoffType {
+  const explicitType = getObjectStringProperty(sourcePayload, 'handoffType');
+  if (isCollaborationHandoffType(explicitType)) {
+    return explicitType;
+  }
+
+  if (asObjectRecord(sourcePayload.prReadySummary)) {
+    return 'pull-request';
+  }
+
+  if (asObjectRecord(sourcePayload.issueReadyFollowUp)) {
+    return 'issue';
+  }
+
+  if (normalizeStringList(sourcePayload.reviewFocus) || Array.isArray(sourcePayload.notableFindings)) {
+    return 'review';
+  }
+
+  return 'status-update';
+}
+
+function buildCollaborationReviewPolicyPayload(
+  sourcePayload: Record<string, unknown>,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>
+): { required: boolean; reviewAgentCount: number; requireHumanApproval: boolean } {
+  const sourceReviewPolicy = asObjectRecord(sourcePayload.reviewPolicy);
+  const sourceReviewAgentCount = sourceReviewPolicy?.reviewAgentCount;
+  const claimReviewPolicy = claim.reviewPolicy;
+
+  return {
+    required: typeof sourceReviewPolicy?.required === 'boolean'
+      ? sourceReviewPolicy.required
+      : claimReviewPolicy?.required === true,
+    reviewAgentCount: typeof sourceReviewAgentCount === 'number' && Number.isInteger(sourceReviewAgentCount)
+      ? sourceReviewAgentCount
+      : claimReviewPolicy?.reviewAgentCount ?? 0,
+    requireHumanApproval: typeof sourceReviewPolicy?.requireHumanApproval === 'boolean'
+      ? sourceReviewPolicy.requireHumanApproval
+      : claimReviewPolicy?.requireHumanApproval === true
+  };
+}
+
+function inferCollaborationReadiness(
+  sourcePayload: Record<string, unknown>,
+  approvalRequired: boolean
+): CollaborationReadiness {
+  const explicitReadiness = getObjectStringProperty(sourcePayload, 'readiness');
+  if (isCollaborationReadiness(explicitReadiness)) {
+    return explicitReadiness;
+  }
+
+  const statusValue = getObjectStringProperty(sourcePayload, 'status')?.toLowerCase().replaceAll(/[_\s]+/g, '-');
+  if (statusValue === 'blocked' || statusValue === 'needs-changes' || statusValue === 'failed') {
+    return 'blocked';
+  }
+
+  if (statusValue === 'awaiting-approval' || statusValue === 'pending-approval') {
+    return 'awaiting-approval';
+  }
+
+  if (statusValue === 'ready' || statusValue === 'ready-for-review' || statusValue === 'ready-to-review') {
+    return approvalRequired ? 'awaiting-approval' : 'ready';
+  }
+
+  return approvalRequired ? 'awaiting-approval' : 'ready';
+}
+
+function collectCollaborationArtifactRefs(
+  sourcePayload: Record<string, unknown>,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  runOutput: AdapterRunDocument
+): string[] {
+  const artifactRefs = new Set<string>();
+  const candidateRefs = [
+    ...(normalizeStringList(sourcePayload.artifactRefs) ?? []),
+    ...(normalizeStringList(sourcePayload.upstreamArtifacts) ?? []),
+    ...claim.runtimeContext.artifactRefs,
+    ...claim.runtimeContext.taskArtifacts.map((artifact) => artifact.path).filter((artifactPath): artifactPath is string => typeof artifactPath === 'string' && artifactPath.trim().length > 0),
+    ...runOutput.adapterRun.artifacts.map((artifact) => artifact.path)
+  ];
+
+  for (const artifactRef of candidateRefs) {
+    const normalizedArtifactRef = artifactRef.trim();
+    const normalizedArtifactRefKey = normalizedArtifactRef.toLowerCase();
+    if (!normalizedArtifactRef
+      || normalizedArtifactRefKey.includes('collaboration-handoff')
+      || normalizedArtifactRefKey.includes('model-output')
+      || normalizedArtifactRefKey.includes('copilot-cli-output')) {
+      continue;
+    }
+
+    artifactRefs.add(normalizedArtifactRef);
+  }
+
+  return [...artifactRefs];
+}
+
+function buildCollaborationNextActions(
+  sourcePayload: Record<string, unknown>,
+  handoffType: CollaborationHandoffType,
+  readiness: CollaborationReadiness,
+  approvalRequired: boolean
+): string[] {
+  const explicitNextActions = normalizeStringList(sourcePayload.nextActions);
+  if (explicitNextActions && explicitNextActions.length > 0) {
+    return explicitNextActions;
+  }
+
+  const nextActions = new Set<string>();
+  if (approvalRequired || readiness === 'awaiting-approval') {
+    nextActions.add('Request human approval for the collaboration handoff.');
+  }
+
+  const issueReadyFollowUp = asObjectRecord(sourcePayload.issueReadyFollowUp);
+  const issueTitle = getObjectStringProperty(issueReadyFollowUp, 'title');
+  if (issueTitle) {
+    nextActions.add(`Open follow-up issue: ${issueTitle}.`);
+  }
+
+  const notableFindings = Array.isArray(sourcePayload.notableFindings)
+    ? sourcePayload.notableFindings
+        .map((entry) => getObjectStringProperty(entry, 'recommendedAction'))
+        .filter((value): value is string => Boolean(value))
+    : [];
+  for (const recommendedAction of notableFindings) {
+    nextActions.add(recommendedAction);
+  }
+
+  if (nextActions.size === 0) {
+    if (handoffType === 'pull-request') {
+      nextActions.add('Open the pull request handoff for review.');
+    } else if (handoffType === 'issue') {
+      nextActions.add('Open the issue handoff for triage.');
+    } else if (handoffType === 'review') {
+      nextActions.add('Review the collaboration handoff and capture approval decisions.');
+    } else {
+      nextActions.add('Share the collaboration handoff with the owning reviewers.');
+    }
+  }
+
+  return [...nextActions];
+}
+
+function buildCollaborationHandoffPayload(
+  sourcePayload: Record<string, unknown> | null,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  runOutput: AdapterRunDocument
+): Record<string, unknown> | null {
+  const normalizedSource = sourcePayload ?? {};
+  const reviewPolicy = buildCollaborationReviewPolicyPayload(normalizedSource, claim);
+  const approvalRequired = typeof normalizedSource.approvalRequired === 'boolean'
+    ? normalizedSource.approvalRequired
+    : reviewPolicy.requireHumanApproval;
+  const handoffType = inferCollaborationHandoffType(normalizedSource);
+  const readiness = inferCollaborationReadiness(normalizedSource, approvalRequired);
+  const summary = getObjectStringProperty(normalizedSource, 'summary')
+    ?? getObjectStringProperty(normalizedSource, 'title')
+    ?? runOutput.adapterRun.summary
+    ?? claim.goal;
+  const nextActions = buildCollaborationNextActions(normalizedSource, handoffType, readiness, approvalRequired);
+
+  if (!summary || nextActions.length === 0) {
+    return null;
+  }
+
+  return {
+    generatedAt: getObjectStringProperty(normalizedSource, 'generatedAt') ?? new Date().toISOString(),
+    taskId: claim.taskId,
+    stage: 'collaboration',
+    summary,
+    handoffType,
+    readiness,
+    approvalRequired,
+    artifactRefs: collectCollaborationArtifactRefs(normalizedSource, claim, runOutput),
+    nextActions,
+    reviewPolicy
+  };
+}
+
+function asObjectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function humanizeIdentifier(value: string): string {
+  return value
+    .split(/[^a-z0-9]+/i)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function inferTestPlanLevel(value: string | undefined): TestPlanCaseLevel {
+  const normalizedValue = value?.trim().toLowerCase() ?? '';
+  if (normalizedValue === 'edge') {
+    return 'edge';
+  }
+  if (normalizedValue === 'integration') {
+    return 'integration';
+  }
+  if (normalizedValue === 'regression') {
+    return 'regression';
+  }
+  return 'smoke';
+}
+
+function inferTestCasePriority(value: string | undefined): TestCasePriority {
+  const normalizedValue = value?.trim().toLowerCase() ?? '';
+  if (normalizedValue === 'critical') {
+    return 'critical';
+  }
+  if (normalizedValue === 'high') {
+    return 'high';
+  }
+  if (normalizedValue === 'medium') {
+    return 'medium';
+  }
+  if (normalizedValue === 'low') {
+    return 'low';
+  }
+  if (normalizedValue === 'regression') {
+    return 'critical';
+  }
+  if (normalizedValue === 'integration') {
+    return 'medium';
+  }
+  return 'high';
+}
+
+function buildTestPlanPayload(
+  deliverablePayload: Record<string, unknown> | null,
+  rawTestPlanPayload: unknown,
+  rawTestCasesPayload: unknown,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  summary: string
+): Record<string, unknown> | null {
+  const normalizedDeliverable = deliverablePayload ?? {};
+  const rawTestPlan = asObjectRecord(rawTestPlanPayload) ?? {};
+  const rawTestCases = asObjectRecord(rawTestCasesPayload) ?? {};
+  const rawCases = Array.isArray(rawTestCases.cases)
+    ? rawTestCases.cases
+        .map((entry) => asObjectRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : [];
+  const planCases: NormalizedTestPlanCase[] = rawCases.map((entry) => {
+    const id = getObjectStringProperty(entry, 'id');
+    if (!id) {
+      return null;
+    }
+
+    const route = getObjectStringProperty(entry, 'route');
+    const level = inferTestPlanLevel(getObjectStringProperty(entry, 'type'));
+    const priority = inferTestCasePriority(getObjectStringProperty(entry, 'type'));
+    const assertions = normalizeStringList(entry.assertions);
+    const service = getObjectStringProperty(entry, 'service');
+
+    return {
+      id,
+      title: route ?? humanizeIdentifier(id),
+      level,
+      priority,
+      ...(assertions && assertions.length > 0 ? { objective: assertions[0] } : {}),
+      ...(service ? { targetFiles: [service] } : {})
+    };
+  }).filter((entry): entry is NormalizedTestPlanCase => entry !== null);
+
+  if (planCases.length === 0) {
+    const focusItems = normalizeStringList(rawTestPlan.focus)
+      ?? normalizeStringList(normalizedDeliverable.focus)
+      ?? [];
+    for (const [index, focusItem] of focusItems.entries()) {
+      planCases.push({
+        id: `case-${index + 1}`,
+        title: focusItem,
+        level: inferTestPlanLevel(focusItem),
+        priority: inferTestCasePriority(focusItem),
+        objective: focusItem
+      });
+    }
+  }
+
+  if (planCases.length === 0) {
+    return null;
+  }
+
+  const validationStrategy = asObjectRecord(rawTestPlan.validationStrategy);
+  const targetedCommands = normalizeStringList(validationStrategy?.targetedCommands);
+  const deferredSuiteCommands = normalizeStringList(validationStrategy?.deferredSuiteCommands);
+  const deferredReason = getObjectStringProperty(validationStrategy, 'reasonDeferred');
+
+  return {
+    generatedAt: new Date().toISOString(),
+    taskId: claim.taskId,
+    stage: 'test-design',
+    goal: claim.goal,
+    summary,
+    ...(targetedCommands && targetedCommands.length > 0
+      ? { strategy: `Targeted validation commands: ${targetedCommands.join('; ')}` }
+      : {}),
+    cases: planCases,
+    ...(deferredSuiteCommands && deferredSuiteCommands.length > 0
+      ? { risks: [`Deferred broader verification: ${deferredSuiteCommands.join('; ')}`] }
+      : {}),
+    ...(deferredReason || (targetedCommands && targetedCommands.length > 0)
+      ? {
+          notes: [
+            ...(deferredReason ? [deferredReason] : []),
+            ...(targetedCommands && targetedCommands.length > 0 ? [`Targeted commands: ${targetedCommands.join('; ')}`] : [])
+          ]
+        }
+      : {})
+  };
+}
+
+function buildTestCasesPayload(
+  rawTestCasesPayload: unknown,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>
+): Record<string, unknown> | null {
+  const rawTestCases = asObjectRecord(rawTestCasesPayload) ?? {};
+  const rawCases = Array.isArray(rawTestCases.cases)
+    ? rawTestCases.cases
+        .map((entry) => asObjectRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : [];
+
+  const cases: NormalizedTestCase[] = rawCases.map((entry) => {
+    const id = getObjectStringProperty(entry, 'id');
+    if (!id) {
+      return null;
+    }
+
+    const route = getObjectStringProperty(entry, 'route');
+    const service = getObjectStringProperty(entry, 'service');
+    const assertions = normalizeStringList(entry.assertions) ?? [];
+    const priority = inferTestCasePriority(getObjectStringProperty(entry, 'type'));
+
+    return {
+      id,
+      title: route ?? humanizeIdentifier(id),
+      priority,
+      automationCandidate: true,
+      ...(service ? { preconditions: [`Service context: ${service}`] } : {}),
+      steps: [
+        ...(route ? [`Exercise ${route}.`] : [`Execute ${humanizeIdentifier(id)}.`]),
+        'Capture the resulting response and validation behavior.'
+      ],
+      expectedResults: assertions.length > 0
+        ? assertions
+        : ['The route behaves according to the claimed contract.'],
+      ...(service ? { targetFiles: [service] } : {})
+    };
+  }).filter((entry): entry is NormalizedTestCase => entry !== null);
+
+  if (cases.length === 0) {
+    return null;
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    taskId: claim.taskId,
+    stage: 'test-design',
+    goal: claim.goal,
+    cases
+  };
+}
+
 function inferRepositoryRoot(
   claim: NonNullable<TaskClaimPayload['taskClaim']>,
   adapterRuntimePayload: AdapterRuntimeDocument | null
@@ -532,8 +1071,7 @@ function enrichCodeImplementationRunOutput(
   }
 
   const artifactsDir = claim.runtimeContext.artifactsDir?.trim();
-  const editedFiles = Array.from(new Set(runOutput.adapterRun.activity.editedFiles.map((filePath) => filePath.trim()).filter(Boolean)));
-  if (!artifactsDir || editedFiles.length === 0) {
+  if (!artifactsDir) {
     return runOutput;
   }
 
@@ -541,32 +1079,59 @@ function enrichCodeImplementationRunOutput(
   const artifacts = [...runOutput.adapterRun.artifacts];
   const notes = [...runOutput.adapterRun.notes];
   const errors = [...runOutput.adapterRun.errors];
+  const editedFiles = Array.from(new Set(runOutput.adapterRun.activity.editedFiles.map((filePath) => filePath.trim()).filter(Boolean)));
   const changeTypes = inferImplementationChangeTypes(repositoryRoot, editedFiles);
+  const existingImplementationSummaryArtifact = findStructuredArtifactReference(artifacts, 'implementation-summary');
+  const existingImplementationSummaryPayload = existingImplementationSummaryArtifact
+    ? loadOptionalStructuredFileFrom(repositoryRoot, existingImplementationSummaryArtifact.path)
+    : null;
+  const validImplementationSummary = existingImplementationSummaryPayload
+    ? isValidImplementationSummaryPayload(existingImplementationSummaryPayload)
+    : false;
+  const deliverablePayload = extractModelOutputDeliverablePayloadFrom(runOutput, repositoryRoot);
+  const codeDiffArtifact = artifacts.find((artifact) => artifact.id === 'code-diff');
+  const diffRefs = codeDiffArtifact?.path ? [codeDiffArtifact.path] : [];
 
-  if (!hasArtifactReference(artifacts, 'implementation-summary')) {
-    const implementationSummaryPath = path.join(artifactsDir, 'implementation-summary.json');
-    writeJsonFrom(repositoryRoot, implementationSummaryPath, {
-      generatedAt: new Date().toISOString(),
-      taskId: claim.taskId,
-      stage: 'code-implementation',
-      goal: claim.goal,
-      summary: runOutput.adapterRun.summary,
-      changedFiles: editedFiles.map((filePath) => ({
-        path: filePath,
-        changeType: changeTypes.get(filePath) ?? 'modified'
-      })),
-      validationCommands: runOutput.adapterRun.activity.commands.length > 0 ? runOutput.adapterRun.activity.commands : undefined
-    });
-    artifacts.push({
-      id: 'implementation-summary',
-      kind: 'report',
-      path: implementationSummaryPath,
-      taskId: claim.taskId
-    });
-    notes.push('controller-generated:implementation-summary');
+  if (!validImplementationSummary) {
+    const implementationSummaryPath = existingImplementationSummaryArtifact?.path ?? path.join(artifactsDir, 'implementation-summary.json');
+    const implementationSummaryPayload = buildImplementationSummaryPayload(
+      deliverablePayload,
+      claim,
+      editedFiles,
+      changeTypes,
+      runOutput.adapterRun.summary,
+      runOutput.adapterRun.activity.commands,
+      diffRefs
+    );
+
+    if (implementationSummaryPayload) {
+      writeJsonFrom(repositoryRoot, implementationSummaryPath, implementationSummaryPayload);
+      if (!existingImplementationSummaryArtifact) {
+        artifacts.push({
+          id: 'implementation-summary',
+          kind: 'report',
+          path: implementationSummaryPath,
+          taskId: claim.taskId
+        });
+      }
+      notes.push(existingImplementationSummaryArtifact
+        ? 'controller-normalized:implementation-summary'
+        : 'controller-generated:implementation-summary');
+    }
   }
 
   if (!hasArtifactReference(artifacts, 'code-diff')) {
+    if (editedFiles.length === 0) {
+      return {
+        adapterRun: {
+          ...runOutput.adapterRun,
+          notes,
+          artifacts,
+          errors
+        }
+      };
+    }
+
     const codeDiffPatch = buildCodeDiffPatch(repositoryRoot, editedFiles);
     if (codeDiffPatch) {
       const codeDiffPath = path.join(artifactsDir, 'code-diff.patch');
@@ -596,6 +1161,84 @@ function enrichCodeImplementationRunOutput(
       notes,
       artifacts,
       errors
+    }
+  };
+}
+
+function enrichTestDesignRunOutput(
+  runOutput: AdapterRunDocument,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  adapterRuntimePayload: AdapterRuntimeDocument | null
+): AdapterRunDocument {
+  if (claim.stage !== 'test-design') {
+    return runOutput;
+  }
+
+  const artifactsDir = claim.runtimeContext.artifactsDir?.trim();
+  if (!artifactsDir) {
+    return runOutput;
+  }
+
+  const repositoryRoot = inferRepositoryRoot(claim, adapterRuntimePayload);
+  const artifacts = [...runOutput.adapterRun.artifacts];
+  const notes = [...runOutput.adapterRun.notes];
+  const existingTestPlanArtifact = findStructuredArtifactReference(artifacts, 'test-plan');
+  const existingTestCasesArtifact = findStructuredArtifactReference(artifacts, 'test-cases');
+  const existingTestPlanPayload = existingTestPlanArtifact
+    ? loadOptionalStructuredFileFrom(repositoryRoot, existingTestPlanArtifact.path)
+    : null;
+  const existingTestCasesPayload = existingTestCasesArtifact
+    ? loadOptionalStructuredFileFrom(repositoryRoot, existingTestCasesArtifact.path)
+    : null;
+  const validTestPlan = existingTestPlanPayload ? isValidTestPlanPayload(existingTestPlanPayload) : false;
+  const validTestCases = existingTestCasesPayload ? isValidTestCasesPayload(existingTestCasesPayload) : false;
+  const deliverablePayload = extractModelOutputDeliverablePayloadFrom(runOutput, repositoryRoot);
+
+  if (!validTestPlan) {
+    const testPlanPath = existingTestPlanArtifact?.path ?? path.join(artifactsDir, 'test-plan.json');
+    const testPlanPayload = buildTestPlanPayload(
+      deliverablePayload,
+      existingTestPlanPayload,
+      existingTestCasesPayload,
+      claim,
+      runOutput.adapterRun.summary
+    );
+    if (testPlanPayload) {
+      writeJsonFrom(repositoryRoot, testPlanPath, testPlanPayload);
+      if (!existingTestPlanArtifact) {
+        artifacts.push({
+          id: 'test-plan',
+          kind: 'report',
+          path: testPlanPath,
+          taskId: claim.taskId
+        });
+      }
+      notes.push(existingTestPlanArtifact ? 'controller-normalized:test-plan' : 'controller-generated:test-plan');
+    }
+  }
+
+  if (!validTestCases) {
+    const testCasesPath = existingTestCasesArtifact?.path ?? path.join(artifactsDir, 'test-cases.json');
+    const testCasesPayload = buildTestCasesPayload(existingTestCasesPayload, claim);
+    if (testCasesPayload) {
+      writeJsonFrom(repositoryRoot, testCasesPath, testCasesPayload);
+      if (!existingTestCasesArtifact) {
+        artifacts.push({
+          id: 'test-cases',
+          kind: 'report',
+          path: testCasesPath,
+          taskId: claim.taskId
+        });
+      }
+      notes.push(existingTestCasesArtifact ? 'controller-normalized:test-cases' : 'controller-generated:test-cases');
+    }
+  }
+
+  return {
+    adapterRun: {
+      ...runOutput.adapterRun,
+      notes,
+      artifacts
     }
   };
 }
@@ -684,7 +1327,8 @@ function extractCollaborationHandoffPayloadFrom(
   runOutput: AdapterRunDocument,
   repositoryRoot: string | undefined
 ): {
-  handoff: Record<string, unknown>;
+  deliverable: Record<string, unknown>;
+  handoff?: Record<string, unknown>;
   handoffArtifactPath?: string;
 } | null {
   const modelOutputArtifact = runOutput.adapterRun.artifacts.find((artifact) => artifact.id.endsWith('-model-output'));
@@ -696,24 +1340,21 @@ function extractCollaborationHandoffPayloadFrom(
     deliverable?: {
       handoff?: Record<string, unknown>;
       handoffArtifactPath?: string;
+      handoffArtifact?: string;
     };
   }>(repositoryRoot, modelOutputArtifact.path);
-  const handoff = modelOutputPayload?.deliverable?.handoff;
-
-  if (!handoff || typeof handoff !== 'object' || Array.isArray(handoff)) {
+  const deliverable = asObjectRecord(modelOutputPayload?.deliverable);
+  if (!deliverable) {
     return null;
   }
 
-  const handoffArtifactPath = modelOutputPayload?.deliverable?.handoffArtifactPath;
+  const handoff = asObjectRecord(deliverable.handoff);
+  const handoffArtifactPath = getObjectStringProperty(deliverable, 'handoffArtifactPath')
+    ?? getObjectStringProperty(deliverable, 'handoffArtifact');
 
   return handoffArtifactPath
-    ? {
-        handoff,
-        handoffArtifactPath
-      }
-    : {
-        handoff
-      };
+    ? { deliverable, ...(handoff ? { handoff } : {}), handoffArtifactPath }
+    : { deliverable, ...(handoff ? { handoff } : {}) };
 }
 
 function enrichCollaborationRunOutput(
@@ -726,35 +1367,66 @@ function enrichCollaborationRunOutput(
   }
 
   const artifactsDir = claim.runtimeContext.artifactsDir?.trim();
-  if (!artifactsDir || hasArtifactReference(runOutput.adapterRun.artifacts, 'collaboration-handoff')) {
+  if (!artifactsDir) {
     return runOutput;
   }
 
   const repositoryRoot = inferRepositoryRoot(claim, adapterRuntimePayload);
-
+  const artifacts = [...runOutput.adapterRun.artifacts];
+  const existingCollaborationArtifact = findStructuredArtifactReference(artifacts, 'collaboration-handoff');
   const collaborationPayload = extractCollaborationHandoffPayloadFrom(runOutput, repositoryRoot);
-  if (!collaborationPayload) {
+  const candidateArtifactPaths = Array.from(new Set([
+    existingCollaborationArtifact?.path,
+    collaborationPayload?.handoffArtifactPath,
+    path.join(artifactsDir, 'collaboration-handoff.json')
+  ].filter((artifactPath): artifactPath is string => typeof artifactPath === 'string' && artifactPath.trim().length > 0)));
+
+  let existingPayload: Record<string, unknown> | null = null;
+  let collaborationHandoffPath = existingCollaborationArtifact?.path ?? collaborationPayload?.handoffArtifactPath?.trim() ?? path.join(artifactsDir, 'collaboration-handoff.json');
+
+  for (const candidatePath of candidateArtifactPaths) {
+    const loadedPayload = asObjectRecord(loadOptionalStructuredFileFrom(repositoryRoot, candidatePath));
+    if (loadedPayload) {
+      existingPayload = loadedPayload;
+      collaborationHandoffPath = candidatePath;
+      break;
+    }
+  }
+
+  const validExistingPayload = existingPayload ? isValidCollaborationHandoffPayload(existingPayload) : false;
+  const normalizedPayload = validExistingPayload
+    ? existingPayload
+    : buildCollaborationHandoffPayload(existingPayload ?? collaborationPayload?.handoff ?? collaborationPayload?.deliverable ?? null, claim, runOutput);
+
+  if (!normalizedPayload) {
     return runOutput;
   }
 
-  const collaborationHandoffPath = collaborationPayload.handoffArtifactPath?.trim() || path.join(artifactsDir, 'collaboration-handoff.json');
-  writeJsonFrom(repositoryRoot, collaborationHandoffPath, collaborationPayload.handoff);
+  const needsWrite = !validExistingPayload || !existingPayload || !existingCollaborationArtifact;
+  if (needsWrite) {
+    writeJsonFrom(repositoryRoot, collaborationHandoffPath, normalizedPayload);
+  }
 
-  const notes = [
-    ...runOutput.adapterRun.notes,
-    'controller-generated:collaboration-handoff'
-  ];
+  const notes = [...runOutput.adapterRun.notes];
+  if (!validExistingPayload) {
+    notes.push(existingPayload ? 'controller-normalized:collaboration-handoff' : 'controller-generated:collaboration-handoff');
+  }
+
   const remainingErrors = runOutput.adapterRun.errors.filter((error) => error.code !== 'artifact-write-blocked');
   const recoveredFromArtifactWriteBlock = runOutput.adapterRun.errors.length > 0
     && remainingErrors.length === 0
     && runOutput.adapterRun.errors.every((error) => error.code === 'artifact-write-blocked');
 
+  if (!needsWrite && !recoveredFromArtifactWriteBlock) {
+    return runOutput;
+  }
+
   if (recoveredFromArtifactWriteBlock) {
     notes.push('controller-recovered:artifact-write-blocked');
   }
 
-  const handoffSummary = typeof collaborationPayload.handoff.summary === 'string'
-    ? collaborationPayload.handoff.summary
+  const handoffSummary = typeof normalizedPayload.summary === 'string'
+    ? normalizedPayload.summary
     : runOutput.adapterRun.summary;
 
   return {
@@ -767,15 +1439,17 @@ function enrichCollaborationRunOutput(
         ? handoffSummary
         : runOutput.adapterRun.summary,
       notes,
-      artifacts: [
-        ...runOutput.adapterRun.artifacts,
-        {
-          id: 'collaboration-handoff',
-          kind: 'report',
-          path: collaborationHandoffPath,
-          taskId: claim.taskId
-        }
-      ],
+      artifacts: existingCollaborationArtifact
+        ? artifacts
+        : [
+            ...artifacts,
+            {
+              id: 'collaboration-handoff',
+              kind: 'report',
+              path: collaborationHandoffPath,
+              taskId: claim.taskId
+            }
+          ],
       errors: remainingErrors
     }
   };
@@ -816,6 +1490,33 @@ function buildAdapterTimeoutRunOutput(
       ]
     }
   }, adapterRuntimePayload, claimPayload);
+}
+
+function readCommandOutputText(value: ExternalAdapterCommandError['stderr'] | ExternalAdapterCommandError['stdout']): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  return value?.toString().trim() ?? '';
+}
+
+function isExternalAdapterTimeoutError(error: ExternalAdapterCommandError, timeout: number | undefined): boolean {
+  return error.code === 'ETIMEDOUT'
+    || (timeout !== undefined && (error.killed === true || error.signal === 'SIGTERM'));
+}
+
+function buildExternalAdapterFailureMessage(error: ExternalAdapterCommandError): string {
+  const stderr = readCommandOutputText(error.stderr);
+  const stdout = readCommandOutputText(error.stdout);
+  const detail = stderr || stdout || error.message || 'unknown adapter command failure';
+  const qualifiers = [
+    typeof error.code === 'string' || typeof error.code === 'number' ? `code=${String(error.code)}` : null,
+    error.signal ? `signal=${error.signal}` : null
+  ].filter(Boolean);
+
+  return qualifiers.length > 0
+    ? `adapter command failed (${qualifiers.join(', ')}): ${detail}`
+    : `adapter command failed: ${detail}`;
 }
 
 function parseAdapterStdoutPayload(stdout: string): unknown {
@@ -926,25 +1627,17 @@ export function runExternalAdapter(
       env,
       encoding: 'utf8',
       input: `${JSON.stringify(claimPayload, null, 2)}\n`,
+      maxBuffer: defaultExternalAdapterMaxBufferBytes,
       ...(timeout === undefined ? {} : { timeout }),
       stdio: ['pipe', 'pipe', 'pipe']
     });
   } catch (error) {
-    const commandError = error as {
-      code?: string;
-      killed?: boolean;
-      signal?: string;
-      stderr?: { toString(): string };
-      stdout?: { toString(): string };
-      message?: string;
-    };
-    if (commandError.code === 'ETIMEDOUT' || commandError.killed === true || commandError.signal === 'SIGTERM') {
+    const commandError = error as ExternalAdapterCommandError;
+    if (isExternalAdapterTimeoutError(commandError, timeout)) {
       return buildAdapterTimeoutRunOutput(adapterRuntimePayload, claimPayload, timeout);
     }
 
-    const stderr = commandError.stderr?.toString().trim();
-    const stdoutText = commandError.stdout?.toString().trim();
-    fail(`adapter command failed: ${stderr || stdoutText || commandError.message}`);
+    fail(buildExternalAdapterFailureMessage(commandError));
   }
 
   let adapterOutputPayload: unknown;
@@ -1024,7 +1717,8 @@ export function executeTaskRun(
       });
   const requirementsEnrichedRunOutput = enrichRequirementsAnalysisRunOutput(runOutput, claim, adapterRuntimePayload);
   const implementationEnrichedRunOutput = enrichCodeImplementationRunOutput(requirementsEnrichedRunOutput, claim, adapterRuntimePayload);
-  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
+  const testDesignEnrichedRunOutput = enrichTestDesignRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
+  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
   const validatedRunOutput = applyRolePolicyToRunOutput(claim, collaborationEnrichedRunOutput);
 
   const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {

@@ -7,6 +7,8 @@ import process from 'node:process';
 
 import { resolveCopilotSession } from './copilot-session-store.mjs';
 
+const copilotCliMaxBufferBytes = 16 * 1024 * 1024;
+
 function ensureDirForFile(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -473,6 +475,7 @@ function callCopilotCli(claimPayload, claimPath) {
     stdout = execFileSync('gh', args, {
       cwd,
       encoding: 'utf8',
+      maxBuffer: copilotCliMaxBufferBytes,
       env: {
         ...process.env,
         COPILOT_ALLOW_ALL: 'true'

@@ -325,7 +325,7 @@ The bundled Copilot runtime now uses `specialistSessionKey`, which resolves to t
 
 That keeps session reuse stable across workflow runs and routes while still separating responsibilities by specialist.
 
-Only stable single-role keys are persisted by default. When a runtime supplies a multi-part key such as `runId + routeName + executorType`, the bundled adapter now treats that session as ephemeral, removes any stale record left by older runs, and leaves no session-store file behind after the task finishes.
+Only stable single-role keys are persisted directly by default. When a runtime supplies a multi-part key such as `runId + routeName + executorType`, the bundled adapter now canonicalizes it back to the stable specialist session, removes any stale legacy record left by older runs, and avoids spawning a fresh durable run-scoped session.
 
 The current adapter template context also exposes override keys for repositories that intentionally want a different tradeoff. They are not the default operating model:
 
@@ -339,7 +339,7 @@ The current adapter template context also exposes override keys for repositories
 
 The built-in default already uses `specialistSessionKey`, which scopes Copilot CLI sessions directly to names such as `requirements-agent`, `implementation-agent`, or `defect-agent`.
 
-If a repository wants to keep dynamic multi-part keys durable anyway, it must opt in explicitly through `SPEC2FLOW_COPILOT_SESSION_PERSIST_MODE=always`. Without any extra configuration, the bundled adapter uses the cleanup-safe `auto` behavior: persist only stable specialist keys and keep dynamic keys ephemeral.
+If a repository wants to keep dynamic multi-part keys durable anyway, it must opt in explicitly through `SPEC2FLOW_COPILOT_SESSION_PERSIST_MODE=always`. Without any extra configuration, the bundled adapter uses the cleanup-safe `auto` behavior: persist stable specialist keys, collapse dynamic keys back onto those specialist sessions, and keep successful Copilot preflight results cached long enough to avoid repeated probe-only sessions.
 
 The field-level runtime configuration reference lives in [docs/runtime-config-reference.md](runtime-config-reference.md). Keep session-key, persistence-mode, env-field, and `stageRuntimeRefs` details there rather than duplicating them across architecture and usage docs.
 

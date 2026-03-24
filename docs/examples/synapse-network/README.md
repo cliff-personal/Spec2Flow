@@ -162,7 +162,7 @@ npm run spec2flow -- run-task-with-adapter \
 
 现在仓库里的默认 runtime 把 session 作用域设为 specialist agent 名称，也就是 `requirements-agent`、`implementation-agent`、`test-design-agent`、`execution-agent`、`defect-agent`、`collaboration-agent` 这六类固定 session。这样同一个 agent 会跨 run 复用同一条会话，不会每次新 run 都再创建一组新 session。
 
-同时，这个 adapter 的内建默认行为就是 cleanup-safe 的 `auto` 模式，不需要额外配置。固定 specialist key 会落盘复用，而动态多段 key 会被当成临时 session 处理，执行结束后不会在 `.spec2flow/runtime/copilot-sessions` 留下历史记录。
+同时，这个 adapter 的内建默认行为就是 cleanup-safe 的 `auto` 模式，不需要额外配置。固定 specialist key 会落盘复用；如果 runtime 还在传动态多段 key，adapter 也会自动收敛回对应的 specialist session，而不是继续制造新的 run-scoped session。
 
 默认情况下不需要改 session 粒度。只有当你明确要覆盖默认 specialist 复用策略时，adapter template context 才需要用到这些 key：
 
@@ -177,9 +177,11 @@ npm run spec2flow -- run-task-with-adapter \
 其中，覆盖默认值时建议这样理解：
 
 - `${specialistSessionKey}` 是当前默认值。大多数仓库保持这个值就够了
-- `${executorSessionKey}` 适合按 run 做 specialist 隔离，但默认会被当成临时 session，不会落盘残留
-- `${routeExecutorSessionKey}` 最适合强隔离，默认同样会被当成临时 session
+- `${executorSessionKey}` 只有在你显式设置 `SPEC2FLOW_COPILOT_SESSION_PERSIST_MODE=always` 时才适合按 run 做 specialist 隔离；默认 `auto` 会把它收敛回稳定 specialist session
+- `${routeExecutorSessionKey}` 只有在你显式设置 `SPEC2FLOW_COPILOT_SESSION_PERSIST_MODE=always` 时才适合强隔离；默认 `auto` 同样会把它收敛回稳定 specialist session
 - `${taskSessionKey}` 会产生最多 session，默认也只建议临时使用
+
+另外，自动 preflight 现在会把成功结果按 runtime 指纹缓存 15 分钟，缓存窗口内重复执行 `run-task-with-adapter` 或 `run-workflow-loop` 不会重复触发那条 `pwd` probe，也就不会再往 Copilot session 列表里继续灌相同的探测会话。
 
 如果你要清理旧版本遗留下来的 run-scoped session 文件，可以运行：
 

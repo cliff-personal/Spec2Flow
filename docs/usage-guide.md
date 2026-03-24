@@ -142,7 +142,8 @@ The bundled runtime now defaults to `specialistSessionKey`, which scopes session
 The bundled adapter uses cleanup-safe session persistence by default. No extra runtime setting is required:
 
 - stable single-role keys such as `requirements-agent` are persisted and reused
-- dynamic multi-part keys such as `runId + route + executorType` are treated as ephemeral and leave no session record behind after execution
+- dynamic multi-part keys such as `runId + route + executorType` are canonicalized back to the stable specialist session by default, so older runtime configs do not keep spawning new task sessions
+- successful Copilot preflight checks are cached for a short window, so repeated runs against the same runtime do not keep creating identical probe sessions
 - old dynamic session files can be consolidated with `npm run migrate:copilot-sessions`
 
 Leave the default unchanged unless you have a concrete isolation requirement. Override the session key only when the default specialist-scoped reuse is not the behavior you want.

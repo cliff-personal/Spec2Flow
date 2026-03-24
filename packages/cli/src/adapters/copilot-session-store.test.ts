@@ -66,7 +66,7 @@ describe('copilot session store', () => {
     expect(fs.existsSync(buildSessionRecordPath(tempDir, 'requirements-agent'))).toBe(true);
   });
 
-  it('treats dynamic keys as ephemeral in auto mode and removes stale legacy records', () => {
+  it('canonicalizes dynamic keys to the stable specialist session in auto mode and removes stale legacy records', () => {
     const tempDir = createTempDir();
     const legacyPath = writeRecord(
       tempDir,
@@ -81,10 +81,12 @@ describe('copilot session store', () => {
       persistMode: 'auto'
     });
 
-    expect(session?.persistence).toBe('ephemeral');
+    expect(session?.persistence).toBe('persistent');
+    expect(session?.sessionKey).toBe('requirements-agent');
     expect(session?.sessionId).not.toBe('legacy-session');
     expect(session?.legacyRecordRemoved).toBe(true);
     expect(fs.existsSync(legacyPath)).toBe(false);
+    expect(fs.existsSync(buildSessionRecordPath(tempDir, 'requirements-agent'))).toBe(true);
   });
 
   it('migrates run-scoped records into stable specialist keys and deletes legacy files', () => {

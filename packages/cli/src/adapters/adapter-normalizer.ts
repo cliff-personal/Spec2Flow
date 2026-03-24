@@ -94,6 +94,47 @@ function normalizeEditedFilePath(filePath: string, repositoryRoot: string | null
   return normalizePathSeparators(relativePath || path.basename(resolvedFilePath));
 }
 
+function normalizeActivityPathForComparison(filePath: string, repositoryRoot: string | null): string | null {
+  const normalizedInput = normalizePathSeparators(filePath.trim());
+  if (!normalizedInput) {
+    return null;
+  }
+
+  if (!repositoryRoot || !path.isAbsolute(normalizedInput)) {
+    return normalizedInput;
+  }
+
+  const resolvedFilePath = path.resolve(normalizedInput);
+  if (!isPathWithinDirectory(resolvedFilePath, repositoryRoot)) {
+    return normalizePathSeparators(resolvedFilePath);
+  }
+
+  const relativePath = path.relative(repositoryRoot, resolvedFilePath);
+  return normalizePathSeparators(relativePath || path.basename(resolvedFilePath));
+}
+
+function filterEditedFilesThatAreArtifactOutputs(
+  editedFiles: string[],
+  artifactPaths: string[],
+  repositoryRoot: string | null
+): string[] {
+  const artifactPathKeys = new Set(
+    artifactPaths
+      .map((filePath) => normalizeActivityPathForComparison(filePath, repositoryRoot))
+      .filter((filePath): filePath is string => Boolean(filePath))
+      .map((filePath) => filePath.toLowerCase())
+  );
+
+  return editedFiles.filter((filePath) => {
+    const normalizedFilePath = normalizeActivityPathForComparison(filePath, repositoryRoot);
+    if (!normalizedFilePath) {
+      return false;
+    }
+
+    return !artifactPathKeys.has(normalizedFilePath.toLowerCase());
+  });
+}
+
 export function buildAdapterTemplateContext(
   claimPayload: TaskClaimPayload,
   statePath: string,
@@ -352,6 +393,15 @@ export function normalizeAdapterRunPayload(
     .filter((filePath): filePath is string => Boolean(filePath));
   const explicitArtifacts = normalizeAdapterArtifacts(adapterRun.artifacts, claim.taskId);
   const activityArtifacts = normalizeActivityArtifactFiles(normalizedActivity.artifactFiles, claim.taskId);
+  normalizedActivity.editedFiles = filterEditedFilesThatAreArtifactOutputs(
+    normalizedActivity.editedFiles,
+    [
+      ...normalizedActivity.artifactFiles,
+      ...explicitArtifacts.map((artifact) => artifact.path),
+      ...activityArtifacts.map((artifact) => artifact.path)
+    ],
+    repositoryRoot
+  );
 
   const normalizedPayload: AdapterRunDocument = {
     adapterRun: {

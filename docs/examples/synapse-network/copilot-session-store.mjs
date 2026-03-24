@@ -17,6 +17,31 @@ function ensureDirForFile(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
+function persistSessionRecord(sessionStoreDir, sessionKey, now) {
+  const sessionRecordPath = buildSessionRecordPath(sessionStoreDir, sessionKey);
+  const existingRecord = readJsonIfExists(sessionRecordPath);
+  const sessionId = existingRecord?.sessionId ?? randomUUID();
+
+  ensureDirForFile(sessionRecordPath);
+  fs.writeFileSync(
+    sessionRecordPath,
+    `${JSON.stringify({
+      sessionKey,
+      sessionId,
+      createdAt: existingRecord?.createdAt ?? now,
+      updatedAt: now
+    }, null, 2)}\n`,
+    'utf8'
+  );
+
+  return {
+    sessionId,
+    sessionKey,
+    source: existingRecord ? 'stored' : 'generated',
+    sessionRecordPath
+  };
+}
+
 function readJsonIfExists(filePath) {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -212,6 +237,26 @@ export function resolveCopilotSession(options) {
   const persistMode = normalizePersistMode(options.persistMode);
   const classification = classifySessionKey(sessionKey);
   const sessionRecordPath = buildSessionRecordPath(sessionStoreDir, sessionKey);
+  const now = new Date().toISOString();
+
+  if (persistMode === 'auto' && classification.isDynamic && classification.specialistSessionKey) {
+    const legacyRecordRemoved = fs.existsSync(sessionRecordPath);
+    if (legacyRecordRemoved) {
+      fs.rmSync(sessionRecordPath, { force: true });
+    }
+
+    const persistedSession = persistSessionRecord(sessionStoreDir, classification.specialistSessionKey, now);
+
+    return {
+      sessionId: persistedSession.sessionId,
+      sessionKey: persistedSession.sessionKey,
+      source: persistedSession.source,
+      persistence: 'persistent',
+      sessionRecordPath: persistedSession.sessionRecordPath,
+      legacyRecordRemoved
+    };
+  }
+
   const shouldPersist = persistMode === 'always' || (persistMode === 'auto' && classification.isStableSpecialist);
 
   if (!shouldPersist) {
@@ -230,28 +275,14 @@ export function resolveCopilotSession(options) {
     };
   }
 
-  const existingRecord = readJsonIfExists(sessionRecordPath);
-  const now = new Date().toISOString();
-  const sessionId = existingRecord?.sessionId ?? randomUUID();
-
-  ensureDirForFile(sessionRecordPath);
-  fs.writeFileSync(
-    sessionRecordPath,
-    `${JSON.stringify({
-      sessionKey,
-      sessionId,
-      createdAt: existingRecord?.createdAt ?? now,
-      updatedAt: now
-    }, null, 2)}\n`,
-    'utf8'
-  );
+  const persistedSession = persistSessionRecord(sessionStoreDir, sessionKey, now);
 
   return {
-    sessionId,
-    sessionKey,
-    source: existingRecord ? 'stored' : 'generated',
+    sessionId: persistedSession.sessionId,
+    sessionKey: persistedSession.sessionKey,
+    source: persistedSession.source,
     persistence: 'persistent',
-    sessionRecordPath,
+    sessionRecordPath: persistedSession.sessionRecordPath,
     legacyRecordRemoved: false
   };
 }

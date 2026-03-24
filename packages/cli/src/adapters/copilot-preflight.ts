@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto';
 import { execFileSync as defaultExecFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
-import { fail, writeJson } from '../shared/fs-utils.js';
+import { ensureDirForFile, fail, writeJson } from '../shared/fs-utils.js';
 import { extractCopilotAssistantContent, extractJsonPayload } from './adapter-normalizer.js';
 import type { AdapterRuntimeDocument } from '../types/index.js';
 
@@ -35,6 +38,107 @@ export interface CopilotPreflightReportDocument {
 
 export interface PreflightDependencies {
   execFileSync?: typeof defaultExecFileSync;
+  now?: () => number;
+}
+
+interface CachedCopilotPreflightReportRecord {
+  fingerprint: string;
+  cachedAt: string;
+  report: CopilotPreflightReportDocument;
+}
+
+export interface ResolvedCopilotPreflightReport {
+  report: CopilotPreflightReportDocument;
+  blockingFailures: PreflightCheck[];
+  cacheHit: boolean;
+  cachePath: string;
+}
+
+export const defaultCopilotPreflightCacheTtlMs = 15 * 60 * 1000;
+
+function getNowTimestamp(dependencies: PreflightDependencies): number {
+  return dependencies.now?.() ?? Date.now();
+}
+
+function resolvePreflightBaseDir(adapterRuntimePath: string, adapterRuntimePayload: AdapterRuntimeDocument): string {
+  const runtimePathDir = path.dirname(path.resolve(adapterRuntimePath));
+  const runtimeCwd = adapterRuntimePayload.adapterRuntime.cwd?.trim();
+
+  return runtimeCwd ? path.resolve(runtimePathDir, runtimeCwd) : runtimePathDir;
+}
+
+function buildCopilotPreflightCacheFingerprint(adapterRuntimePath: string, adapterRuntimePayload: AdapterRuntimeDocument): string {
+  const adapterRuntime = adapterRuntimePayload.adapterRuntime;
+  const fingerprintSource = JSON.stringify({
+    version: 1,
+    adapterRuntimeRef: path.resolve(adapterRuntimePath),
+    provider: adapterRuntime.provider ?? 'unknown',
+    model: adapterRuntime.model ?? '',
+    cwd: resolvePreflightBaseDir(adapterRuntimePath, adapterRuntimePayload)
+  });
+
+  return createHash('sha256').update(fingerprintSource).digest('hex');
+}
+
+export function buildCopilotPreflightCachePath(adapterRuntimePath: string, adapterRuntimePayload: AdapterRuntimeDocument): string {
+  const fingerprint = buildCopilotPreflightCacheFingerprint(adapterRuntimePath, adapterRuntimePayload);
+  return path.join(
+    resolvePreflightBaseDir(adapterRuntimePath, adapterRuntimePayload),
+    '.spec2flow',
+    'runtime',
+    'copilot-preflight-cache',
+    `${fingerprint}.json`
+  );
+}
+
+function readCachedCopilotPreflightReport(
+  adapterRuntimePath: string,
+  adapterRuntimePayload: AdapterRuntimeDocument,
+  dependencies: PreflightDependencies
+): CopilotPreflightReportDocument | null {
+  const cachePath = buildCopilotPreflightCachePath(adapterRuntimePath, adapterRuntimePayload);
+  if (!fs.existsSync(cachePath)) {
+    return null;
+  }
+
+  try {
+    const cacheRecord = JSON.parse(fs.readFileSync(cachePath, 'utf8')) as CachedCopilotPreflightReportRecord;
+    const expectedFingerprint = buildCopilotPreflightCacheFingerprint(adapterRuntimePath, adapterRuntimePayload);
+    if (cacheRecord.fingerprint !== expectedFingerprint || cacheRecord.report?.preflight?.status !== 'passed') {
+      return null;
+    }
+
+    const cachedAt = Date.parse(cacheRecord.cachedAt);
+    if (Number.isNaN(cachedAt)) {
+      return null;
+    }
+
+    if (getNowTimestamp(dependencies) - cachedAt > defaultCopilotPreflightCacheTtlMs) {
+      return null;
+    }
+
+    return cacheRecord.report;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCopilotPreflightReport(
+  adapterRuntimePath: string,
+  adapterRuntimePayload: AdapterRuntimeDocument,
+  report: CopilotPreflightReportDocument,
+  dependencies: PreflightDependencies
+): string {
+  const cachePath = buildCopilotPreflightCachePath(adapterRuntimePath, adapterRuntimePayload);
+  const cacheRecord: CachedCopilotPreflightReportRecord = {
+    fingerprint: buildCopilotPreflightCacheFingerprint(adapterRuntimePath, adapterRuntimePayload),
+    cachedAt: new Date(getNowTimestamp(dependencies)).toISOString(),
+    report
+  };
+
+  ensureDirForFile(cachePath);
+  fs.writeFileSync(cachePath, `${JSON.stringify(cacheRecord, null, 2)}\n`, 'utf8');
+  return cachePath;
 }
 
 export function runCommandCapture(
@@ -195,6 +299,35 @@ export function buildCopilotPreflightReport(
   return { report, blockingFailures };
 }
 
+export function resolveCopilotPreflightReport(
+  adapterRuntimePath: string,
+  adapterRuntimePayload: AdapterRuntimeDocument,
+  dependencies: PreflightDependencies = {}
+): ResolvedCopilotPreflightReport {
+  const cachedReport = readCachedCopilotPreflightReport(adapterRuntimePath, adapterRuntimePayload, dependencies);
+  if (cachedReport) {
+    return {
+      report: cachedReport,
+      blockingFailures: [],
+      cacheHit: true,
+      cachePath: buildCopilotPreflightCachePath(adapterRuntimePath, adapterRuntimePayload)
+    };
+  }
+
+  const { report, blockingFailures } = buildCopilotPreflightReport(adapterRuntimePath, adapterRuntimePayload, dependencies);
+  const cachePath = buildCopilotPreflightCachePath(adapterRuntimePath, adapterRuntimePayload);
+  if (blockingFailures.length === 0 && report.preflight.status === 'passed') {
+    writeCachedCopilotPreflightReport(adapterRuntimePath, adapterRuntimePayload, report, dependencies);
+  }
+
+  return {
+    report,
+    blockingFailures,
+    cacheHit: false,
+    cachePath
+  };
+}
+
 export function maybeWritePreflightReport(outputPath: string | undefined, report: CopilotPreflightReportDocument): void {
   if (!outputPath) {
     return;
@@ -218,7 +351,7 @@ export function ensureAdapterPreflight(
     return;
   }
 
-  const { report, blockingFailures } = buildCopilotPreflightReport(adapterRuntimePath, adapterRuntimePayload, dependencies ?? {});
+  const { report, blockingFailures } = resolveCopilotPreflightReport(adapterRuntimePath, adapterRuntimePayload, dependencies ?? {});
   const preflightOutput = typeof options['preflight-output'] === 'string' ? options['preflight-output'] : undefined;
   maybeWritePreflightReport(preflightOutput, report);
 
