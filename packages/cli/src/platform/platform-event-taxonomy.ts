@@ -1,4 +1,4 @@
-import type { PlatformEventCategory, PlatformEventSeverity, PlatformObservabilityTimelineEntry } from '../types/platform-observability.js';
+import type { PlatformEventTaxonomyDescriptor, PlatformObservabilityTimelineEntry } from '../types/platform-observability.js';
 import type { PlatformEventRecord } from '../types/platform-persistence.js';
 
 export const PLATFORM_EVENT_TAXONOMY_VERSION = 'phase-6-v1';
@@ -27,19 +27,15 @@ export const PLATFORM_EVENT_TYPES = {
   REPAIR_FAILED: 'repair.failed',
   REPAIR_BLOCKED: 'repair.blocked',
   PUBLICATION_PREPARED: 'publication.prepared',
+  PUBLICATION_APPROVAL_REQUIRED: 'publication.approval-required',
+  PUBLICATION_BLOCKED: 'publication.blocked',
   PUBLICATION_PUBLISHED: 'publication.published',
-  APPROVAL_REQUESTED: 'approval.requested'
+  APPROVAL_REQUESTED: 'approval.requested',
+  APPROVAL_APPROVED: 'approval.approved',
+  APPROVAL_REJECTED: 'approval.rejected'
 } as const;
 
 export type PlatformEventType = typeof PLATFORM_EVENT_TYPES[keyof typeof PLATFORM_EVENT_TYPES];
-
-export interface PlatformEventTaxonomyDescriptor {
-  type: string;
-  category: PlatformEventCategory;
-  action: string;
-  title: string;
-  severity: PlatformEventSeverity;
-}
 
 const platformEventDescriptors: Record<string, PlatformEventTaxonomyDescriptor> = {
   [PLATFORM_EVENT_TYPES.RUN_CREATED]: {
@@ -203,6 +199,20 @@ const platformEventDescriptors: Record<string, PlatformEventTaxonomyDescriptor> 
     title: 'Publication prepared',
     severity: 'warning'
   },
+  [PLATFORM_EVENT_TYPES.PUBLICATION_APPROVAL_REQUIRED]: {
+    type: PLATFORM_EVENT_TYPES.PUBLICATION_APPROVAL_REQUIRED,
+    category: 'publication',
+    action: 'approval-required',
+    title: 'Publication awaiting approval',
+    severity: 'warning'
+  },
+  [PLATFORM_EVENT_TYPES.PUBLICATION_BLOCKED]: {
+    type: PLATFORM_EVENT_TYPES.PUBLICATION_BLOCKED,
+    category: 'publication',
+    action: 'blocked',
+    title: 'Publication blocked',
+    severity: 'warning'
+  },
   [PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED]: {
     type: PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED,
     category: 'publication',
@@ -216,6 +226,20 @@ const platformEventDescriptors: Record<string, PlatformEventTaxonomyDescriptor> 
     action: 'requested',
     title: 'Approval requested',
     severity: 'warning'
+  },
+  [PLATFORM_EVENT_TYPES.APPROVAL_APPROVED]: {
+    type: PLATFORM_EVENT_TYPES.APPROVAL_APPROVED,
+    category: 'approval',
+    action: 'approved',
+    title: 'Approval granted',
+    severity: 'info'
+  },
+  [PLATFORM_EVENT_TYPES.APPROVAL_REJECTED]: {
+    type: PLATFORM_EVENT_TYPES.APPROVAL_REJECTED,
+    category: 'approval',
+    action: 'rejected',
+    title: 'Approval rejected',
+    severity: 'warning'
   }
 };
 
@@ -227,6 +251,10 @@ export function describePlatformEventType(eventType: string): PlatformEventTaxon
     title: eventType,
     severity: 'info'
   };
+}
+
+export function listPlatformEventTaxonomyDescriptors(): PlatformEventTaxonomyDescriptor[] {
+  return Object.values(platformEventDescriptors).sort((left, right) => left.type.localeCompare(right.type));
 }
 
 export function buildPlatformTimelineEntry(event: PlatformEventRecord): PlatformObservabilityTimelineEntry {

@@ -25,6 +25,7 @@ describe('get-platform-observability-command', () => {
       fail: vi.fn(),
       getPlatformObservability: vi.fn(async () => ({
         taxonomyVersion: 'phase-6-v1',
+        eventCatalog: [],
         run: null,
         metrics: {
           runDurationSeconds: null,
@@ -76,11 +77,15 @@ describe('get-platform-observability-command', () => {
               publication: 0,
               approval: 0,
               unknown: 0
-            }
+            },
+            byType: []
           }
         },
         timeline: [],
         taskSummaries: [],
+        repairSummaries: [],
+        publicationSummaries: [],
+        approvals: [],
         recentEvents: [],
         repairs: [],
         publications: [],

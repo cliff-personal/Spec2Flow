@@ -170,6 +170,7 @@ The PostgreSQL commands are:
 - `start-platform-task`: transition one leased task into `in-progress`
 - `expire-platform-leases`: requeue or block stale leased work after timeout
 - `get-platform-run-state`: read one DB-backed run snapshot with tasks, events, and artifacts
+- `serve-platform-control-plane`: start the first HTTP backend for the future web control plane
 - `run-platform-worker-task`: materialize one leased DB-backed task into a worker claim, execute it, and persist the result back to PostgreSQL
 - `run-platform-requirements-worker`: stage-locked wrapper for `requirements-analysis`
 - `run-platform-implementation-worker`: stage-locked wrapper for `code-implementation`
@@ -223,6 +224,12 @@ npm run get:platform-run-state -- \
   --database-schema spec2flow_platform \
   --run-id spec2flow-platform-phase2
 
+npm run serve:platform-control-plane -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --host 127.0.0.1 \
+  --port 4310
+
 npm run spec2flow -- run-platform-worker-task \
   --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
   --database-schema spec2flow_platform \
@@ -257,6 +264,7 @@ Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
 - lease ownership is stored in PostgreSQL through `leased_by_worker_id`, `lease_expires_at`, and `last_heartbeat_at`
 - stale leases can be recovered without editing JSON files by running `expire-platform-leases`
 - `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
+- `serve-platform-control-plane` exposes the first backend HTTP surface for health checks, run lists, run detail, task detail, observability snapshots, and task-level operator actions for retry and approval
 
 Phase 3 adds the first DB-backed worker runtime harness:
 

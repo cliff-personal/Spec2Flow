@@ -74,10 +74,25 @@ export type {
 } from './platform-persistence.js';
 export type {
   PlatformEventCategory,
+  PlatformEventTaxonomyDescriptor,
   PlatformEventSeverity,
+  PlatformObservabilityApprovalItem,
   PlatformObservabilityAttentionItem,
+  PlatformObservabilityEventTypeCount,
   PlatformObservabilityMetrics,
+  PlatformPublicationObservabilitySummary,
+  PlatformRepairObservabilitySummary,
   PlatformObservabilityReadModel,
   PlatformObservabilityTimelineEntry,
   PlatformTaskObservabilitySummary
 } from './platform-observability.js';
+export type {
+  PlatformControlPlaneTaskActionDocument,
+  PlatformControlPlaneTaskActionResult,
+  PlatformControlPlaneErrorDocument,
+  PlatformControlPlaneRunDetail,
+  PlatformControlPlaneRunDetailDocument,
+  PlatformControlPlaneRunListDocument,
+  PlatformControlPlaneRunListItem,
+  PlatformControlPlaneTaskList
+} from './platform-control-plane.js';

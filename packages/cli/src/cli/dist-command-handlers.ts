@@ -29,6 +29,7 @@ import { runPreflightCopilotCli } from './preflight-copilot-cli-command.js';
 import { runTaskWithAdapter, type AdapterTaskRunDocument } from './run-task-with-adapter-command.js';
 import { runDeterministicTaskCommand } from './run-deterministic-task-command.js';
 import { runPlatformWorkerTask, type PlatformWorkerRunDocument } from './run-platform-worker-task-command.js';
+import { runServePlatformControlPlane } from './serve-platform-control-plane-command.js';
 import { runStartPlatformTask, type PlatformTaskStartDocument } from './start-platform-task-command.js';
 import { runUpdateExecutionState } from './update-execution-state-command.js';
 import { runValidateDocs, type DocsValidationReportDocument } from './validate-docs-command.js';
@@ -36,6 +37,18 @@ import { runWorkflowLoop } from './run-workflow-loop-command.js';
 import { runSimulateModelRun, type SimulatedModelRunDocument } from './simulate-model-run-command.js';
 import { runSubmitTaskResult } from './submit-task-result-command.js';
 import { runValidateOnboarding, type ValidateOnboardingResultDocument } from './validate-onboarding-command.js';
+import {
+  getPlatformControlPlaneRunDetail,
+  getPlatformControlPlaneRunObservability,
+  getPlatformControlPlaneRunTasks,
+  listPlatformRuns
+} from '../platform/platform-control-plane-service.js';
+import {
+  approvePlatformControlPlaneTask,
+  rejectPlatformControlPlaneTask,
+  retryPlatformControlPlaneTask
+} from '../platform/platform-control-plane-action-service.js';
+import { startPlatformControlPlaneServer } from '../platform/platform-control-plane-server.js';
 import type { CliOptions as PreflightCliOptions, CopilotPreflightReportDocument } from '../adapters/copilot-preflight.js';
 import { getPlatformObservability } from '../platform/platform-observability-service.js';
 import type { AdapterRunDocument, AdapterRuntimeDocument, ExecutionStateDocument, TaskClaimPayload, TaskGraphDocument, TaskResultDocument, WorkflowLoopSummaryDocument } from '../types/index.js';
@@ -161,6 +174,21 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         resolvePlatformDatabaseConfig,
         withPlatformTransaction,
         writeJson: dependencies.writeJson
+      }),
+    'serve-platform-control-plane': (options) =>
+      runServePlatformControlPlane(options, {
+        approvePlatformControlPlaneTask,
+        createPlatformPool,
+        fail: dependencies.fail,
+        getPlatformControlPlaneRunDetail,
+        getPlatformControlPlaneRunObservability,
+        getPlatformControlPlaneRunTasks,
+        listPlatformRuns,
+        rejectPlatformControlPlaneTask,
+        resolvePlatformDatabaseConfig,
+        retryPlatformControlPlaneTask,
+        startPlatformControlPlaneServer,
+        withPlatformTransaction
       }),
     'init-platform-run': (options) =>
       runInitPlatformRun(options, {

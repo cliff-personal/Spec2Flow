@@ -92,6 +92,8 @@ function createSnapshot(): PlatformRunStateSnapshot {
         taskId: 'frontend-smoke--code-implementation',
         eventType: PLATFORM_EVENT_TYPES.REPAIR_TRIGGERED,
         payload: {
+          repairAttemptId: 'repair-1',
+          attemptNumber: 1,
           failureClass: 'implementation-defect'
         },
         createdAt: '2026-03-24T10:03:00.000Z'
@@ -102,9 +104,21 @@ function createSnapshot(): PlatformRunStateSnapshot {
         taskId: 'frontend-smoke--collaboration',
         eventType: PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED,
         payload: {
+          publicationId: 'publication-1',
           status: 'approval-required'
         },
         createdAt: '2026-03-24T10:05:00.000Z'
+      },
+      {
+        eventId: 'event-4',
+        runId: 'run-1',
+        taskId: 'frontend-smoke--collaboration',
+        eventType: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED,
+        payload: {
+          publicationId: 'publication-1',
+          gateReason: 'human-approval-required'
+        },
+        createdAt: '2026-03-24T10:05:10.000Z'
       }
     ],
     artifacts: [
@@ -142,7 +156,9 @@ function createSnapshot(): PlatformRunStateSnapshot {
         publishMode: 'manual-handoff',
         status: 'approval-required',
         metadata: {
-          taskId: 'frontend-smoke--collaboration'
+          taskId: 'frontend-smoke--collaboration',
+          approvalRequired: true,
+          gateReason: 'human-approval-required'
         }
       }
     ]
@@ -156,28 +172,65 @@ describe('platform-observability-service', () => {
     });
 
     expect(result.taxonomyVersion).toBe('phase-6-v1');
+    expect(result.eventCatalog).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: PLATFORM_EVENT_TYPES.PUBLICATION_APPROVAL_REQUIRED }),
+      expect.objectContaining({ type: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED })
+    ]));
     expect(result.metrics.tasks.total).toBe(2);
     expect(result.metrics.repairs.blocked).toBe(1);
     expect(result.metrics.publications.approvalRequired).toBe(1);
     expect(result.metrics.artifacts.tasksWithMissingExpectedArtifacts).toBe(1);
     expect(result.metrics.events.byCategory.publication).toBe(1);
+    expect(result.metrics.events.byCategory.approval).toBe(1);
+    expect(result.metrics.events.byType).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED, count: 1 }),
+      expect.objectContaining({ type: PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED, count: 1 })
+    ]));
     expect(result.timeline.map((entry) => entry.type)).toEqual([
       PLATFORM_EVENT_TYPES.RUN_CREATED,
       PLATFORM_EVENT_TYPES.REPAIR_TRIGGERED,
-      PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED
+      PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED,
+      PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED
     ]);
     expect(result.taskSummaries.find((task) => task.taskId === 'frontend-smoke--collaboration')).toMatchObject({
       status: 'blocked',
-      latestEventType: PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED',
+      latestEventType: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED,
+      recentEvents: expect.arrayContaining([
+        expect.objectContaining({ type: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED }),
+        expect.objectContaining({ type: PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED })
+      ]),
       missingExpectedArtifactCount: 1
     });
+    expect(result.repairSummaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        repairAttemptId: 'repair-1',
+        status: 'blocked',
+        latestEventType: PLATFORM_EVENT_TYPES.REPAIR_TRIGGERED
+      })
+    ]));
+    expect(result.publicationSummaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        publicationId: 'publication-1',
+        taskId: 'frontend-smoke--collaboration',
+        status: 'approval-required',
+        approvalRequired: true
+      })
+    ]));
+    expect(result.approvals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        publicationId: 'publication-1',
+        taskId: 'frontend-smoke--collaboration',
+        status: 'requested'
+      })
+    ]));
     expect(result.attentionRequired).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'task',
         taskId: 'frontend-smoke--collaboration'
       }),
       expect.objectContaining({
-        kind: 'publication'
+        kind: 'publication',
+        message: 'Approval is requested for publication publication-1'
       })
     ]));
   });

@@ -12,6 +12,21 @@ export type PlatformEventCategory =
 
 export type PlatformEventSeverity = 'info' | 'warning' | 'error';
 
+export interface PlatformEventTaxonomyDescriptor {
+  type: string;
+  category: PlatformEventCategory;
+  action: string;
+  title: string;
+  severity: PlatformEventSeverity;
+}
+
+export interface PlatformObservabilityEventTypeCount {
+  type: string;
+  category: PlatformEventCategory;
+  severity: PlatformEventSeverity;
+  count: number;
+}
+
 export interface PlatformObservabilityTimelineEntry {
   eventId: string;
   createdAt: string | null;
@@ -37,8 +52,49 @@ export interface PlatformTaskObservabilitySummary {
   latestEventType?: string | null;
   latestEventAt?: string | null;
   latestEventSeverity?: PlatformEventSeverity | null;
+  recentEvents: PlatformObservabilityTimelineEntry[];
   leasedByWorkerId?: string | null;
   leaseExpiresAt?: string | null;
+}
+
+export interface PlatformRepairObservabilitySummary {
+  repairAttemptId: string;
+  taskId: string;
+  triggerTaskId: string;
+  sourceStage: PlatformRepairAttemptRecord['sourceStage'];
+  failureClass: string;
+  attemptNumber: number;
+  status: PlatformRepairAttemptRecord['status'];
+  recommendedAction?: string | null;
+  latestEventType?: string | null;
+  latestEventAt?: string | null;
+  latestEventSeverity?: PlatformEventSeverity | null;
+  recentEvents: PlatformObservabilityTimelineEntry[];
+}
+
+export interface PlatformPublicationObservabilitySummary {
+  publicationId: string;
+  taskId?: string | null;
+  status: PlatformPublicationRecord['status'];
+  publishMode: PlatformPublicationRecord['publishMode'];
+  branchName?: string | null;
+  commitSha?: string | null;
+  prUrl?: string | null;
+  approvalRequired: boolean;
+  gateReason?: string | null;
+  latestEventType?: string | null;
+  latestEventAt?: string | null;
+  latestEventSeverity?: PlatformEventSeverity | null;
+  recentEvents: PlatformObservabilityTimelineEntry[];
+}
+
+export interface PlatformObservabilityApprovalItem {
+  publicationId?: string | null;
+  taskId?: string | null;
+  createdAt: string | null;
+  status: 'requested' | 'approved' | 'rejected' | 'blocked';
+  reason?: string | null;
+  latestEventType?: string | null;
 }
 
 export interface PlatformObservabilityMetrics {
@@ -83,6 +139,7 @@ export interface PlatformObservabilityMetrics {
   events: {
     recentCount: number;
     byCategory: Record<PlatformEventCategory, number>;
+    byType: PlatformObservabilityEventTypeCount[];
   };
 }
 
@@ -95,10 +152,14 @@ export interface PlatformObservabilityAttentionItem {
 
 export interface PlatformObservabilityReadModel {
   taxonomyVersion: string;
+  eventCatalog: PlatformEventTaxonomyDescriptor[];
   run: PlatformRunRecord | null;
   metrics: PlatformObservabilityMetrics;
   timeline: PlatformObservabilityTimelineEntry[];
   taskSummaries: PlatformTaskObservabilitySummary[];
+  repairSummaries: PlatformRepairObservabilitySummary[];
+  publicationSummaries: PlatformPublicationObservabilitySummary[];
+  approvals: PlatformObservabilityApprovalItem[];
   recentEvents: PlatformEventRecord[];
   repairs: PlatformRepairAttemptRecord[];
   publications: PlatformPublicationRecord[];

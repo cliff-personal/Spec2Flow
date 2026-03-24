@@ -1,12 +1,22 @@
 import { DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT, getPlatformRunState, type GetPlatformRunStateOptions } from './platform-scheduler-service.js';
-import { PLATFORM_EVENT_TAXONOMY_VERSION, buildPlatformTimelineEntry, describePlatformEventType } from './platform-event-taxonomy.js';
+import {
+  PLATFORM_EVENT_TAXONOMY_VERSION,
+  PLATFORM_EVENT_TYPES,
+  buildPlatformTimelineEntry,
+  listPlatformEventTaxonomyDescriptors
+} from './platform-event-taxonomy.js';
 import type {
   PlatformArtifactRecord,
   PlatformEventCategory,
+  PlatformObservabilityApprovalItem,
   PlatformObservabilityAttentionItem,
+  PlatformObservabilityEventTypeCount,
   PlatformObservabilityMetrics,
+  PlatformPublicationObservabilitySummary,
   PlatformObservabilityReadModel,
+  PlatformObservabilityTimelineEntry,
   PlatformRepairAttemptRecord,
+  PlatformRepairObservabilitySummary,
   PlatformRunStateSnapshot,
   PlatformTaskObservabilitySummary
 } from '../types/index.js';
@@ -30,22 +40,74 @@ function countArtifactsByTask(artifacts: PlatformArtifactRecord[]): Map<string, 
   return counts;
 }
 
-function buildTaskSummaries(snapshot: PlatformRunStateSnapshot): PlatformTaskObservabilitySummary[] {
-  const timeline = snapshot.recentEvents.map((event) => buildPlatformTimelineEntry(event));
+function sortTimelineEntriesAscending(left: PlatformObservabilityTimelineEntry, right: PlatformObservabilityTimelineEntry): number {
+  const leftTimestamp = Date.parse(left.createdAt ?? '');
+  const rightTimestamp = Date.parse(right.createdAt ?? '');
+  if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
+    return leftTimestamp - rightTimestamp;
+  }
+
+  return left.eventId.localeCompare(right.eventId);
+}
+
+function sortTimelineEntriesDescending(left: PlatformObservabilityTimelineEntry, right: PlatformObservabilityTimelineEntry): number {
+  const leftTimestamp = Date.parse(left.createdAt ?? '');
+  const rightTimestamp = Date.parse(right.createdAt ?? '');
+  if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
+    return rightTimestamp - leftTimestamp;
+  }
+
+  return right.eventId.localeCompare(left.eventId);
+}
+
+function buildTimeline(snapshot: PlatformRunStateSnapshot): PlatformObservabilityTimelineEntry[] {
+  return [...snapshot.recentEvents]
+    .map((event) => buildPlatformTimelineEntry(event))
+    .sort(sortTimelineEntriesAscending);
+}
+
+function groupTimelineByTask(timeline: PlatformObservabilityTimelineEntry[]): Map<string, PlatformObservabilityTimelineEntry[]> {
+  const groupedEntries = new Map<string, PlatformObservabilityTimelineEntry[]>();
+
+  for (const entry of timeline) {
+    if (!entry.taskId) {
+      continue;
+    }
+
+    const existingEntries = groupedEntries.get(entry.taskId) ?? [];
+    existingEntries.push(entry);
+    groupedEntries.set(entry.taskId, existingEntries);
+  }
+
+  for (const [taskId, entries] of groupedEntries) {
+    groupedEntries.set(taskId, [...entries].sort(sortTimelineEntriesDescending));
+  }
+
+  return groupedEntries;
+}
+
+function getPayloadString(payload: Record<string, unknown>, key: string): string | null {
+  const value = payload[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function getPayloadNumber(payload: Record<string, unknown>, key: string): number | null {
+  const value = payload[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function getPayloadBoolean(payload: Record<string, unknown>, key: string): boolean {
+  return payload[key] === true;
+}
+
+function buildTaskSummaries(snapshot: PlatformRunStateSnapshot, timeline: PlatformObservabilityTimelineEntry[]): PlatformTaskObservabilitySummary[] {
   const latestEventByTask = new Map<string, PlatformTaskObservabilitySummary['latestEventType']>();
   const latestEventAtByTask = new Map<string, string | null>();
   const latestEventSeverityByTask = new Map<string, PlatformTaskObservabilitySummary['latestEventSeverity']>();
   const artifactCountByTask = countArtifactsByTask(snapshot.artifacts);
+  const timelineByTask = groupTimelineByTask(timeline);
 
-  for (const entry of [...timeline].sort((left, right) => {
-    const leftTimestamp = Date.parse(left.createdAt ?? '');
-    const rightTimestamp = Date.parse(right.createdAt ?? '');
-    if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && rightTimestamp !== leftTimestamp) {
-      return rightTimestamp - leftTimestamp;
-    }
-
-    return right.eventId.localeCompare(left.eventId);
-  })) {
+  for (const entry of [...timeline].sort(sortTimelineEntriesDescending)) {
     if (!entry.taskId || latestEventByTask.has(entry.taskId)) {
       continue;
     }
@@ -72,6 +134,7 @@ function buildTaskSummaries(snapshot: PlatformRunStateSnapshot): PlatformTaskObs
       latestEventType: latestEventByTask.get(task.taskId) ?? null,
       latestEventAt: latestEventAtByTask.get(task.taskId) ?? null,
       latestEventSeverity: latestEventSeverityByTask.get(task.taskId) ?? null,
+      recentEvents: (timelineByTask.get(task.taskId) ?? []).slice(0, 5),
       leasedByWorkerId: task.leasedByWorkerId ?? null,
       leaseExpiresAt: task.leaseExpiresAt ?? null
     };
@@ -79,7 +142,7 @@ function buildTaskSummaries(snapshot: PlatformRunStateSnapshot): PlatformTaskObs
 }
 
 function buildMetrics(snapshot: PlatformRunStateSnapshot, now: string): PlatformObservabilityMetrics {
-  const timeline = snapshot.recentEvents.map((event) => buildPlatformTimelineEntry(event));
+  const timeline = buildTimeline(snapshot);
   const artifactCountByTask = countArtifactsByTask(snapshot.artifacts);
   const eventCategoryCounts: Record<PlatformEventCategory, number> = {
     run: 0,
@@ -91,9 +154,22 @@ function buildMetrics(snapshot: PlatformRunStateSnapshot, now: string): Platform
     approval: 0,
     unknown: 0
   };
+  const eventTypeCounts = new Map<string, PlatformObservabilityEventTypeCount>();
 
   for (const entry of timeline) {
     eventCategoryCounts[entry.category] += 1;
+    const existingCount = eventTypeCounts.get(entry.type);
+    if (existingCount) {
+      existingCount.count += 1;
+      continue;
+    }
+
+    eventTypeCounts.set(entry.type, {
+      type: entry.type,
+      category: entry.category,
+      severity: entry.severity,
+      count: 1
+    });
   }
 
   const runStart = snapshot.run?.startedAt ?? snapshot.run?.createdAt ?? null;
@@ -115,7 +191,7 @@ function buildMetrics(snapshot: PlatformRunStateSnapshot, now: string): Platform
 
   return {
     runDurationSeconds,
-    latestEventAt: timeline[timeline.length - 1]?.createdAt ?? snapshot.run?.updatedAt ?? null,
+    latestEventAt: timeline.at(-1)?.createdAt ?? snapshot.run?.updatedAt ?? null,
     tasks: {
       total: snapshot.tasks.length,
       pending: snapshot.tasks.filter((task) => task.status === 'pending').length,
@@ -154,15 +230,146 @@ function buildMetrics(snapshot: PlatformRunStateSnapshot, now: string): Platform
     },
     events: {
       recentCount: timeline.length,
-      byCategory: eventCategoryCounts
+      byCategory: eventCategoryCounts,
+      byType: [...eventTypeCounts.values()].sort((left, right) => left.type.localeCompare(right.type))
     }
   };
 }
 
-function buildAttentionRequired(snapshot: PlatformRunStateSnapshot): PlatformObservabilityAttentionItem[] {
+function mapApprovalStatus(entryType: string): PlatformObservabilityApprovalItem['status'] {
+  if (entryType === PLATFORM_EVENT_TYPES.APPROVAL_APPROVED) {
+    return 'approved';
+  }
+
+  if (entryType === PLATFORM_EVENT_TYPES.APPROVAL_REJECTED) {
+    return 'rejected';
+  }
+
+  return 'requested';
+}
+
+function isApprovalEventType(
+  entryType: string
+): entryType is typeof PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED | typeof PLATFORM_EVENT_TYPES.APPROVAL_APPROVED | typeof PLATFORM_EVENT_TYPES.APPROVAL_REJECTED {
+  return entryType === PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED
+    || entryType === PLATFORM_EVENT_TYPES.APPROVAL_APPROVED
+    || entryType === PLATFORM_EVENT_TYPES.APPROVAL_REJECTED;
+}
+
+function buildRepairSummaries(
+  timeline: PlatformObservabilityTimelineEntry[],
+  repairAttempts: PlatformRepairAttemptRecord[]
+): PlatformRepairObservabilitySummary[] {
+  return repairAttempts.map((attempt) => {
+    const matchingEvents = timeline
+      .filter((entry) => {
+        const payloadRepairAttemptId = getPayloadString(entry.payload, 'repairAttemptId');
+        if (payloadRepairAttemptId) {
+          return payloadRepairAttemptId === attempt.repairAttemptId;
+        }
+
+        return entry.taskId === attempt.sourceTaskId && getPayloadNumber(entry.payload, 'attemptNumber') === attempt.attemptNumber;
+      })
+      .sort(sortTimelineEntriesDescending);
+    const latestEvent = matchingEvents[0] ?? null;
+
+    return {
+      repairAttemptId: attempt.repairAttemptId,
+      taskId: attempt.sourceTaskId,
+      triggerTaskId: attempt.triggerTaskId,
+      sourceStage: attempt.sourceStage,
+      failureClass: attempt.failureClass,
+      attemptNumber: attempt.attemptNumber,
+      status: attempt.status,
+      recommendedAction: attempt.recommendedAction ?? null,
+      latestEventType: latestEvent?.type ?? null,
+      latestEventAt: latestEvent?.createdAt ?? null,
+      latestEventSeverity: latestEvent?.severity ?? null,
+      recentEvents: matchingEvents.slice(0, 5)
+    };
+  });
+}
+
+function buildPublicationSummaries(
+  timeline: PlatformObservabilityTimelineEntry[],
+  publications: PlatformRunStateSnapshot['publications']
+): PlatformPublicationObservabilitySummary[] {
+  return publications.map((publication) => {
+    const matchingEvents = timeline
+      .filter((entry) => getPayloadString(entry.payload, 'publicationId') === publication.publicationId)
+      .sort(sortTimelineEntriesDescending);
+    const latestEvent = matchingEvents[0] ?? null;
+    const taskId = typeof publication.metadata?.taskId === 'string' ? publication.metadata.taskId : null;
+
+    return {
+      publicationId: publication.publicationId,
+      taskId,
+      status: publication.status,
+      publishMode: publication.publishMode,
+      branchName: publication.branchName ?? null,
+      commitSha: publication.commitSha ?? null,
+      prUrl: publication.prUrl ?? null,
+      approvalRequired: publication.status === 'approval-required' || getPayloadBoolean(publication.metadata ?? {}, 'approvalRequired'),
+      gateReason: getPayloadString(publication.metadata ?? {}, 'gateReason'),
+      latestEventType: latestEvent?.type ?? null,
+      latestEventAt: latestEvent?.createdAt ?? null,
+      latestEventSeverity: latestEvent?.severity ?? null,
+      recentEvents: matchingEvents.slice(0, 5)
+    };
+  });
+}
+
+function buildApprovals(
+  timeline: PlatformObservabilityTimelineEntry[],
+  publications: PlatformRunStateSnapshot['publications']
+): PlatformObservabilityApprovalItem[] {
+  const timelineApprovals = timeline
+    .filter((entry) => isApprovalEventType(entry.type))
+    .map((entry) => ({
+      publicationId: getPayloadString(entry.payload, 'publicationId'),
+      taskId: entry.taskId ?? null,
+      createdAt: entry.createdAt ?? null,
+      status: mapApprovalStatus(entry.type),
+      reason: getPayloadString(entry.payload, 'gateReason') ?? getPayloadString(entry.payload, 'note'),
+      latestEventType: entry.type
+    }));
+
+  const backfilledApprovals = publications
+    .filter((publication) => publication.status === 'approval-required')
+    .filter((publication) => !timelineApprovals.some((entry) => entry.publicationId === publication.publicationId))
+    .map((publication) => ({
+      publicationId: publication.publicationId,
+      taskId: typeof publication.metadata?.taskId === 'string' ? publication.metadata.taskId : null,
+      createdAt: publication.updatedAt ?? publication.createdAt ?? null,
+      status: 'requested' as const,
+      reason: getPayloadString(publication.metadata ?? {}, 'gateReason'),
+      latestEventType: PLATFORM_EVENT_TYPES.PUBLICATION_APPROVAL_REQUIRED
+    }));
+
+  const approvalByPublication = new Map<string, PlatformObservabilityApprovalItem>();
+
+  for (const approval of [...timelineApprovals, ...backfilledApprovals].sort((left, right) => {
+    const leftTimestamp = Date.parse(left.createdAt ?? '');
+    const rightTimestamp = Date.parse(right.createdAt ?? '');
+    if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
+      return rightTimestamp - leftTimestamp;
+    }
+
+    return String(right.publicationId ?? '').localeCompare(String(left.publicationId ?? ''));
+  })) {
+    const publicationKey = approval.publicationId ?? `task:${approval.taskId ?? 'unknown'}`;
+    if (!approvalByPublication.has(publicationKey)) {
+      approvalByPublication.set(publicationKey, approval);
+    }
+  }
+
+  return [...approvalByPublication.values()];
+}
+
+function collectTaskAttentionItems(taskSummaries: PlatformTaskObservabilitySummary[]): PlatformObservabilityAttentionItem[] {
   const items: PlatformObservabilityAttentionItem[] = [];
 
-  for (const task of snapshot.tasks) {
+  for (const task of taskSummaries) {
     if (task.status === 'blocked' || task.status === 'failed') {
       items.push({
         kind: 'task',
@@ -171,26 +378,13 @@ function buildAttentionRequired(snapshot: PlatformRunStateSnapshot): PlatformObs
         message: `${task.taskId} is ${task.status}`
       });
     }
-  }
 
-  for (const attempt of snapshot.repairAttempts) {
-    if (attempt.status === 'blocked' || attempt.status === 'failed') {
+    if (task.missingExpectedArtifactCount > 0) {
       items.push({
-        kind: 'repair',
-        severity: attempt.status === 'failed' ? 'error' : 'warning',
-        taskId: attempt.sourceTaskId,
-        message: `Repair attempt ${attempt.attemptNumber} for ${attempt.sourceTaskId} is ${attempt.status}`
-      });
-    }
-  }
-
-  for (const publication of snapshot.publications) {
-    if (publication.status === 'approval-required' || publication.status === 'blocked') {
-      items.push({
-        kind: 'publication',
-        severity: publication.status === 'blocked' ? 'warning' : 'info',
-        taskId: typeof publication.metadata?.taskId === 'string' ? publication.metadata.taskId : null,
-        message: `Publication ${publication.publicationId} is ${publication.status}`
+        kind: 'task',
+        severity: 'warning',
+        taskId: task.taskId,
+        message: `${task.taskId} is missing ${task.missingExpectedArtifactCount} expected artifact(s)`
       });
     }
   }
@@ -198,18 +392,51 @@ function buildAttentionRequired(snapshot: PlatformRunStateSnapshot): PlatformObs
   return items;
 }
 
-function buildTimeline(snapshot: PlatformRunStateSnapshot) {
-  return [...snapshot.recentEvents]
-    .map((event) => buildPlatformTimelineEntry(event))
-    .sort((left, right) => {
-      const leftTimestamp = Date.parse(left.createdAt ?? '');
-      const rightTimestamp = Date.parse(right.createdAt ?? '');
-      if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
-        return leftTimestamp - rightTimestamp;
-      }
+function collectRepairAttentionItems(repairSummaries: PlatformRepairObservabilitySummary[]): PlatformObservabilityAttentionItem[] {
+  return repairSummaries
+    .filter((attempt) => attempt.status === 'blocked' || attempt.status === 'failed')
+    .map((attempt) => ({
+      kind: 'repair' as const,
+      severity: attempt.status === 'failed' ? 'error' : 'warning',
+      taskId: attempt.taskId,
+      message: `Repair attempt ${attempt.attemptNumber} for ${attempt.taskId} is ${attempt.status}`
+    }));
+}
 
-      return left.eventId.localeCompare(right.eventId);
-    });
+function collectPublicationAttentionItems(publicationSummaries: PlatformPublicationObservabilitySummary[]): PlatformObservabilityAttentionItem[] {
+  return publicationSummaries
+    .filter((publication) => publication.status === 'blocked')
+    .map((publication) => ({
+      kind: 'publication' as const,
+      severity: 'warning' as const,
+      taskId: publication.taskId ?? null,
+      message: `Publication ${publication.publicationId} is ${publication.status}`
+    }));
+}
+
+function collectApprovalAttentionItems(approvals: PlatformObservabilityApprovalItem[]): PlatformObservabilityAttentionItem[] {
+  return approvals
+    .filter((approval) => approval.status !== 'approved')
+    .map((approval) => ({
+      kind: 'publication' as const,
+      severity: approval.status === 'rejected' || approval.status === 'blocked' ? 'warning' as const : 'info' as const,
+      taskId: approval.taskId ?? null,
+      message: `Approval is ${approval.status} for publication ${approval.publicationId ?? 'unknown'}`
+    }));
+}
+
+function buildAttentionRequired(
+  taskSummaries: PlatformTaskObservabilitySummary[],
+  repairSummaries: PlatformRepairObservabilitySummary[],
+  publicationSummaries: PlatformPublicationObservabilitySummary[],
+  approvals: PlatformObservabilityApprovalItem[]
+): PlatformObservabilityAttentionItem[] {
+  return [
+    ...collectTaskAttentionItems(taskSummaries),
+    ...collectRepairAttentionItems(repairSummaries),
+    ...collectPublicationAttentionItems(publicationSummaries),
+    ...collectApprovalAttentionItems(approvals)
+  ];
 }
 
 export function buildPlatformObservabilityReadModel(
@@ -217,17 +444,26 @@ export function buildPlatformObservabilityReadModel(
   options: { now?: string } = {}
 ): PlatformObservabilityReadModel {
   const now = options.now ?? new Date().toISOString();
+  const timeline = buildTimeline(snapshot);
+  const taskSummaries = buildTaskSummaries(snapshot, timeline);
+  const repairSummaries = buildRepairSummaries(timeline, snapshot.repairAttempts);
+  const publicationSummaries = buildPublicationSummaries(timeline, snapshot.publications);
+  const approvals = buildApprovals(timeline, snapshot.publications);
 
   return {
     taxonomyVersion: PLATFORM_EVENT_TAXONOMY_VERSION,
+    eventCatalog: listPlatformEventTaxonomyDescriptors(),
     run: snapshot.run,
     metrics: buildMetrics(snapshot, now),
-    timeline: buildTimeline(snapshot),
-    taskSummaries: buildTaskSummaries(snapshot),
+    timeline,
+    taskSummaries,
+    repairSummaries,
+    publicationSummaries,
+    approvals,
     recentEvents: snapshot.recentEvents,
     repairs: snapshot.repairAttempts,
     publications: snapshot.publications,
-    attentionRequired: buildAttentionRequired(snapshot)
+    attentionRequired: buildAttentionRequired(taskSummaries, repairSummaries, publicationSummaries, approvals)
   };
 }
 
@@ -241,7 +477,5 @@ export async function getPlatformObservability(
     eventLimit: options.eventLimit ?? DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT
   });
 
-  return buildPlatformObservabilityReadModel(snapshot, {
-    now: options.now
-  });
+  return buildPlatformObservabilityReadModel(snapshot, options.now ? { now: options.now } : {});
 }

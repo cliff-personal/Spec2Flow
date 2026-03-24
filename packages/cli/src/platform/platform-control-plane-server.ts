@@ -1,0 +1,465 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type {
+  PlatformControlPlaneTaskActionDocument,
+  PlatformControlPlaneTaskActionResult,
+  PlatformControlPlaneErrorDocument,
+  PlatformControlPlaneRunDetail,
+  PlatformControlPlaneRunListDocument,
+  PlatformControlPlaneRunListItem,
+  PlatformControlPlaneTaskList,
+  PlatformObservabilityReadModel,
+  PlatformRunStatus
+} from '../types/index.js';
+import { PlatformControlPlaneActionError } from './platform-control-plane-action-service.js';
+
+export interface StartPlatformControlPlaneServerOptions {
+  host?: string;
+  port: number;
+  eventLimit: number;
+  listPlatformRuns: (options: {
+    limit: number;
+    repositoryId?: string;
+    status?: PlatformRunStatus;
+  }) => Promise<PlatformControlPlaneRunListItem[]>;
+  getPlatformControlPlaneRunDetail: (options: {
+    runId: string;
+    eventLimit: number;
+  }) => Promise<PlatformControlPlaneRunDetail | null>;
+  getPlatformControlPlaneRunTasks: (options: {
+    runId: string;
+    eventLimit: number;
+  }) => Promise<PlatformControlPlaneTaskList['tasks'] | null>;
+  getPlatformControlPlaneRunObservability: (options: {
+    runId: string;
+    eventLimit: number;
+  }) => Promise<PlatformObservabilityReadModel | null>;
+  retryPlatformTask: (options: {
+    runId: string;
+    taskId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneTaskActionResult | null>;
+  approvePlatformTask: (options: {
+    runId: string;
+    taskId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneTaskActionResult | null>;
+  rejectPlatformTask: (options: {
+    runId: string;
+    taskId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneTaskActionResult | null>;
+}
+
+export interface StartedPlatformControlPlaneServer {
+  host: string;
+  port: number;
+  close: () => Promise<void>;
+}
+
+const RUN_DETAIL_ROUTE = /^\/api\/runs\/([^/]+)$/u;
+const RUN_TASKS_ROUTE = /^\/api\/runs\/([^/]+)\/tasks$/u;
+const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
+const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume)$/u;
+const TASK_ACTION_ROUTE = /^\/api\/tasks\/([^/]+)\/actions\/(retry|approve|reject)$/u;
+
+function writeJson(response: ServerResponse, statusCode: number, payload: unknown): void {
+  response.statusCode = statusCode;
+  response.setHeader('content-type', 'application/json; charset=utf-8');
+  response.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function writeError(
+  response: ServerResponse,
+  statusCode: number,
+  code: string,
+  message: string,
+  details?: Record<string, unknown>
+): void {
+  const payload: PlatformControlPlaneErrorDocument = {
+    error: {
+      code,
+      message,
+      ...(details ? { details } : {})
+    }
+  };
+
+  writeJson(response, statusCode, payload);
+}
+
+function parsePositiveInteger(value: string | null, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function normalizeRunStatus(value: string | null): PlatformRunStatus | null {
+  switch (value) {
+    case 'pending':
+    case 'running':
+    case 'blocked':
+    case 'completed':
+    case 'failed':
+    case 'cancelled':
+      return value;
+    default:
+      return null;
+  }
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+
+  if (chunks.length === 0) {
+    return null;
+  }
+
+  const rawBody = Buffer.concat(chunks).toString('utf8').trim();
+  if (rawBody.length === 0) {
+    return null;
+  }
+
+  return JSON.parse(rawBody) as unknown;
+}
+
+function asObjectRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function parseTaskActionBody(body: unknown): {
+  runId: string;
+  actor?: string;
+  note?: string;
+} {
+  const record = asObjectRecord(body);
+  const runId = typeof record?.runId === 'string' && record.runId.trim().length > 0
+    ? record.runId.trim()
+    : null;
+
+  if (!runId) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-request',
+      'Task action request body must include a non-empty runId',
+      400
+    );
+  }
+
+  const actor = typeof record?.actor === 'string' && record.actor.trim().length > 0
+    ? record.actor.trim()
+    : null;
+  const note = typeof record?.note === 'string' && record.note.trim().length > 0
+    ? record.note.trim()
+    : null;
+
+  return {
+    runId,
+    ...(actor ? { actor } : {}),
+    ...(note ? { note } : {})
+  };
+}
+
+async function handleRunListRequest(
+  response: ServerResponse,
+  url: URL,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (url.pathname !== '/api/runs') {
+    return false;
+  }
+
+  const runListRequest: {
+    limit: number;
+    repositoryId?: string;
+    status?: PlatformRunStatus;
+  } = {
+    limit: parsePositiveInteger(url.searchParams.get('limit'), 25)
+  };
+  const repositoryId = url.searchParams.get('repositoryId');
+  const status = normalizeRunStatus(url.searchParams.get('status'));
+
+  if (repositoryId) {
+    runListRequest.repositoryId = repositoryId;
+  }
+
+  if (status) {
+    runListRequest.status = status;
+  }
+
+  const runs: PlatformControlPlaneRunListDocument = {
+    runs: await options.listPlatformRuns(runListRequest)
+  };
+  writeJson(response, 200, runs);
+  return true;
+}
+
+async function handleRunDetailRequest(
+  response: ServerResponse,
+  pathname: string,
+  eventLimit: number,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = RUN_DETAIL_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const runIdParam = match[1];
+  if (!runIdParam) {
+    return false;
+  }
+
+  const runId = decodeURIComponent(runIdParam);
+  const run = await options.getPlatformControlPlaneRunDetail({ runId, eventLimit });
+  if (!run) {
+    writeError(response, 404, 'run-not-found', `Unknown run: ${runId}`);
+    return true;
+  }
+
+  writeJson(response, 200, { run });
+  return true;
+}
+
+async function handleRunTasksRequest(
+  response: ServerResponse,
+  pathname: string,
+  eventLimit: number,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = RUN_TASKS_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const runIdParam = match[1];
+  if (!runIdParam) {
+    return false;
+  }
+
+  const runId = decodeURIComponent(runIdParam);
+  const tasks = await options.getPlatformControlPlaneRunTasks({ runId, eventLimit });
+  if (!tasks) {
+    writeError(response, 404, 'run-not-found', `Unknown run: ${runId}`);
+    return true;
+  }
+
+  writeJson(response, 200, { tasks });
+  return true;
+}
+
+async function handleRunObservabilityRequest(
+  response: ServerResponse,
+  pathname: string,
+  eventLimit: number,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = RUN_OBSERVABILITY_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const runIdParam = match[1];
+  if (!runIdParam) {
+    return false;
+  }
+
+  const runId = decodeURIComponent(runIdParam);
+  const platformObservability = await options.getPlatformControlPlaneRunObservability({ runId, eventLimit });
+  if (!platformObservability) {
+    writeError(response, 404, 'run-not-found', `Unknown run: ${runId}`);
+    return true;
+  }
+
+  writeJson(response, 200, { platformObservability });
+  return true;
+}
+
+async function handleRunActionStub(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string
+): Promise<boolean> {
+  const match = RUN_ACTION_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const runIdParam = match[1];
+  const action = match[2];
+  if (!runIdParam || !action) {
+    return false;
+  }
+
+  const runId = decodeURIComponent(runIdParam);
+  await readJsonBody(request);
+  writeError(response, 501, 'not-implemented', `Run action ${action} is not implemented yet`, {
+    runId,
+    action
+  });
+  return true;
+}
+
+async function executeTaskAction(
+  action: 'retry' | 'approve' | 'reject',
+  taskId: string,
+  actionRequest: ReturnType<typeof parseTaskActionBody>,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<PlatformControlPlaneTaskActionResult | null> {
+  const request = {
+    runId: actionRequest.runId,
+    taskId,
+    ...(actionRequest.actor ? { actor: actionRequest.actor } : {}),
+    ...(actionRequest.note ? { note: actionRequest.note } : {})
+  };
+
+  if (action === 'retry') {
+    return options.retryPlatformTask(request);
+  }
+
+  if (action === 'approve') {
+    return options.approvePlatformTask(request);
+  }
+
+  return options.rejectPlatformTask(request);
+}
+
+async function handleTaskActionRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = TASK_ACTION_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const taskIdParam = match[1];
+  const action = match[2];
+  if (!taskIdParam || !action) {
+    return false;
+  }
+
+  const taskId = decodeURIComponent(taskIdParam);
+  const actionRequest = parseTaskActionBody(await readJsonBody(request));
+  const actionResult = await executeTaskAction(action as 'retry' | 'approve' | 'reject', taskId, actionRequest, options);
+
+  if (!actionResult) {
+    writeError(response, 404, 'task-not-found', `Unknown task: ${taskId}`, {
+      runId: actionRequest.runId,
+      taskId,
+      action
+    });
+    return true;
+  }
+
+  const actionDocument: PlatformControlPlaneTaskActionDocument = {
+    action: actionResult
+  };
+  writeJson(response, 200, actionDocument);
+  return true;
+}
+
+async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<void> {
+  const method = request.method ?? 'GET';
+  const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+  const pathname = url.pathname;
+  const eventLimit = parsePositiveInteger(url.searchParams.get('eventLimit'), options.eventLimit);
+
+  if (method === 'GET' && pathname === '/healthz') {
+    writeJson(response, 200, { status: 'ok' });
+    return;
+  }
+
+  if (method === 'GET' && await handleRunListRequest(response, url, options)) {
+    return;
+  }
+
+  if (method === 'GET' && await handleRunDetailRequest(response, pathname, eventLimit, options)) {
+    return;
+  }
+
+  if (method === 'GET' && await handleRunTasksRequest(response, pathname, eventLimit, options)) {
+    return;
+  }
+
+  if (method === 'GET' && await handleRunObservabilityRequest(response, pathname, eventLimit, options)) {
+    return;
+  }
+
+  if (method === 'POST' && await handleRunActionStub(request, response, pathname)) {
+    return;
+  }
+
+  if (method === 'POST' && await handleTaskActionRequest(request, response, pathname, options)) {
+    return;
+  }
+
+  writeError(response, 404, 'not-found', `Unknown route: ${method} ${pathname}`);
+}
+
+function closeServer(server: Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
+export async function startPlatformControlPlaneServer(
+  options: StartPlatformControlPlaneServerOptions
+): Promise<StartedPlatformControlPlaneServer> {
+  const host = options.host ?? '127.0.0.1';
+  const server = createServer((request, response) => {
+    void handleRequest(request, response, options).catch((error) => {
+      if (error instanceof PlatformControlPlaneActionError) {
+        writeError(response, error.statusCode, error.code, error.message, error.details);
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      writeError(response, 500, 'internal-error', message);
+    });
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(options.port, host, () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('failed to resolve control-plane server address');
+  }
+
+  return {
+    host,
+    port: address.port,
+    close: async () => closeServer(server)
+  };
+}

@@ -30,8 +30,8 @@ This document is the working implementation plan for the platform-shaped version
 | Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts` | `partial` | No service orchestration, no browser automation evidence pipeline, no richer environment convergence |
 | Collaboration publish flow | Commit code, create branch, optionally draft PR | `packages/cli/src/runtime/collaboration-publication-service.ts`; `packages/cli/src/platform/platform-publication-service.ts`; `publications` table | `partial` | Controller-side branch creation, scoped auto-commit, publication records, and PR-draft artifacts now exist, but there is still no remote push, PR API integration, or operator approval UI |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
-| Event stream and observability | Operators can see progress, retries, and artifacts live | Workflow summaries and JSON artifacts exist on disk | `gap` | No event model, no event store, no streaming API, no telemetry surface |
-| Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | None | `gap` | No backend API, no frontend app, no run/task detail UI |
+| Event stream and observability | Operators can see progress, retries, and artifacts live | `get-platform-observability`; `packages/cli/src/platform/platform-event-taxonomy.ts`; `packages/cli/src/platform/platform-observability-service.ts` | `partial` | Durable events and observability read models now exist, but there is still no streaming transport or external telemetry export |
+| Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | `serve-platform-control-plane`; `packages/cli/src/platform/platform-control-plane-server.ts`; `packages/cli/src/platform/platform-control-plane-service.ts`; `packages/cli/src/platform/platform-control-plane-action-service.ts` | `partial` | Backend read APIs plus task retry and approval actions now exist, but run submission, pause/resume, frontend UI, and DAG rendering are still missing |
 | Artifact metadata and storage model | Artifacts are queryable and attached to runs/tasks | Artifact refs exist in `execution-state.json` | `partial` | No shared artifact catalog, no object-store abstraction, no database indexing |
 | Multi-user operations | Many repos, many runs, many operators | None | `gap` | No authentication layer, repository registry, tenancy model, or permissions surface |
 | CLI compatibility | Existing local workflow remains usable during migration | Current CLI runtime works today | `implemented` | Must preserve during platform rollout |
@@ -241,7 +241,7 @@ Unimplemented markers:
 
 ## Phase 6: Event Model And Observability
 
-Status: `gap`
+Status: `partial`
 
 Goal:
 
@@ -273,16 +273,21 @@ Exit signal:
 - a run can be reconstructed from event history plus task state
 - UI and operators can inspect progress in near real time
 
-Unimplemented markers:
+Implemented in the current repository state:
 
-- `gap`: event schema
-- `gap`: event append/query service
+- PostgreSQL-backed platform events are now written for run initialization, task leasing and retries, worker task state changes, artifact attachment, repair reconciliation, and publication reconciliation
+- `get-platform-observability` now builds a control-plane read model with event taxonomy descriptors, per-type event counts, task summaries, repair summaries, publication summaries, approval items, and attention-required signals
+- publication reconciliation now distinguishes prepared, approval-required, blocked, and published states in the event taxonomy instead of collapsing every non-published state into one event
+
+Remaining gaps:
+
+- `partial`: event schema and append/query service exist for CLI and internal platform services, but there is no operator-facing API surface yet
 - `gap`: streaming transport
-- `gap`: metrics export
+- `partial`: metrics exist in the observability read model, but there is no separate metrics export or alerting integration yet
 
 ## Phase 7: Web Control Plane
 
-Status: `gap`
+Status: `partial`
 
 Goal:
 
@@ -312,9 +317,17 @@ Exit signal:
 - a user can submit a task from the web UI
 - a user can see current stage, subtask states, artifacts, and approvals
 
-Unimplemented markers:
+Implemented in the current repository state:
 
-- `gap`: backend service
+- `serve-platform-control-plane` now starts a zero-dependency HTTP backend on top of the PostgreSQL platform runtime
+- the first backend slice exposes `GET /healthz`, `GET /api/runs`, `GET /api/runs/:runId`, `GET /api/runs/:runId/tasks`, and `GET /api/runs/:runId/observability`
+- the backend returns the same DB-backed run snapshot and observability read model already used by the CLI, so the web control plane can reuse controller truth instead of inventing a second projection
+- `POST /api/tasks/:taskId/actions/retry`, `POST /api/tasks/:taskId/actions/approve`, and `POST /api/tasks/:taskId/actions/reject` now execute real PostgreSQL-backed operator actions instead of returning placeholders
+- `POST /api/runs/:runId/actions/pause` and `POST /api/runs/:runId/actions/resume` still exist as explicit `501 not implemented` stubs, so the remaining run-level operator API surface is visible but not faked
+
+Remaining gaps:
+
+- `partial`: backend service exists for health, run list, run detail, task list, observability, task retry, and approval actions, but run submission and run-level pause/resume are not wired yet
 - `gap`: frontend app
 - `gap`: DAG visualization
 - `gap`: approval action UI

@@ -20,6 +20,77 @@ export interface ReconcilePlatformPublicationsResult {
   eventsWritten: number;
 }
 
+function buildPublicationEvents(
+  runId: string,
+  taskId: string,
+  publicationRecord: PublicationRecord
+): PlatformEventRecord[] {
+  const basePayload = {
+    publicationId: publicationRecord.publicationId,
+    branchName: publicationRecord.branchName ?? null,
+    commitSha: publicationRecord.commitSha ?? null,
+    publishMode: publicationRecord.publishMode,
+    status: publicationRecord.status,
+    gateReason: publicationRecord.gateReason ?? null,
+    prDraftPath: publicationRecord.prDraftPath ?? null,
+    approvalRequired: publicationRecord.approvalRequired
+  };
+
+  if (publicationRecord.status === 'published') {
+    return [{
+      eventId: randomUUID(),
+      runId,
+      taskId,
+      eventType: PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED,
+      payload: basePayload
+    }];
+  }
+
+  const events: PlatformEventRecord[] = [{
+    eventId: randomUUID(),
+    runId,
+    taskId,
+    eventType: PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED,
+    payload: basePayload
+  }];
+
+  if (publicationRecord.status === 'approval-required') {
+    events.push(
+      {
+        eventId: randomUUID(),
+        runId,
+        taskId,
+        eventType: PLATFORM_EVENT_TYPES.PUBLICATION_APPROVAL_REQUIRED,
+        payload: basePayload
+      },
+      {
+        eventId: randomUUID(),
+        runId,
+        taskId,
+        eventType: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED,
+        payload: {
+          publicationId: publicationRecord.publicationId,
+          gateReason: publicationRecord.gateReason ?? null,
+          publishMode: publicationRecord.publishMode,
+          status: publicationRecord.status
+        }
+      }
+    );
+  }
+
+  if (publicationRecord.status === 'blocked') {
+    events.push({
+      eventId: randomUUID(),
+      runId,
+      taskId,
+      eventType: PLATFORM_EVENT_TYPES.PUBLICATION_BLOCKED,
+      payload: basePayload
+    });
+  }
+
+  return events;
+}
+
 function normalizeArtifactSearchValue(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -80,23 +151,7 @@ export async function reconcilePlatformPublications(
 
     const publicationRecord = payload as PublicationRecord;
     publications.push(mapPublicationRecord(options.runId, publicationRecord));
-    events.push({
-      eventId: randomUUID(),
-      runId: options.runId,
-      taskId: options.taskId,
-      eventType: publicationRecord.status === 'published'
-        ? PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED
-        : PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED,
-      payload: {
-        publicationId: publicationRecord.publicationId,
-        branchName: publicationRecord.branchName ?? null,
-        commitSha: publicationRecord.commitSha ?? null,
-        publishMode: publicationRecord.publishMode,
-        status: publicationRecord.status,
-        gateReason: publicationRecord.gateReason ?? null,
-        prDraftPath: publicationRecord.prDraftPath ?? null
-      }
-    });
+    events.push(...buildPublicationEvents(options.runId, options.taskId, publicationRecord));
   }
 
   await insertPlatformPublications(executor, schema, publications);

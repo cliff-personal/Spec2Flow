@@ -111,4 +111,60 @@ describe('platform-publication-service', () => {
     expect(result.publicationsInserted).toBe(1);
     expect(result.eventsWritten).toBe(1);
   });
+
+  it('emits approval-requested events for approval-gated publication records', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-platform-publication-'));
+    tempDirs.push(tempDir);
+    const publicationRecordPath = path.join(tempDir, 'publication-record.json');
+    fs.writeFileSync(publicationRecordPath, `${JSON.stringify({
+      publicationId: 'publication-2',
+      taskId: 'frontend-smoke--collaboration',
+      stage: 'collaboration',
+      status: 'approval-required',
+      publishMode: 'manual-handoff',
+      summary: 'Prepared the collaboration handoff and waiting for approval.',
+      handoffType: 'pull-request',
+      approvalRequired: true,
+      autoCommitEnabled: false,
+      gateReason: 'human-approval-required',
+      artifactRefs: ['implementation-summary'],
+      nextActions: ['Request human approval for the collaboration handoff.']
+    }, null, 2)}\n`, 'utf8');
+
+    const executor = new SequentialExecutor([
+      {
+        match: 'INSERT INTO "spec2flow_platform".publications',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      }
+    ]);
+
+    const result = await reconcilePlatformPublications(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      taskId: 'frontend-smoke--collaboration',
+      artifactBaseDir: tempDir,
+      newArtifacts: [
+        {
+          id: 'publication-record',
+          kind: 'report',
+          path: publicationRecordPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ]
+    });
+
+    expect(result.publicationsInserted).toBe(1);
+    expect(result.eventsWritten).toBe(3);
+  });
 });

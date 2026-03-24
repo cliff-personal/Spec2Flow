@@ -47,6 +47,7 @@ Mandatory repository intake rule for AI agents:
 
 - [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
 - PostgreSQL worker runtime commands now include `run-platform-worker-task` plus stage-locked worker entrypoints for requirements, implementation, test design, execution, defect, and collaboration.
+- `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, run list, run detail, task list, observability endpoints, and task-level retry/approval operator actions.
 - `run-platform-worker-task` now renews its own lease during execution and stops when lease ownership is lost or heartbeat failures exceed the configured threshold.
 - Auto-repair policy fields now flow from `risk-policy.schema.json` into task `reviewPolicy`; downstream rerun invalidation and repair escalation are decided by `packages/cli/src/runtime/auto-repair-policy-service.ts`, and PostgreSQL-backed runs persist repair attempts plus escalation events through `packages/cli/src/platform/platform-auto-repair-service.ts`.
 - Collaboration handoffs can now flow into controller-side publication decisions through `packages/cli/src/runtime/collaboration-publication-service.ts`, with publication records persisted into PostgreSQL by `packages/cli/src/platform/platform-publication-service.ts`.

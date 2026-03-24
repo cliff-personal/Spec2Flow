@@ -207,9 +207,10 @@ export async function reconcilePlatformAutoRepair(
 
     const failureClass = extractLatestTextNote(nextTask.notes, 'auto-repair-class:') ?? 'unknown';
     const recommendedAction = extractLatestTextNote(nextTask.notes, 'auto-repair-reason:');
+    const repairAttemptId = randomUUID();
 
     await insertRepairAttempt(executor, schema, {
-      repairAttemptId: randomUUID(),
+      repairAttemptId,
       runId: options.runId,
       sourceTaskId: taskId,
       triggerTaskId: options.currentTaskId,
@@ -231,6 +232,7 @@ export async function reconcilePlatformAutoRepair(
       eventType: PLATFORM_EVENT_TYPES.REPAIR_TRIGGERED,
       payload: {
         triggerTaskId: options.currentTaskId,
+        repairAttemptId,
         sourceStage,
         attemptNumber: nextAttemptCount,
         failureClass,
@@ -251,10 +253,11 @@ export async function reconcilePlatformAutoRepair(
     const recommendedAction = extractLatestTextNote(currentTask.notes, 'auto-repair-reason:');
     const failureClass = extractLatestTextNote(currentTask.notes, 'route-class:') ?? 'unknown';
     const sourceStage = targetTaskId ? getTaskStage(targetTaskId) : null;
+    const repairAttemptId = targetTaskId && sourceStage && attemptNumber > 0 ? randomUUID() : null;
 
     if (targetTaskId && sourceStage && attemptNumber > 0) {
       await insertRepairAttempt(executor, schema, {
-        repairAttemptId: randomUUID(),
+        repairAttemptId: repairAttemptId!,
         runId: options.runId,
         sourceTaskId: targetTaskId,
         triggerTaskId: options.currentTaskId,
@@ -278,8 +281,10 @@ export async function reconcilePlatformAutoRepair(
       payload: {
         reason: nextEscalationReason,
         targetTaskId,
+        repairAttemptId,
         attemptNumber: attemptNumber > 0 ? attemptNumber : null,
-        recommendedAction
+        recommendedAction,
+        failureClass
       }
     });
   }
@@ -311,8 +316,11 @@ export async function reconcilePlatformAutoRepair(
             ? PLATFORM_EVENT_TYPES.REPAIR_BLOCKED
             : PLATFORM_EVENT_TYPES.REPAIR_FAILED,
         payload: {
+          repairAttemptId: openAttempt.repair_attempt_id,
           attemptNumber: openAttempt.attempt_number,
-          taskStatus: currentTaskStatus
+          taskStatus: currentTaskStatus,
+          failureClass: openAttempt.failure_class,
+          recommendedAction: openAttempt.recommended_action
         }
       });
     }

@@ -31,7 +31,7 @@ What is still missing:
 - a durable multi-run store beyond local JSON files
 - a scheduler that can lease work to many workers safely
 - a first-class intake surface for user-submitted tasks
-- an observable event model for progress, retries, and artifacts
+- a richer event model surfaced through operator APIs or streaming for progress, retries, artifacts, publication, and approvals
 - a governed publish path for commit or PR creation
 - an auto-repair loop with explicit retry budgets and stop conditions
 
@@ -67,7 +67,7 @@ The current implementation still behaves like a local file-backed workflow runne
 - run state lives in one local JSON file instead of PostgreSQL
 - claiming is local and does not use worker leases or heartbeat-based locking
 - there is no first-class run intake API for "submit one task"
-- there is no event stream for live UI progress
+- there is no streaming or operator-facing API surface for live UI progress, even though durable platform events and observability snapshots now exist
 - there is no explicit auto-fix policy such as retry budget, repair budget, or escalation threshold
 - there is no publish action for `git commit`, branch creation, or PR draft creation
 - there is no multi-user or multi-run operations surface

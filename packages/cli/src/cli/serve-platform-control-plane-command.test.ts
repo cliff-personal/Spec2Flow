@@ -1,0 +1,51 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { runServePlatformControlPlane, type ServePlatformControlPlaneDependencies } from './serve-platform-control-plane-command.js';
+
+describe('serve-platform-control-plane-command', () => {
+  it('starts the control-plane server with DB-backed handlers', async () => {
+    const createPlatformPool = vi.fn(() => ({
+      end: vi.fn(async () => undefined)
+    })) as unknown as ServePlatformControlPlaneDependencies['createPlatformPool'];
+    const startPlatformControlPlaneServer = vi.fn(async () => ({
+      host: '127.0.0.1',
+      port: 4310,
+      close: async () => undefined
+    })) as unknown as ServePlatformControlPlaneDependencies['startPlatformControlPlaneServer'];
+
+    await runServePlatformControlPlane({
+      'database-url': 'postgresql://local/spec2flow',
+      host: '127.0.0.1',
+      port: '4310'
+    }, {
+      approvePlatformControlPlaneTask: vi.fn(async () => null),
+      createPlatformPool,
+      fail: vi.fn(),
+      getPlatformControlPlaneRunDetail: vi.fn(async () => null),
+      getPlatformControlPlaneRunObservability: vi.fn(async () => null),
+      getPlatformControlPlaneRunTasks: vi.fn(async () => null),
+      listPlatformRuns: vi.fn(async () => []),
+      rejectPlatformControlPlaneTask: vi.fn(async () => null),
+      resolvePlatformDatabaseConfig: vi.fn(() => ({
+        connectionString: 'postgresql://local/spec2flow',
+        schema: 'spec2flow_platform'
+      })),
+      retryPlatformControlPlaneTask: vi.fn(async () => null),
+      startPlatformControlPlaneServer,
+      withPlatformTransaction: vi.fn(async (_pool, callback: (client: { query: () => Promise<{ rows: never[]; rowCount: number; }> }) => Promise<unknown>) =>
+        callback({
+          query: async () => ({
+            rows: [],
+            rowCount: 0
+          })
+        })) as unknown as ServePlatformControlPlaneDependencies['withPlatformTransaction']
+    });
+
+    expect(createPlatformPool).toHaveBeenCalled();
+    expect(startPlatformControlPlaneServer).toHaveBeenCalledWith(expect.objectContaining({
+      host: '127.0.0.1',
+      port: 4310,
+      eventLimit: 20
+    }));
+  });
+});

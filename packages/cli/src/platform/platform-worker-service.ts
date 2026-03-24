@@ -16,6 +16,7 @@ import { insertPlatformArtifacts, insertPlatformEvents } from './platform-reposi
 import { reconcilePlatformAutoRepair } from './platform-auto-repair-service.js';
 import { reconcilePlatformPublications } from './platform-publication-service.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
+import { PLATFORM_EVENT_TYPES, type PlatformEventType } from './platform-event-taxonomy.js';
 import { getPlatformRunState } from './platform-scheduler-service.js';
 import type {
   AdapterRunDocument,
@@ -533,20 +534,20 @@ function collectNewErrors(previousState: ExecutionStateDocument, nextState: Exec
     .filter((error) => !previousErrorKeys.has(JSON.stringify(error)));
 }
 
-function inferTaskStatusEventType(status: TaskStatus): string | null {
+function inferTaskStatusEventType(status: TaskStatus): PlatformEventType | null {
   switch (status) {
     case 'ready':
-      return 'task.ready';
+      return PLATFORM_EVENT_TYPES.TASK_READY;
     case 'completed':
-      return 'task.completed';
+      return PLATFORM_EVENT_TYPES.TASK_COMPLETED;
     case 'failed':
-      return 'task.failed';
+      return PLATFORM_EVENT_TYPES.TASK_FAILED;
     case 'blocked':
-      return 'task.blocked';
+      return PLATFORM_EVENT_TYPES.TASK_BLOCKED;
     case 'skipped':
-      return 'task.skipped';
+      return PLATFORM_EVENT_TYPES.TASK_SKIPPED;
     case 'in-progress':
-      return 'task.started';
+      return PLATFORM_EVENT_TYPES.TASK_STARTED;
     default:
       return null;
   }
@@ -720,7 +721,7 @@ function buildPlatformWorkerEvents(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: options.taskId,
-      eventType: 'artifact.attached',
+      eventType: PLATFORM_EVENT_TYPES.ARTIFACT_ATTACHED,
       payload: {
         workerId: options.workerId,
         artifactRefs: newArtifacts.map((artifact) => ({
@@ -738,7 +739,7 @@ function buildPlatformWorkerEvents(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: options.taskId,
-      eventType: 'task.errors-recorded',
+      eventType: PLATFORM_EVENT_TYPES.TASK_ERRORS_RECORDED,
       payload: {
         workerId: options.workerId,
         errors: newErrors
