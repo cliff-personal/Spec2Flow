@@ -790,6 +790,52 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.currentStage).toBe('code-implementation');
   });
 
+  it('escalates to collaboration when the auto-repair budget is exhausted', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const defectSummaryPath = path.join(path.dirname(statePath), 'defect-summary.json');
+
+    taskGraphPayload.taskGraph.tasks.forEach((task) => {
+      task.reviewPolicy = {
+        ...(task.reviewPolicy ?? {}),
+        maxAutoRepairAttempts: 1
+      };
+    });
+
+    getTaskState(executionStatePayload, 1).status = 'blocked';
+    getTaskState(executionStatePayload, 1).notes = ['auto-repair-attempt:1'];
+    getTaskState(executionStatePayload, 2).status = 'skipped';
+    getTaskState(executionStatePayload, 3).status = 'skipped';
+    getTaskState(executionStatePayload, 4).status = 'ready';
+    getTaskState(executionStatePayload, 4).notes = [
+      'route-trigger:code-implementation',
+      'route-class:implementation-defect',
+      'route-origin:frontend-smoke--code-implementation'
+    ];
+    getTaskState(executionStatePayload, 5).status = 'pending';
+    writeDefectSummary(defectSummaryPath, 'frontend-smoke--defect-feedback', 'fix-implementation');
+
+    applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--defect-feedback',
+      taskStatus: 'completed',
+      notes: ['summary:defect-analysis-complete'],
+      artifacts: [
+        {
+          id: 'defect-summary',
+          kind: 'report',
+          path: defectSummaryPath,
+          taskId: 'frontend-smoke--defect-feedback'
+        }
+      ],
+      errors: []
+    });
+
+    expect(executionStatePayload.executionState.tasks[4]?.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[4]?.notes).toContain('auto-repair-escalated:budget-exhausted');
+    expect(executionStatePayload.executionState.tasks[5]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('auto-repair-escalated:budget-exhausted');
+    expect(executionStatePayload.executionState.currentStage).toBe('collaboration');
+  });
+
   it('resolves schema-backed artifact paths from the repository root for nested .spec2flow worker state', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-platform-worker-state-'));
     tempDirs.push(tempDir);

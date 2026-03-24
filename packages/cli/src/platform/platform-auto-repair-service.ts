@@ -33,6 +33,14 @@ export interface ReconcilePlatformAutoRepairResult {
   eventsWritten: number;
 }
 
+function normalizeMaybeTaskId(value: string | null): string | null {
+  if (!value || value === 'none') {
+    return null;
+  }
+
+  return value;
+}
+
 function getTaskStateIndex(state: ExecutionStateDocument): Map<string, ExecutionStateDocument['executionState']['tasks'][number]> {
   return new Map(state.executionState.tasks.map((task) => [task.taskId, task]));
 }
@@ -233,6 +241,47 @@ export async function reconcilePlatformAutoRepair(
   const currentTask = nextIndex.get(options.currentTaskId);
   const currentTaskStatus = currentTask?.status;
   const currentTaskAttemptCount = extractLatestNumericNote(currentTask?.notes, 'auto-repair-attempt:');
+  const previousEscalationReason = extractLatestTextNote(previousIndex.get(options.currentTaskId)?.notes, 'auto-repair-escalated:');
+  const nextEscalationReason = extractLatestTextNote(currentTask?.notes, 'auto-repair-escalated:');
+
+  if (currentTask && nextEscalationReason && nextEscalationReason !== previousEscalationReason) {
+    const targetTaskId = normalizeMaybeTaskId(extractLatestTextNote(currentTask.notes, 'auto-repair-target:'));
+    const attemptNumber = extractLatestNumericNote(currentTask.notes, 'auto-repair-next-attempt:');
+    const recommendedAction = extractLatestTextNote(currentTask.notes, 'auto-repair-reason:');
+    const failureClass = extractLatestTextNote(currentTask.notes, 'route-class:') ?? 'unknown';
+    const sourceStage = targetTaskId ? getTaskStage(targetTaskId) : null;
+
+    if (targetTaskId && sourceStage && attemptNumber > 0) {
+      await insertRepairAttempt(executor, schema, {
+        repairAttemptId: randomUUID(),
+        runId: options.runId,
+        sourceTaskId: targetTaskId,
+        triggerTaskId: options.currentTaskId,
+        sourceStage,
+        failureClass,
+        recommendedAction,
+        attemptNumber,
+        status: 'blocked',
+        metadata: {
+          escalationReason: nextEscalationReason
+        }
+      });
+    }
+
+    blockedRepairAttempts += 1;
+    events.push({
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId: options.currentTaskId,
+      eventType: 'repair.escalated',
+      payload: {
+        reason: nextEscalationReason,
+        targetTaskId,
+        attemptNumber: attemptNumber > 0 ? attemptNumber : null,
+        recommendedAction
+      }
+    });
+  }
 
   if (currentTask && currentTaskAttemptCount > 0 && ['completed', 'failed', 'blocked'].includes(currentTaskStatus ?? '')) {
     const openAttempts = await listOpenRepairAttempts(executor, schema, options.runId, options.currentTaskId);

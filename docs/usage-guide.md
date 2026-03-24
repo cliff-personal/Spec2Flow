@@ -277,8 +277,10 @@ Phase 4 now adds the first explicit auto-repair policy layer:
 
 - risk-policy rules can declare `maxAutoRepairAttempts`, `maxExecutionRetries`, `allowAutoCommit`, and `blockedRiskLevels`
 - route task `reviewPolicy` now carries those fields into the controller path
-- `task-result-service` can requeue the owning stage after `defect-feedback` completes when the defect summary recommends a repairable action and the repair budget still allows it
-- PostgreSQL-backed runs now persist repair attempts in `repair_attempts` and attach repair lifecycle events to the run history
+- `packages/cli/src/runtime/auto-repair-policy-service.ts` now owns downstream rerun invalidation and repair escalation decisions after `defect-feedback` completes
+- when the defect summary recommends a repairable action and the repair budget still allows it, the owning stage is requeued and downstream route tasks are invalidated back to `pending`
+- when repair is blocked by policy, blocked risk level, or exhausted budget, the route escalates into `collaboration` with explicit escalation notes instead of silently stalling
+- PostgreSQL-backed runs now persist repair attempts in `repair_attempts` and attach repair lifecycle events, including escalation, to the run history through `packages/cli/src/platform/platform-auto-repair-service.ts`
 
 ## Recommended Integration Layout
 

@@ -48,7 +48,7 @@ Mandatory repository intake rule for AI agents:
 - [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
 - PostgreSQL worker runtime commands now include `run-platform-worker-task` plus stage-locked worker entrypoints for requirements, implementation, test design, execution, defect, and collaboration.
 - `run-platform-worker-task` now renews its own lease during execution and stops when lease ownership is lost or heartbeat failures exceed the configured threshold.
-- Auto-repair policy fields now flow from `risk-policy.schema.json` into task `reviewPolicy`, and PostgreSQL-backed runs now persist repair attempts through `packages/cli/src/platform/platform-auto-repair-service.ts`.
+- Auto-repair policy fields now flow from `risk-policy.schema.json` into task `reviewPolicy`; downstream rerun invalidation and repair escalation are decided by `packages/cli/src/runtime/auto-repair-policy-service.ts`, and PostgreSQL-backed runs persist repair attempts plus escalation events through `packages/cli/src/platform/platform-auto-repair-service.ts`.
 - [docs/playbooks/requirements-analysis.md](docs/playbooks/requirements-analysis.md): Stage contract for route analysis.
 - [docs/playbooks/code-implementation.md](docs/playbooks/code-implementation.md): Stage contract for code changes.
 - [docs/playbooks/test-design.md](docs/playbooks/test-design.md): Stage contract for route-specific validation design.

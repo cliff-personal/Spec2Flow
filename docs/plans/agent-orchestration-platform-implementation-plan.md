@@ -26,7 +26,7 @@ This document is the working implementation plan for the platform-shaped version
 | Shared multi-run persistence | Multiple runs and tasks persist durably for many workers | `migrate-platform-db`; `init-platform-run`; `lease-next-platform-task`; `get-platform-run-state`; `packages/cli/src/platform/` | `partial` | PostgreSQL schema, repository layer, lease state, and snapshot queries now exist, but DB-backed worker execution and richer query APIs are still incomplete |
 | Scheduler with task leasing | Ready tasks can be leased safely to concurrent workers | `lease-next-platform-task`; `heartbeat-platform-task`; `start-platform-task`; `expire-platform-leases`; `packages/cli/src/platform/platform-scheduler-service.ts` | `partial` | Lease ownership, heartbeat, and timeout recovery now exist, but there is still no worker registry or dead-letter queue service |
 | Stage-specialized workers | Requirements, implementation, test, execution, defect, and collaboration run as role-scoped workers | `run-platform-worker-task`; `run-platform-requirements-worker`; `run-platform-implementation-worker`; `run-platform-test-design-worker`; `run-platform-execution-worker`; `run-platform-defect-worker`; `run-platform-collaboration-worker` | `partial` | DB-backed worker harness, execution-time heartbeat auto-renew, and stage entrypoints now exist, but there is still no long-running worker service or worker registry |
-| Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/task-result-service.ts`; `packages/cli/src/platform/platform-auto-repair-service.ts`; `packages/cli/src/platform/migrations/0003_platform_auto_repair.sql` | `partial` | Auto-repair policy fields, controller reroute, repair-attempt records, and retry-budget persistence now exist, but downstream rerun invalidation is still local-controller scoped and there is no dedicated orchestration daemon yet |
+| Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/auto-repair-policy-service.ts`; `packages/cli/src/runtime/task-result-service.ts`; `packages/cli/src/platform/platform-auto-repair-service.ts`; `packages/cli/src/platform/migrations/0003_platform_auto_repair.sql` | `partial` | Auto-repair policy fields, downstream rerun invalidation, repair escalation, repair-attempt records, and retry-budget persistence now exist, but there is still no background orchestration daemon or operator-facing repair console |
 | Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts` | `partial` | No service orchestration, no browser automation evidence pipeline, no richer environment convergence |
 | Collaboration publish flow | Commit code, create branch, optionally draft PR | Collaboration stage exists in graph only | `gap` | No git publication module, no commit policy engine, no PR integration |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
@@ -202,8 +202,9 @@ Unimplemented markers:
 - `implemented`: retry budget persistence for execution retries and auto-repair attempts
 - `implemented`: repair-attempt state machine persistence in PostgreSQL
 - `implemented`: policy extension in schemas and config files
-- `gap`: downstream rerun invalidation model
-- `partial`: controller auto-repair routing exists in the file-backed runtime and DB-backed persistence, but there is not yet a standalone policy orchestration service
+- `implemented`: downstream rerun invalidation model through `packages/cli/src/runtime/auto-repair-policy-service.ts`
+- `implemented`: repair escalation service notes and PostgreSQL event persistence
+- `partial`: standalone runtime and persistence services now exist, but there is not yet a background policy orchestration daemon or operator UI
 
 ## Phase 5: Collaboration Publish Automation
 

@@ -65,6 +65,25 @@ function createState(taskStatus: 'pending' | 'ready' | 'completed' | 'failed' | 
   };
 }
 
+function createDefectState(notes: string[] = []): ExecutionStateDocument {
+  return {
+    executionState: {
+      runId: 'run-1',
+      workflowName: 'workflow',
+      status: 'running',
+      tasks: [
+        {
+          taskId: 'frontend-smoke--defect-feedback',
+          status: 'completed',
+          notes
+        }
+      ],
+      artifacts: [],
+      errors: []
+    }
+  };
+}
+
 describe('platform-auto-repair-service', () => {
   it('persists a requested repair attempt when a new auto-repair attempt appears in task notes', async () => {
     const executor = new SequentialExecutor([
@@ -141,6 +160,35 @@ describe('platform-auto-repair-service', () => {
 
     expect(result.resolvedRepairAttempts).toBe(1);
     expect(result.blockedRepairAttempts).toBe(0);
+    expect(result.eventsWritten).toBe(1);
+  });
+
+  it('persists repair escalation when auto-repair is blocked before a retry starts', async () => {
+    const executor = new SequentialExecutor([
+      {
+        match: 'INSERT INTO "spec2flow_platform".repair_attempts',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      }
+    ]);
+
+    const result = await reconcilePlatformAutoRepair(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      currentTaskId: 'frontend-smoke--defect-feedback',
+      previousState: createDefectState(),
+      nextState: createDefectState([
+        'route-class:implementation-defect',
+        'auto-repair-escalated:budget-exhausted',
+        'auto-repair-target:frontend-smoke--code-implementation',
+        'auto-repair-next-attempt:3',
+        'auto-repair-reason:fix-implementation'
+      ])
+    });
+
+    expect(result.blockedRepairAttempts).toBe(1);
     expect(result.eventsWritten).toBe(1);
   });
 });
