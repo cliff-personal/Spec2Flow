@@ -10,6 +10,7 @@ import type {
   PlatformTaskRecord
 } from '../types/platform-persistence.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
+import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
 
 export interface PlatformRunInitializationPlan {
   repository: PlatformRepositoryRecord;
@@ -129,7 +130,7 @@ export function createPlatformRunInitializationPlan(
     {
       eventId: randomUUID(),
       runId,
-      eventType: 'run.created',
+      eventType: PLATFORM_EVENT_TYPES.RUN_CREATED,
       payload: {
         workflowName: run.workflowName,
         status: run.status,
@@ -139,7 +140,7 @@ export function createPlatformRunInitializationPlan(
     {
       eventId: randomUUID(),
       runId,
-      eventType: 'planning.completed',
+      eventType: PLATFORM_EVENT_TYPES.PLANNING_COMPLETED,
       payload: {
         taskCount: tasks.length,
         selectedRoutes: taskGraphPayload.taskGraph.source?.selectedRoutes ?? []
@@ -148,7 +149,7 @@ export function createPlatformRunInitializationPlan(
     {
       eventId: randomUUID(),
       runId,
-      eventType: 'tasks.persisted',
+      eventType: PLATFORM_EVENT_TYPES.TASKS_PERSISTED,
       payload: {
         taskIds: tasks.map((task) => task.taskId)
       }
@@ -172,7 +173,7 @@ export function createPlatformRunInitializationPlan(
     events.push({
       eventId: randomUUID(),
       runId,
-      eventType: 'artifact.attached',
+      eventType: PLATFORM_EVENT_TYPES.ARTIFACT_ATTACHED,
       payload: {
         artifactIds: artifacts.map((artifact) => artifact.artifactId),
         count: artifacts.length

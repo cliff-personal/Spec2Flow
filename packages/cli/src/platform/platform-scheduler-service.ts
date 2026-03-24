@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { insertPlatformEvents } from './platform-repository.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
+import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
 import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
@@ -522,7 +523,7 @@ export async function leaseNextPlatformTask(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: leasedTask.taskId,
-      eventType: 'task.leased',
+      eventType: PLATFORM_EVENT_TYPES.TASK_LEASED,
       payload: {
         workerId: options.workerId,
         leaseId,
@@ -605,7 +606,7 @@ export async function heartbeatPlatformTask(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: options.taskId,
-      eventType: 'task.heartbeat',
+      eventType: PLATFORM_EVENT_TYPES.TASK_HEARTBEAT,
       payload: {
         workerId: options.workerId,
         leaseId: updatedTask.currentLeaseId,
@@ -680,7 +681,7 @@ export async function startPlatformTask(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: options.taskId,
-      eventType: 'task.started',
+      eventType: PLATFORM_EVENT_TYPES.TASK_STARTED,
       payload: {
         workerId: options.workerId,
         leaseId: updatedTask.currentLeaseId
@@ -768,7 +769,7 @@ export async function expirePlatformLeases(
         eventId: randomUUID(),
         runId: expiredTask.runId,
         taskId: expiredTask.taskId,
-        eventType: 'task.lease-expired',
+        eventType: PLATFORM_EVENT_TYPES.TASK_LEASE_EXPIRED,
         payload: {
           leaseId: expiredTask.currentLeaseId,
           leaseExpiresAt: expiredTask.leaseExpiresAt,
@@ -785,7 +786,7 @@ export async function expirePlatformLeases(
           eventId: randomUUID(),
           runId: expiredTask.runId,
           taskId: expiredTask.taskId,
-          eventType: 'task.retry-scheduled',
+          eventType: PLATFORM_EVENT_TYPES.TASK_RETRY_SCHEDULED,
           payload: {
             retryCount: nextRetryCount,
             maxRetries: expiredTask.maxRetries ?? DEFAULT_PLATFORM_MAX_RETRIES
@@ -795,7 +796,7 @@ export async function expirePlatformLeases(
           eventId: randomUUID(),
           runId: expiredTask.runId,
           taskId: expiredTask.taskId,
-          eventType: 'task.requeued',
+          eventType: PLATFORM_EVENT_TYPES.TASK_REQUEUED,
           payload: {
             status: 'ready'
           }
@@ -807,7 +808,7 @@ export async function expirePlatformLeases(
         eventId: randomUUID(),
         runId: expiredTask.runId,
         taskId: expiredTask.taskId,
-        eventType: 'task.retry-exhausted',
+          eventType: PLATFORM_EVENT_TYPES.TASK_RETRY_EXHAUSTED,
         payload: {
           retryCount: nextRetryCount,
           maxRetries: expiredTask.maxRetries ?? DEFAULT_PLATFORM_MAX_RETRIES,

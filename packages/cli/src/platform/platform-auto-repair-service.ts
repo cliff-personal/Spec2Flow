@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { insertPlatformEvents } from './platform-repository.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
+import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
 import type { ExecutionStateDocument, PlatformEventRecord, PlatformRepairAttemptRecord, TaskStage, TaskStatus } from '../types/index.js';
 
 interface RepairAttemptRow extends Record<string, unknown> {
@@ -227,7 +228,7 @@ export async function reconcilePlatformAutoRepair(
       eventId: randomUUID(),
       runId: options.runId,
       taskId,
-      eventType: 'repair.triggered',
+      eventType: PLATFORM_EVENT_TYPES.REPAIR_TRIGGERED,
       payload: {
         triggerTaskId: options.currentTaskId,
         sourceStage,
@@ -273,7 +274,7 @@ export async function reconcilePlatformAutoRepair(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: options.currentTaskId,
-      eventType: 'repair.escalated',
+      eventType: PLATFORM_EVENT_TYPES.REPAIR_ESCALATED,
       payload: {
         reason: nextEscalationReason,
         targetTaskId,
@@ -304,7 +305,11 @@ export async function reconcilePlatformAutoRepair(
         eventId: randomUUID(),
         runId: options.runId,
         taskId: options.currentTaskId,
-        eventType: nextStatus === 'succeeded' ? 'repair.succeeded' : nextStatus === 'blocked' ? 'repair.blocked' : 'repair.failed',
+        eventType: nextStatus === 'succeeded'
+          ? PLATFORM_EVENT_TYPES.REPAIR_SUCCEEDED
+          : nextStatus === 'blocked'
+            ? PLATFORM_EVENT_TYPES.REPAIR_BLOCKED
+            : PLATFORM_EVENT_TYPES.REPAIR_FAILED,
         payload: {
           attemptNumber: openAttempt.attempt_number,
           taskStatus: currentTaskStatus

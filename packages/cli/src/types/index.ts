@@ -72,3 +72,12 @@ export type {
   PlatformTaskStatus,
   PlatformWorkerIdentity
 } from './platform-persistence.js';
+export type {
+  PlatformEventCategory,
+  PlatformEventSeverity,
+  PlatformObservabilityAttentionItem,
+  PlatformObservabilityMetrics,
+  PlatformObservabilityReadModel,
+  PlatformObservabilityTimelineEntry,
+  PlatformTaskObservabilitySummary
+} from './platform-observability.js';

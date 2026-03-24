@@ -17,6 +17,7 @@ import {
 } from '../platform/platform-worker-service.js';
 import { runClaimNextTask } from './claim-next-task-command.js';
 import { runExpirePlatformLeases, type PlatformLeaseExpirationSweepDocument } from './expire-platform-leases-command.js';
+import { runGetPlatformObservability, type PlatformObservabilityDocument } from './get-platform-observability-command.js';
 import { runGenerateTaskGraph } from './generate-task-graph-command.js';
 import { runGetPlatformRunState, type PlatformRunStateDocument } from './get-platform-run-state-command.js';
 import { runHeartbeatPlatformTask, type PlatformTaskHeartbeatDocument } from './heartbeat-platform-task-command.js';
@@ -36,6 +37,7 @@ import { runSimulateModelRun, type SimulatedModelRunDocument } from './simulate-
 import { runSubmitTaskResult } from './submit-task-result-command.js';
 import { runValidateOnboarding, type ValidateOnboardingResultDocument } from './validate-onboarding-command.js';
 import type { CliOptions as PreflightCliOptions, CopilotPreflightReportDocument } from '../adapters/copilot-preflight.js';
+import { getPlatformObservability } from '../platform/platform-observability-service.js';
 import type { AdapterRunDocument, AdapterRuntimeDocument, ExecutionStateDocument, TaskClaimPayload, TaskGraphDocument, TaskResultDocument, WorkflowLoopSummaryDocument } from '../types/index.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -46,7 +48,7 @@ export interface DistCommandHandlerDependencies {
   fail: (message: string) => void;
   getRouteNameFromTaskId: (taskId: string | null | undefined) => string;
   parseCsvOption: (value: string | undefined) => string[];
-  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument | PlatformTaskLeaseDocument | PlatformTaskHeartbeatDocument | PlatformTaskStartDocument | PlatformLeaseExpirationSweepDocument | PlatformRunStateDocument | PlatformWorkerRunDocument) => void;
+  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument | PlatformTaskLeaseDocument | PlatformTaskHeartbeatDocument | PlatformTaskStartDocument | PlatformLeaseExpirationSweepDocument | PlatformRunStateDocument | PlatformObservabilityDocument | PlatformWorkerRunDocument) => void;
   readStructuredFile: (filePath: string) => any;
   rootDir: string;
   sanitizeStageName: (stage: string) => string;
@@ -145,6 +147,16 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         createPlatformPool,
         fail: dependencies.fail,
         getPlatformRunState,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }),
+    'get-platform-observability': (options) =>
+      runGetPlatformObservability(options, {
+        createPlatformPool,
+        fail: dependencies.fail,
+        getPlatformObservability,
         printJson: dependencies.printJson,
         resolvePlatformDatabaseConfig,
         withPlatformTransaction,

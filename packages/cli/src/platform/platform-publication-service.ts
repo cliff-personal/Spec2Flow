@@ -3,10 +3,10 @@ import type { PlatformEventRecord, PlatformPublicationRecord } from '../types/pl
 import type { ArtifactRef } from '../types/execution-state.js';
 import type { PublicationRecord } from '../types/stage-deliverables.js';
 import { randomUUID } from 'node:crypto';
-import path from 'node:path';
 import { readStructuredFileFrom } from '../shared/fs-utils.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import type { SqlExecutor } from './platform-database.js';
+import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
 
 export interface ReconcilePlatformPublicationsOptions {
   runId: string;
@@ -84,7 +84,9 @@ export async function reconcilePlatformPublications(
       eventId: randomUUID(),
       runId: options.runId,
       taskId: options.taskId,
-      eventType: publicationRecord.status === 'published' ? 'publication.published' : 'publication.prepared',
+      eventType: publicationRecord.status === 'published'
+        ? PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED
+        : PLATFORM_EVENT_TYPES.PUBLICATION_PREPARED,
       payload: {
         publicationId: publicationRecord.publicationId,
         branchName: publicationRecord.branchName ?? null,
