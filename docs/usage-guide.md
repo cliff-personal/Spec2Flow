@@ -264,7 +264,8 @@ Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
 - lease ownership is stored in PostgreSQL through `leased_by_worker_id`, `lease_expires_at`, and `last_heartbeat_at`
 - stale leases can be recovered without editing JSON files by running `expire-platform-leases`
 - `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
-- `serve-platform-control-plane` exposes the first backend HTTP surface for health checks, run lists, run detail, task detail, observability snapshots, and task-level operator actions for retry and approval
+- `serve-platform-control-plane` exposes the first backend HTTP surface for health checks, run submission, run lists, run detail, task detail, observability snapshots, and task-level operator actions for retry and approval
+- `POST /api/runs` accepts `repositoryRootPath` plus optional `projectPath`, `topologyPath`, `riskPath`, `requirement`, `requirementPath`, `changedFiles`, and repository metadata overrides; onboarding files default to `.spec2flow/project.yaml`, `.spec2flow/topology.yaml`, and `.spec2flow/policies/risk.yaml` relative to `repositoryRootPath`
 
 Phase 3 adds the first DB-backed worker runtime harness:
 

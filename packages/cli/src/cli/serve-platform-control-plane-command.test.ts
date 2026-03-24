@@ -1,9 +1,41 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { runServePlatformControlPlane, type ServePlatformControlPlaneDependencies } from './serve-platform-control-plane-command.js';
+import type { PlatformControlPlaneRunSubmissionResult } from '../types/index.js';
 
 describe('serve-platform-control-plane-command', () => {
   it('starts the control-plane server with DB-backed handlers', async () => {
+    const runSubmissionResult: PlatformControlPlaneRunSubmissionResult = {
+      platformRun: {
+        schema: 'spec2flow_platform',
+        repositoryId: 'spec2flow',
+        repositoryName: 'Spec2Flow',
+        repositoryRootPath: '/workspace/Spec2Flow',
+        runId: 'run-1',
+        workflowName: 'platform-flow',
+        taskCount: 0,
+        eventCount: 0,
+        artifactCount: 0,
+        status: 'pending',
+        currentStage: 'requirements-analysis',
+        riskLevel: 'medium'
+      },
+      taskGraph: {
+        graphId: 'graph-1',
+        routeSelectionMode: 'all',
+        selectedRoutes: [],
+        changedFiles: [],
+        requirementPath: null
+      },
+      validatorResult: {
+        status: 'passed',
+        summary: {
+          passed: 3,
+          warnings: 0,
+          failed: 0
+        }
+      }
+    };
     const createPlatformPool = vi.fn(() => ({
       end: vi.fn(async () => undefined)
     })) as unknown as ServePlatformControlPlaneDependencies['createPlatformPool'];
@@ -31,6 +63,7 @@ describe('serve-platform-control-plane-command', () => {
         schema: 'spec2flow_platform'
       })),
       retryPlatformControlPlaneTask: vi.fn(async () => null),
+      submitPlatformControlPlaneRun: vi.fn(async () => runSubmissionResult),
       startPlatformControlPlaneServer,
       withPlatformTransaction: vi.fn(async (_pool, callback: (client: { query: () => Promise<{ rows: never[]; rowCount: number; }> }) => Promise<unknown>) =>
         callback({

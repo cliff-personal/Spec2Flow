@@ -209,6 +209,37 @@ describe('platform-control-plane-server', () => {
         publications: [],
         attentionRequired: []
       }),
+      submitPlatformRun: async () => ({
+        platformRun: {
+          schema: 'spec2flow_platform',
+          repositoryId: 'spec2flow',
+          repositoryName: 'Spec2Flow',
+          repositoryRootPath: '/workspace/Spec2Flow',
+          runId: 'run-2',
+          workflowName: 'platform-flow',
+          taskCount: 2,
+          eventCount: 3,
+          artifactCount: 0,
+          status: 'pending',
+          currentStage: 'requirements-analysis',
+          riskLevel: 'medium'
+        },
+        taskGraph: {
+          graphId: 'graph-2',
+          routeSelectionMode: 'requirement',
+          selectedRoutes: ['platform-runtime'],
+          changedFiles: ['packages/cli/src/platform/platform-repository.ts'],
+          requirementPath: null
+        },
+        validatorResult: {
+          status: 'passed',
+          summary: {
+            passed: 3,
+            warnings: 0,
+            failed: 0
+          }
+        }
+      }),
       retryPlatformTask: async () => ({
         action: 'retry',
         runId: 'run-1',
@@ -249,6 +280,24 @@ describe('platform-control-plane-server', () => {
     expect(runListResponse.status).toBe(200);
     expect(await runListResponse.json()).toEqual(expect.objectContaining({
       runs: expect.arrayContaining([expect.objectContaining({ runId: 'run-1' })])
+    }));
+
+    const runSubmissionResponse = await fetch(`${baseUrl}/api/runs`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        repositoryRootPath: '/workspace/Spec2Flow',
+        requirement: 'Add platform control plane backend',
+        changedFiles: ['packages/cli/src/platform/platform-control-plane-server.ts']
+      })
+    });
+    expect(runSubmissionResponse.status).toBe(201);
+    expect(await runSubmissionResponse.json()).toEqual(expect.objectContaining({
+      runSubmission: expect.objectContaining({
+        platformRun: expect.objectContaining({ runId: 'run-2' })
+      })
     }));
 
     const runDetailResponse = await fetch(`${baseUrl}/api/runs/run-1`);
@@ -295,6 +344,37 @@ describe('platform-control-plane-server', () => {
       getPlatformControlPlaneRunDetail: async () => null,
       getPlatformControlPlaneRunTasks: async () => null,
       getPlatformControlPlaneRunObservability: async () => null,
+      submitPlatformRun: async () => ({
+        platformRun: {
+          schema: 'spec2flow_platform',
+          repositoryId: 'spec2flow',
+          repositoryName: 'Spec2Flow',
+          repositoryRootPath: '/workspace/Spec2Flow',
+          runId: 'run-2',
+          workflowName: 'platform-flow',
+          taskCount: 1,
+          eventCount: 3,
+          artifactCount: 0,
+          status: 'pending',
+          currentStage: 'requirements-analysis',
+          riskLevel: 'medium'
+        },
+        taskGraph: {
+          graphId: 'graph-2',
+          routeSelectionMode: 'all',
+          selectedRoutes: [],
+          changedFiles: [],
+          requirementPath: null
+        },
+        validatorResult: {
+          status: 'passed',
+          summary: {
+            passed: 3,
+            warnings: 0,
+            failed: 0
+          }
+        }
+      }),
       retryPlatformTask: async () => null,
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null
@@ -307,6 +387,42 @@ describe('platform-control-plane-server', () => {
         'content-type': 'application/json'
       },
       body: JSON.stringify({ actor: 'operator-1' })
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(expect.objectContaining({
+      error: expect.objectContaining({
+        code: 'invalid-request'
+      })
+    }));
+  });
+
+  it('returns a request validation error when run submission omits repositoryRootPath', async () => {
+    startedServer = await startPlatformControlPlaneServer({
+      host: '127.0.0.1',
+      port: 0,
+      eventLimit: 20,
+      listPlatformRuns: async () => [],
+      getPlatformControlPlaneRunDetail: async () => null,
+      getPlatformControlPlaneRunTasks: async () => null,
+      getPlatformControlPlaneRunObservability: async () => null,
+      submitPlatformRun: async () => {
+        throw new Error('unreachable');
+      },
+      retryPlatformTask: async () => null,
+      approvePlatformTask: async () => null,
+      rejectPlatformTask: async () => null
+    });
+
+    const baseUrl = `http://${startedServer.host}:${startedServer.port}`;
+    const response = await fetch(`${baseUrl}/api/runs`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        requirement: 'Add platform control plane backend'
+      })
     });
 
     expect(response.status).toBe(400);

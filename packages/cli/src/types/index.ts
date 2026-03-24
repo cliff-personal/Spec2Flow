@@ -94,5 +94,8 @@ export type {
   PlatformControlPlaneRunDetailDocument,
   PlatformControlPlaneRunListDocument,
   PlatformControlPlaneRunListItem,
+  PlatformControlPlaneRunSubmissionDocument,
+  PlatformControlPlaneRunSubmissionRequest,
+  PlatformControlPlaneRunSubmissionResult,
   PlatformControlPlaneTaskList
 } from './platform-control-plane.js';

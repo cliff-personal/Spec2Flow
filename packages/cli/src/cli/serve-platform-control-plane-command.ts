@@ -10,6 +10,7 @@ import {
   rejectPlatformControlPlaneTask as rejectPlatformControlPlaneTaskAction,
   retryPlatformControlPlaneTask as retryPlatformControlPlaneTaskAction
 } from '../platform/platform-control-plane-action-service.js';
+import { submitPlatformControlPlaneRun as submitPlatformControlPlaneRunService } from '../platform/platform-control-plane-run-submission-service.js';
 import { startPlatformControlPlaneServer } from '../platform/platform-control-plane-server.js';
 import { DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT } from '../platform/platform-scheduler-service.js';
 
@@ -26,6 +27,7 @@ export interface ServePlatformControlPlaneDependencies {
   rejectPlatformControlPlaneTask: typeof rejectPlatformControlPlaneTaskAction;
   resolvePlatformDatabaseConfig: typeof resolvePlatformDatabaseConfig;
   retryPlatformControlPlaneTask: typeof retryPlatformControlPlaneTaskAction;
+  submitPlatformControlPlaneRun: typeof submitPlatformControlPlaneRunService;
   startPlatformControlPlaneServer: typeof startPlatformControlPlaneServer;
   withPlatformTransaction: typeof withPlatformTransaction;
 }
@@ -84,6 +86,9 @@ export async function runServePlatformControlPlane(
     getPlatformControlPlaneRunObservability: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.getPlatformControlPlaneRunObservability(client, config.schema, request)),
+    submitPlatformRun: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.submitPlatformControlPlaneRun(client, config.schema, request)),
     retryPlatformTask: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.retryPlatformControlPlaneTask(client, config.schema, request)),

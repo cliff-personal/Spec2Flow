@@ -48,6 +48,7 @@ import {
   rejectPlatformControlPlaneTask,
   retryPlatformControlPlaneTask
 } from '../platform/platform-control-plane-action-service.js';
+import { submitPlatformControlPlaneRun } from '../platform/platform-control-plane-run-submission-service.js';
 import { startPlatformControlPlaneServer } from '../platform/platform-control-plane-server.js';
 import type { CliOptions as PreflightCliOptions, CopilotPreflightReportDocument } from '../adapters/copilot-preflight.js';
 import { getPlatformObservability } from '../platform/platform-observability-service.js';
@@ -187,6 +188,7 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         rejectPlatformControlPlaneTask,
         resolvePlatformDatabaseConfig,
         retryPlatformControlPlaneTask,
+        submitPlatformControlPlaneRun,
         startPlatformControlPlaneServer,
         withPlatformTransaction
       }),

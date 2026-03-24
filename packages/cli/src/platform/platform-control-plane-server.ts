@@ -6,11 +6,15 @@ import type {
   PlatformControlPlaneRunDetail,
   PlatformControlPlaneRunListDocument,
   PlatformControlPlaneRunListItem,
+  PlatformControlPlaneRunSubmissionDocument,
+  PlatformControlPlaneRunSubmissionRequest,
+  PlatformControlPlaneRunSubmissionResult,
   PlatformControlPlaneTaskList,
   PlatformObservabilityReadModel,
   PlatformRunStatus
 } from '../types/index.js';
 import { PlatformControlPlaneActionError } from './platform-control-plane-action-service.js';
+import { PlatformControlPlaneRunSubmissionError } from './platform-control-plane-run-submission-service.js';
 
 export interface StartPlatformControlPlaneServerOptions {
   host?: string;
@@ -33,6 +37,7 @@ export interface StartPlatformControlPlaneServerOptions {
     runId: string;
     eventLimit: number;
   }) => Promise<PlatformObservabilityReadModel | null>;
+  submitPlatformRun: (options: PlatformControlPlaneRunSubmissionRequest) => Promise<PlatformControlPlaneRunSubmissionResult>;
   retryPlatformTask: (options: {
     runId: string;
     taskId: string;
@@ -172,6 +177,66 @@ function parseTaskActionBody(body: unknown): {
   };
 }
 
+function parseOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function parseChangedFiles(value: unknown): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+    throw new PlatformControlPlaneRunSubmissionError(
+      'invalid-request',
+      'Run submission changedFiles must be an array of strings',
+      400
+    );
+  }
+
+  return value;
+}
+
+function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissionRequest {
+  const record = asObjectRecord(body);
+  const repositoryRootPath = parseOptionalString(record?.repositoryRootPath);
+
+  if (!repositoryRootPath) {
+    throw new PlatformControlPlaneRunSubmissionError(
+      'invalid-request',
+      'Run submission request body must include a non-empty repositoryRootPath',
+      400
+    );
+  }
+
+  const projectPath = parseOptionalString(record?.projectPath);
+  const topologyPath = parseOptionalString(record?.topologyPath);
+  const riskPath = parseOptionalString(record?.riskPath);
+  const requirement = parseOptionalString(record?.requirement);
+  const requirementPath = parseOptionalString(record?.requirementPath);
+  const changedFiles = parseChangedFiles(record?.changedFiles);
+  const repositoryId = parseOptionalString(record?.repositoryId);
+  const repositoryName = parseOptionalString(record?.repositoryName);
+  const defaultBranch = parseOptionalString(record?.defaultBranch);
+  const runId = parseOptionalString(record?.runId);
+
+  return {
+    repositoryRootPath,
+    ...(projectPath ? { projectPath } : {}),
+    ...(topologyPath ? { topologyPath } : {}),
+    ...(riskPath ? { riskPath } : {}),
+    ...(requirement ? { requirement } : {}),
+    ...(requirementPath ? { requirementPath } : {}),
+    ...(changedFiles ? { changedFiles } : {}),
+    ...(repositoryId ? { repositoryId } : {}),
+    ...(repositoryName ? { repositoryName } : {}),
+    ...(defaultBranch ? { defaultBranch } : {}),
+    ...(runId ? { runId } : {})
+  };
+}
+
 async function handleRunListRequest(
   response: ServerResponse,
   url: URL,
@@ -203,6 +268,24 @@ async function handleRunListRequest(
     runs: await options.listPlatformRuns(runListRequest)
   };
   writeJson(response, 200, runs);
+  return true;
+}
+
+async function handleRunSubmissionRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (pathname !== '/api/runs') {
+    return false;
+  }
+
+  const runSubmissionRequest = parseRunSubmissionBody(await readJsonBody(request));
+  const runSubmission: PlatformControlPlaneRunSubmissionDocument = {
+    runSubmission: await options.submitPlatformRun(runSubmissionRequest)
+  };
+  writeJson(response, 201, runSubmission);
   return true;
 }
 
@@ -373,6 +456,50 @@ async function handleTaskActionRequest(
   return true;
 }
 
+async function handleGetRequest(
+  response: ServerResponse,
+  url: URL,
+  pathname: string,
+  eventLimit: number,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (pathname === '/healthz') {
+    writeJson(response, 200, { status: 'ok' });
+    return true;
+  }
+
+  if (await handleRunListRequest(response, url, options)) {
+    return true;
+  }
+
+  if (await handleRunDetailRequest(response, pathname, eventLimit, options)) {
+    return true;
+  }
+
+  if (await handleRunTasksRequest(response, pathname, eventLimit, options)) {
+    return true;
+  }
+
+  return handleRunObservabilityRequest(response, pathname, eventLimit, options);
+}
+
+async function handlePostRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (await handleRunSubmissionRequest(request, response, pathname, options)) {
+    return true;
+  }
+
+  if (await handleRunActionStub(request, response, pathname)) {
+    return true;
+  }
+
+  return handleTaskActionRequest(request, response, pathname, options);
+}
+
 async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -383,32 +510,11 @@ async function handleRequest(
   const pathname = url.pathname;
   const eventLimit = parsePositiveInteger(url.searchParams.get('eventLimit'), options.eventLimit);
 
-  if (method === 'GET' && pathname === '/healthz') {
-    writeJson(response, 200, { status: 'ok' });
+  if (method === 'GET' && await handleGetRequest(response, url, pathname, eventLimit, options)) {
     return;
   }
 
-  if (method === 'GET' && await handleRunListRequest(response, url, options)) {
-    return;
-  }
-
-  if (method === 'GET' && await handleRunDetailRequest(response, pathname, eventLimit, options)) {
-    return;
-  }
-
-  if (method === 'GET' && await handleRunTasksRequest(response, pathname, eventLimit, options)) {
-    return;
-  }
-
-  if (method === 'GET' && await handleRunObservabilityRequest(response, pathname, eventLimit, options)) {
-    return;
-  }
-
-  if (method === 'POST' && await handleRunActionStub(request, response, pathname)) {
-    return;
-  }
-
-  if (method === 'POST' && await handleTaskActionRequest(request, response, pathname, options)) {
+  if (method === 'POST' && await handlePostRequest(request, response, pathname, options)) {
     return;
   }
 
@@ -434,7 +540,7 @@ export async function startPlatformControlPlaneServer(
   const host = options.host ?? '127.0.0.1';
   const server = createServer((request, response) => {
     void handleRequest(request, response, options).catch((error) => {
-      if (error instanceof PlatformControlPlaneActionError) {
+      if (error instanceof PlatformControlPlaneActionError || error instanceof PlatformControlPlaneRunSubmissionError) {
         writeError(response, error.statusCode, error.code, error.message, error.details);
         return;
       }

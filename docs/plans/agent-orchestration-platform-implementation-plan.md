@@ -31,7 +31,7 @@ This document is the working implementation plan for the platform-shaped version
 | Collaboration publish flow | Commit code, create branch, optionally draft PR | `packages/cli/src/runtime/collaboration-publication-service.ts`; `packages/cli/src/platform/platform-publication-service.ts`; `publications` table | `partial` | Controller-side branch creation, scoped auto-commit, publication records, and PR-draft artifacts now exist, but there is still no remote push, PR API integration, or operator approval UI |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
 | Event stream and observability | Operators can see progress, retries, and artifacts live | `get-platform-observability`; `packages/cli/src/platform/platform-event-taxonomy.ts`; `packages/cli/src/platform/platform-observability-service.ts` | `partial` | Durable events and observability read models now exist, but there is still no streaming transport or external telemetry export |
-| Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | `serve-platform-control-plane`; `packages/cli/src/platform/platform-control-plane-server.ts`; `packages/cli/src/platform/platform-control-plane-service.ts`; `packages/cli/src/platform/platform-control-plane-action-service.ts` | `partial` | Backend read APIs plus task retry and approval actions now exist, but run submission, pause/resume, frontend UI, and DAG rendering are still missing |
+| Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | `serve-platform-control-plane`; `packages/cli/src/platform/platform-control-plane-server.ts`; `packages/cli/src/platform/platform-control-plane-service.ts`; `packages/cli/src/platform/platform-control-plane-action-service.ts`; `packages/cli/src/platform/platform-control-plane-run-submission-service.ts` | `partial` | Backend run submission, read APIs, and task retry or approval actions now exist, but run-level pause/resume, frontend UI, and DAG rendering are still missing |
 | Artifact metadata and storage model | Artifacts are queryable and attached to runs/tasks | Artifact refs exist in `execution-state.json` | `partial` | No shared artifact catalog, no object-store abstraction, no database indexing |
 | Multi-user operations | Many repos, many runs, many operators | None | `gap` | No authentication layer, repository registry, tenancy model, or permissions surface |
 | CLI compatibility | Existing local workflow remains usable during migration | Current CLI runtime works today | `implemented` | Must preserve during platform rollout |
@@ -281,7 +281,7 @@ Implemented in the current repository state:
 
 Remaining gaps:
 
-- `partial`: event schema and append/query service exist for CLI and internal platform services, but there is no operator-facing API surface yet
+- `partial`: event schema and append/query service exist for CLI and internal platform services, and the first operator-facing HTTP surface now exists through `serve-platform-control-plane`, but there is still no streaming or externally consumable event API
 - `gap`: streaming transport
 - `partial`: metrics exist in the observability read model, but there is no separate metrics export or alerting integration yet
 
@@ -320,17 +320,25 @@ Exit signal:
 Implemented in the current repository state:
 
 - `serve-platform-control-plane` now starts a zero-dependency HTTP backend on top of the PostgreSQL platform runtime
-- the first backend slice exposes `GET /healthz`, `GET /api/runs`, `GET /api/runs/:runId`, `GET /api/runs/:runId/tasks`, and `GET /api/runs/:runId/observability`
+- the current backend slice exposes `GET /healthz`, `POST /api/runs`, `GET /api/runs`, `GET /api/runs/:runId`, `GET /api/runs/:runId/tasks`, and `GET /api/runs/:runId/observability`
 - the backend returns the same DB-backed run snapshot and observability read model already used by the CLI, so the web control plane can reuse controller truth instead of inventing a second projection
+- `POST /api/runs` now validates onboarding inputs, builds a task graph, and persists the resulting platform run through the same planner and PostgreSQL initialization services used by the CLI
 - `POST /api/tasks/:taskId/actions/retry`, `POST /api/tasks/:taskId/actions/approve`, and `POST /api/tasks/:taskId/actions/reject` now execute real PostgreSQL-backed operator actions instead of returning placeholders
 - `POST /api/runs/:runId/actions/pause` and `POST /api/runs/:runId/actions/resume` still exist as explicit `501 not implemented` stubs, so the remaining run-level operator API surface is visible but not faked
 
 Remaining gaps:
 
-- `partial`: backend service exists for health, run list, run detail, task list, observability, task retry, and approval actions, but run submission and run-level pause/resume are not wired yet
+- `partial`: backend service exists for health, run submission, run list, run detail, task list, observability, task retry, and approval actions, but run-level pause/resume, frontend UI, and DAG rendering are still missing
 - `gap`: frontend app
 - `gap`: DAG visualization
 - `gap`: approval action UI
+
+Frontend start gate:
+
+- frontend work can start now for run submission, run list, run detail shell, observability panels, and task-level retry or approval controls because the minimum backend surface already exists
+- frontend work should not wait for run-level pause or resume; those can stay disabled until the paused-state model is real
+- a first frontend slice should stay thin and backend-driven, with no client-side workflow truth beyond request state and cached API responses
+- before building the first UI, choose one frontend stack and lock one operator-oriented information architecture so Phase 7 does not fragment into backend drift plus throwaway screens
 
 ## Phase 8: Execution And Artifact Hardening
 
