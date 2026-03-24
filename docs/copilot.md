@@ -2,7 +2,7 @@
 
 - Status: active
 - Source of truth: `.github/copilot-instructions.md`, `.github/instructions/`, `package.json`
-- Verified with: `npm run build`, `npm run test:unit`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
 
 ## Purpose
 
@@ -165,6 +165,7 @@ The repository should expose a small set of stable scripts for validation:
 - `npm run build`
 - `npm run typecheck`
 - `npm run test:unit`
+- `npm run validate:docs`
 
 Additional verification commands can grow around these without replacing them.
 

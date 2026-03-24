@@ -128,6 +128,7 @@ Use it to answer two questions quickly:
 - `npm run build`
 - `npm run typecheck`
 - `npm run test:unit`
+- `npm run validate:docs`
 - `npm run validate:synapse-example`
 - `npm run generate:synapse-task-graph`
 - `npm run generate:synapse-execution-state`

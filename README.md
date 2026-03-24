@@ -2,7 +2,7 @@
 
 - Status: active
 - Source of truth: `AGENTS.md`, `package.json`, `schemas/`
-- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:synapse-example`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`, `npm run validate:synapse-example`
 
 **Spec2Flow** is an open-source AI workflow framework for turning product requirements and repository context into a repeatable engineering loop.
 
@@ -156,8 +156,9 @@ The next implementation target is to establish:
 - stable document structure
 - workflow schemas
 - a minimal execution baseline through canonical validation commands and Playwright where needed
-- a GitHub Actions workflow for repeatable validation
 - a GitHub Issues-based defect feedback loop
+
+The repository now includes a baseline GitHub Actions validation workflow at `.github/workflows/validate.yml` that runs `npm run build`, `npm run test:unit`, and `npm run validate:docs` on pull requests and pushes to `main`.
 
 ## Key Docs
 
@@ -215,6 +216,7 @@ Example commands:
 npm install
 npm run build
 npm run test:unit
+npm run validate:docs
 npm run validate:synapse-example
 npm run generate:synapse-task-graph
 npm run generate:synapse-execution-state

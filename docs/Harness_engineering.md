@@ -2,7 +2,7 @@
 
 - Status: active
 - Source of truth: `AGENTS.md`, `docs/index.md`, `docs/playbooks/index.md`, `docs/adr/index.md`
-- Verified with: `npm run build`, `npm run test:unit`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
 
 ## Purpose
 
@@ -434,9 +434,15 @@ Completed in the current repository state:
 
 Recommended next steps:
 
-1. add a small doc-validation script or CI check
-2. add one or two repo-native skills instead of importing many generic ones
-3. move superseded plan-heavy docs into a clearer active versus historical structure
+1. add one or two repo-native skills instead of importing many generic ones
+2. move superseded plan-heavy docs into a clearer active versus historical structure
+
+Now implemented in the current repository state:
+
+- `npm run validate:docs` validates active docs plus canonical machine-critical docs
+- it checks metadata headers, source-of-truth paths, referenced `npm run` scripts, and local markdown links
+- the validation scope stays intentionally narrow so historical and design docs do not create noisy failures
+- `.github/workflows/validate.yml` runs `npm run build`, `npm run test:unit`, and `npm run validate:docs` on pull requests and pushes to `main`
 
 ## Bottom Line
 

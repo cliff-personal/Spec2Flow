@@ -2,7 +2,7 @@
 
 - Status: active
 - Source of truth: `package.json`, `docs/examples/synapse-network/README.md`, `docs/playbooks/index.md`
-- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:synapse-example`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`, `npm run validate:synapse-example`
 
 ## Goal
 
@@ -188,7 +188,7 @@ requirements:
     - docs/design
 runtime:
   install: npm install
-  start: npm run dev
+  start: ./scripts/start-service.sh
   baseUrl: http://localhost:3000
 testing:
   smokeSuite: playwright/tests/smoke

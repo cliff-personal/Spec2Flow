@@ -13,6 +13,7 @@
     "spec2flow:dist": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run",
+    "validate:docs": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js validate-docs",
     "validate:synapse-example": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js validate-onboarding --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --output docs/examples/synapse-network/generated/onboarding-validator-result.json",
     "validate:synapse-example:dist": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js validate-onboarding --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --output docs/examples/synapse-network/generated/onboarding-validator-result.json",
     "generate:synapse-task-graph": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js generate-task-graph --project docs/examples/synapse-network/project.yaml --topology docs/examples/synapse-network/topology.yaml --risk docs/examples/synapse-network/risk.yaml --output docs/examples/synapse-network/generated/task-graph.json",
