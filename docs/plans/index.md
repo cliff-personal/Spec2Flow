@@ -25,6 +25,7 @@ Keep plan-heavy material out of the primary docs root so active architecture, us
 
 - [Agent orchestration platform implementation plan](agent-orchestration-platform-implementation-plan.md)
 - [Architecture gap matrix](architecture-gap-matrix.md)
+- [Web control plane frontend implementation](web-control-plane-frontend-implementation.md)
 - [Completed plans](completed/index.md)
 - [Historical plans](historical/index.md)
 

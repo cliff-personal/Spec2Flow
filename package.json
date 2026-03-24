@@ -3,12 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "bin": {
     "spec2flow": "packages/cli/dist/cli/spec2flow-dist-entrypoint.js"
   },
   "scripts": {
     "prepare": "npm run build",
     "build": "tsc -p tsconfig.build.json",
+    "web:dev": "npm run dev --workspace @spec2flow/web",
+    "web:build": "npm run build --workspace @spec2flow/web",
+    "web:preview": "npm run preview --workspace @spec2flow/web",
     "migrate:platform-db": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js migrate-platform-db",
     "init:platform-run": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js init-platform-run",
     "lease:platform-task": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js lease-next-platform-task",

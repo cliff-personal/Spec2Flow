@@ -178,6 +178,8 @@ The PostgreSQL commands are:
 - `run-platform-execution-worker`: stage-locked wrapper for `automated-execution`
 - `run-platform-defect-worker`: stage-locked wrapper for `defect-feedback`
 - `run-platform-collaboration-worker`: stage-locked wrapper for `collaboration`
+- `web:dev`: start the frontend shell for the PostgreSQL-backed web control plane
+- `web:build`: build the frontend shell for static hosting or preview validation
 
 Example bootstrap flow:
 
@@ -230,6 +232,8 @@ npm run serve:platform-control-plane -- \
   --host 127.0.0.1 \
   --port 4310
 
+npm run web:dev
+
 npm run spec2flow -- run-platform-worker-task \
   --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
   --database-schema spec2flow_platform \
@@ -266,6 +270,7 @@ Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
 - `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
 - `serve-platform-control-plane` exposes the first backend HTTP surface for health checks, run submission, run lists, run detail, task detail, observability snapshots, and task-level operator actions for retry and approval
 - `POST /api/runs` accepts `repositoryRootPath` plus optional `projectPath`, `topologyPath`, `riskPath`, `requirement`, `requirementPath`, `changedFiles`, and repository metadata overrides; onboarding files default to `.spec2flow/project.yaml`, `.spec2flow/topology.yaml`, and `.spec2flow/policies/risk.yaml` relative to `repositoryRootPath`
+- `packages/web` now contains the first frontend shell for that API surface, and `npm run web:dev` expects the backend to be available at `http://127.0.0.1:4310` unless `VITE_CONTROL_PLANE_BASE_URL` overrides it
 
 Phase 3 adds the first DB-backed worker runtime harness:
 

@@ -96,16 +96,22 @@ Spec2Flow/
 │  ├─ model-adapter-capability.schema.json
 │  └─ model-adapter-runtime.schema.json
 ├─ packages/
-│  └─ cli/
-│     ├─ dist/
-│     └─ src/
-│        ├─ adapters/
-│        ├─ cli/
-│        ├─ onboarding/
-│        ├─ planning/
-│        ├─ runtime/
-│        ├─ shared/
-│        └─ types/
+│  ├─ cli/
+│  │  ├─ dist/
+│  │  └─ src/
+│  │     ├─ adapters/
+│  │     ├─ cli/
+│  │     ├─ onboarding/
+│  │     ├─ planning/
+│  │     ├─ runtime/
+│  │     ├─ shared/
+│  │     └─ types/
+│  └─ web/
+│     ├─ src/
+│     ├─ index.html
+│     ├─ package.json
+│     ├─ tsconfig.json
+│     └─ vite.config.ts
 ```
 
 This file should describe the current repository map first. Future package splits or optional integrations belong in architecture or roadmap docs, not in the primary structure map.
@@ -120,6 +126,7 @@ This file should describe the current repository map first. Future package split
 - `AGENTS.md`: repository rules, design principles, and documentation discipline
 - `llms.txt`: machine-readable repository map for AI agents and external tooling
 - `package.json`: CLI entrypoints and example workflow commands
+- `package.json`: root scripts for CLI workflows plus frontend workspace entrypoints
 - `tsconfig.json`: phase 0 TypeScript configuration for NodeNext typechecking without changing the current runtime entrypoint
 - `tsconfig.build.json`: build configuration that emits runnable CLI artifacts into `packages/cli/dist/`
 - `vitest.config.ts`: unit-test runner configuration for the TypeScript source tree
@@ -176,6 +183,11 @@ Sample changed-file lists for diff-aware and requirement-aware route selection e
 
 ### `packages/cli/`
 Developer-facing CLI entrypoints. This is the current implementation surface for validation, task graph generation, execution-state lifecycle, task claiming, adapter execution, and workflow-loop orchestration.
+
+### `packages/web/`
+Frontend operator shell for the web control plane.
+
+This package currently provides the first React and Vite-based UI scaffold for run submission, run list, run detail, observability panels, task-level operator actions, and DAG preview work.
 
 ### `packages/cli/dist/`
 Generated build output for the TypeScript runtime. This directory is now the default CLI runtime surface used by the package bin and repository scripts.

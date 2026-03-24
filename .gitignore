@@ -1,6 +1,7 @@
 node_modules/
 .DS_Store
 packages/cli/dist/
+packages/web/dist/
 .tmp/
 .spec2flow/generated/
 .spec2flow/runtime/

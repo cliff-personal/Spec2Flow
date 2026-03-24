@@ -48,6 +48,7 @@ Mandatory repository intake rule for AI agents:
 - [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
 - PostgreSQL worker runtime commands now include `run-platform-worker-task` plus stage-locked worker entrypoints for requirements, implementation, test design, execution, defect, and collaboration.
 - `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, run list, run detail, task list, observability endpoints, and task-level retry/approval operator actions.
+- `packages/web` now contains the first React-based frontend shell for the web control plane, and `web:dev` starts that shell against the control-plane HTTP API.
 - `run-platform-worker-task` now renews its own lease during execution and stops when lease ownership is lost or heartbeat failures exceed the configured threshold.
 - Auto-repair policy fields now flow from `risk-policy.schema.json` into task `reviewPolicy`; downstream rerun invalidation and repair escalation are decided by `packages/cli/src/runtime/auto-repair-policy-service.ts`, and PostgreSQL-backed runs persist repair attempts plus escalation events through `packages/cli/src/platform/platform-auto-repair-service.ts`.
 - Collaboration handoffs can now flow into controller-side publication decisions through `packages/cli/src/runtime/collaboration-publication-service.ts`, with publication records persisted into PostgreSQL by `packages/cli/src/platform/platform-publication-service.ts`.
@@ -76,6 +77,7 @@ Mandatory repository intake rule for AI agents:
 - [packages/cli/src/planning/](packages/cli/src/planning/): Task-graph construction and planning logic.
 - [packages/cli/src/adapters/](packages/cli/src/adapters/): Adapter execution, normalization, and Copilot CLI preflight.
 - [packages/cli/src/platform/](packages/cli/src/platform/): PostgreSQL-backed persistence, scheduler primitives, and DB-backed worker runtime services.
+- [packages/web/](packages/web/): Frontend shell for run submission, run inspection, observability panels, task actions, and DAG preview work.
 
 ## Verification Commands
 
@@ -87,6 +89,7 @@ Mandatory repository intake rule for AI agents:
 - `npm run generate:synapse-task-graph`
 - `npm run generate:synapse-execution-state`
 - `npm run preflight:copilot-cli`
+- `npm run web:build`
 
 ## Source Of Truth Rules
 
