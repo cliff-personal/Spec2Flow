@@ -21,6 +21,7 @@ The chosen baseline stack is:
 - Vite
 - React
 - TypeScript
+- React Router for page-level routing
 - TanStack Query for server-state reads and mutations
 - React Flow for DAG rendering
 
@@ -53,8 +54,11 @@ Those remain in the PostgreSQL-backed control-plane services.
 `packages/web` currently provides:
 
 - a real run submission form backed by `POST /api/runs`
-- a run list backed by `GET /api/runs`
-- run detail and observability panels backed by `GET /api/runs/:runId` and `GET /api/runs/:runId/observability`
+- a routed run list page at `/runs` backed by `GET /api/runs`
+- a routed run detail page at `/runs/:runId` backed by `GET /api/runs/:runId` and `GET /api/runs/:runId/observability`
+- a task detail panel that joins task records with observability summaries for operator debugging
+- an artifact detail panel backed by run-state artifact records from the control-plane detail endpoint
+- an event timeline panel backed by observability timeline entries from the existing read model
 - a task snapshot backed by `GET /api/runs/:runId/tasks`
 - task-level retry, approve, and reject controls backed by the existing task action endpoints
 - a React Flow DAG preview scaffold driven by fetched task records
@@ -70,7 +74,12 @@ The first frontend pass should stay within four views:
 3. run detail summary
 4. task and DAG inspection
 
-The first shell should not split into many routes before the detail page stabilizes.
+The current shell now uses two real routes:
+
+- `/runs`
+- `/runs/:runId`
+
+The next routing step should stay restrained. Do not explode this into many nested pages before artifact and event detail requirements are concrete.
 
 Recommended operator flow:
 
@@ -92,9 +101,26 @@ Keep endpoint shapes explicit and close to the backend contracts.
 
 ### `packages/web/src/app.tsx`
 
-The current application shell.
+The root frontend entry now delegates to a router shell rather than a monolithic dashboard page.
 
-It is acceptable as a first assembly point, but future growth should split it into focused UI modules once any single section becomes hard to hold in working memory.
+### `packages/web/src/app-router.tsx`
+
+Owns the page route tree for `/runs` and `/runs/:runId`.
+
+### `packages/web/src/pages/`
+
+Page-level containers now separate list and detail responsibilities:
+
+- `control-plane-shell.tsx`
+- `control-plane-runs-page.tsx`
+- `control-plane-run-detail-page.tsx`
+
+### `packages/web/src/hooks/`
+
+Page-scoped data hooks now keep route-level query and mutation state out of presentational components:
+
+- `use-control-plane-runs-page.ts`
+- `use-control-plane-run-detail-page.ts`
 
 ### Future UI modules
 

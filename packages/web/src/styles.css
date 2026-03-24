@@ -34,14 +34,8 @@ body {
     linear-gradient(180deg, #f7f3eb 0%, #efe7d7 100%);
 }
 
-button,
-input,
-textarea {
+:where(input, textarea) {
   font: inherit;
-}
-
-button {
-  cursor: pointer;
 }
 
 .app-shell {
@@ -105,6 +99,11 @@ button {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.nav-list a.active {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
 .sidebar-note {
   margin-top: auto;
   padding: 18px;
@@ -143,6 +142,30 @@ button {
   gap: 20px;
 }
 
+.hero-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.hero-panel__action {
+  display: flex;
+  align-items: center;
+}
+
+.hero-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ink-strong);
+  color: #fff9f1;
+  text-decoration: none;
+}
+
 .hero-panel__status-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -172,6 +195,10 @@ button {
 
 .grid--two-large {
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+}
+
+.grid--two-equal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .panel {
@@ -235,6 +262,8 @@ textarea {
 }
 
 button {
+  font: inherit;
+  cursor: pointer;
   border: none;
   border-radius: 999px;
   background: var(--ink-strong);
@@ -254,7 +283,7 @@ button:disabled {
 
 .button-ghost {
   background: rgba(214, 104, 83, 0.12);
-  color: #89321c;
+  color: #381006;
 }
 
 .run-list,
@@ -311,19 +340,19 @@ button:disabled {
 .status-pill--ready,
 .status-pill--pending {
   background: rgba(124, 157, 150, 0.2);
-  color: #20544b;
+  color: #0b2621;
 }
 
 .status-pill--blocked,
 .status-pill--failed,
 .status-pill--cancelled {
   background: rgba(214, 104, 83, 0.18);
-  color: #89321c;
+  color: #3f1109;
 }
 
 .status-pill--completed {
   background: rgba(240, 182, 127, 0.28);
-  color: #7c4b17;
+  color: #5c360f;
 }
 
 .detail-list {
@@ -374,6 +403,120 @@ button:disabled {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(247, 243, 235, 0.92));
 }
 
+.detail-split-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 0.58fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.detail-split-panel__list,
+.detail-split-panel__body,
+.timeline-list,
+.mini-event-list {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-split-panel__list {
+  align-content: start;
+}
+
+.detail-selector {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 37, 66, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink-strong);
+  text-align: left;
+}
+
+.detail-selector--active {
+  border-color: rgba(214, 104, 83, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(214, 104, 83, 0.24);
+}
+
+.detail-selector span {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-soft);
+}
+
+.panel-subsection {
+  margin-top: 18px;
+}
+
+.panel-subsection h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(16, 37, 66, 0.08);
+  color: var(--ink-strong);
+  font-size: 12px;
+}
+
+.detail-code-block {
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(16, 37, 66, 0.06);
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mini-event,
+.timeline-item {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 37, 66, 0.08);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.mini-event span,
+.timeline-item__meta {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.timeline-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mini-event--warning,
+.timeline-item--warning {
+  border-color: rgba(240, 182, 127, 0.5);
+}
+
+.mini-event--error,
+.timeline-item--error {
+  border-color: rgba(214, 104, 83, 0.36);
+}
+
+.panel--timeline {
+  min-height: 280px;
+}
+
 .graph-empty-state {
   height: 100%;
   display: grid;
@@ -398,6 +541,7 @@ button:disabled {
 
   .grid--two,
   .grid--three,
+  .grid--two-equal,
   .grid--two-large,
   .hero-panel__status-row {
     grid-template-columns: 1fr;
@@ -420,6 +564,13 @@ button:disabled {
   }
 
   .form-grid__actions,
+  .detail-split-panel,
+  .task-actions__row,
+  .task-table__row,
+  .run-list__item {
+    grid-template-columns: 1fr;
+  }
+
   .task-actions__row,
   .task-table__row,
   .run-list__item {

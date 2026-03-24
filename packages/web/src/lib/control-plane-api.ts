@@ -32,6 +32,59 @@ export interface PlatformTaskRecord {
   dependsOn?: string[];
   targetFiles?: string[];
   verifyCommands?: string[];
+  inputs?: Record<string, unknown>;
+  riskLevel?: string | null;
+  roleProfile?: {
+    expectedArtifacts: string[];
+  };
+  attempts?: number;
+  retryCount?: number;
+  autoRepairCount?: number;
+  leasedByWorkerId?: string | null;
+  leaseExpiresAt?: string | null;
+  artifactsDir?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface PlatformArtifactRecord {
+  artifactId: string;
+  runId: string;
+  taskId?: string | null;
+  kind: string;
+  path: string;
+  schemaType?: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+}
+
+export interface PlatformObservabilityTimelineEntry {
+  eventId: string;
+  createdAt: string | null;
+  taskId?: string | null;
+  type: string;
+  category: string;
+  action: string;
+  title: string;
+  severity: 'info' | 'warning' | 'error';
+  payload: Record<string, unknown>;
+}
+
+export interface PlatformTaskObservabilitySummary {
+  taskId: string;
+  stage: string;
+  status: string;
+  attempts: number;
+  retryCount: number;
+  autoRepairCount: number;
+  artifactCount: number;
+  expectedArtifactCount: number;
+  missingExpectedArtifactCount: number;
+  latestEventType?: string | null;
+  latestEventAt?: string | null;
+  latestEventSeverity?: 'info' | 'warning' | 'error' | null;
+  recentEvents: PlatformObservabilityTimelineEntry[];
+  leasedByWorkerId?: string | null;
+  leaseExpiresAt?: string | null;
 }
 
 export interface PlatformObservability {
@@ -72,6 +125,8 @@ export interface PlatformObservability {
     title: string;
     description: string;
   }>;
+  timeline: PlatformObservabilityTimelineEntry[];
+  taskSummaries: PlatformTaskObservabilitySummary[];
 }
 
 export interface RunDetail {
@@ -84,6 +139,16 @@ export interface RunDetail {
       currentStage: string | null;
       riskLevel: string | null;
     };
+    tasks: PlatformTaskRecord[];
+    recentEvents: Array<{
+      eventId: string;
+      runId: string;
+      taskId?: string | null;
+      eventType: string;
+      payload: Record<string, unknown>;
+      createdAt?: string | null;
+    }>;
+    artifacts: PlatformArtifactRecord[];
   };
   platformObservability: PlatformObservability;
 }
@@ -144,7 +209,7 @@ export interface ApiError {
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:4310';
 
-function getBaseUrl(): string {
+export function getControlPlaneBaseUrl(): string {
   const configuredUrl = import.meta.env.VITE_CONTROL_PLANE_BASE_URL?.trim();
   return configuredUrl && configuredUrl.length > 0 ? configuredUrl : DEFAULT_BASE_URL;
 }
@@ -155,7 +220,7 @@ async function requestJson<T>(pathname: string, init?: RequestInit): Promise<T> 
     ...(init?.headers ? init.headers : {})
   };
 
-  const response = await fetch(`${getBaseUrl()}${pathname}`, {
+  const response = await fetch(`${getControlPlaneBaseUrl()}${pathname}`, {
     headers,
     ...init
   });
