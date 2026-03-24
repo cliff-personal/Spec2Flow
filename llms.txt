@@ -22,6 +22,7 @@ Spec2Flow is the orchestrator, not the coding agent itself.
 
 - [docs/architecture.md](docs/architecture.md): Runtime model, orchestration boundaries, and specialist-agent overlay.
 - [docs/structure.md](docs/structure.md): Current repository map and reading order.
+- [docs/adr/index.md](docs/adr/index.md): Stable architectural decisions and their enforcing surfaces.
 - [docs/Harness_engineering.md](docs/Harness_engineering.md): How this repository should evolve to be easier for AI agents to navigate and verify.
 - [docs/playbooks/index.md](docs/playbooks/index.md): Stage-scoped execution guidance for claimed route tasks.
 

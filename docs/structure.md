@@ -27,6 +27,12 @@ Spec2Flow/
 │  ├─ structure.md
 │  ├─ copilot.md
 │  ├─ Harness_engineering.md
+│  ├─ adr/
+│  │  ├─ index.md
+│  │  ├─ 0001-orchestrator-is-system-of-record.md
+│  │  ├─ 0002-adapter-execution-is-task-scoped.md
+│  │  ├─ 0003-runtime-contracts-are-schema-backed.md
+│  │  └─ 0004-compiled-dist-cli-is-the-default-runtime.md
 │  ├─ playbooks/
 │  │  ├─ index.md
 │  │  ├─ requirements-analysis.md
@@ -115,10 +121,14 @@ Recommended reading order:
 - `docs/index.md` for the shortest AI-facing docs map
 - `docs/copilot.md` for Copilot customization and maintenance policy
 - `docs/Harness_engineering.md` for AI-facing repository optimization guidance
+- `docs/adr/index.md` for stable architecture decisions
 - `docs/playbooks/index.md` for stage-scoped execution guidance
 - `docs/architecture.md` for runtime boundaries
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration
+
+### `docs/adr/`
+Small accepted decisions that should remain stable across refactors. These files are the shortest durable answer when a contributor or agent asks why a major architectural boundary exists.
 
 ### `docs/playbooks/`
 Short operational guides for each route stage. These files are the preferred AI-facing context once a task has already been claimed and the stage is known.

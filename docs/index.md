@@ -25,6 +25,7 @@ Use it to answer two questions quickly:
 
 - [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
+- [docs/adr/index.md](/Users/cliff/workspace/Spec2Flow/docs/adr/index.md)
 
 ### How should Copilot behave in this repository?
 
@@ -89,6 +90,11 @@ Use it to answer two questions quickly:
 ### AI-facing repository optimization
 
 - primary: [docs/Harness_engineering.md](/Users/cliff/workspace/Spec2Flow/docs/Harness_engineering.md)
+
+### Stable architecture decisions
+
+- primary: [docs/adr/index.md](/Users/cliff/workspace/Spec2Flow/docs/adr/index.md)
+- supporting: [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
 
 ### Repository layout
 
