@@ -263,6 +263,38 @@ function createPhaseTwoWorkflowDocuments(): { taskGraphPayload: TaskGraphDocumen
   };
 }
 
+function writeEnvironmentPreparationReport(reportPath: string, repositoryRoot: string): void {
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, `${JSON.stringify({
+    environmentPreparationReport: {
+      repository: {
+        path: repositoryRoot,
+        name: path.basename(repositoryRoot),
+        type: 'repository'
+      },
+      summary: {
+        status: 'ready',
+        notes: ['sh scripts/local/setup_local_env.sh: failed (exit 127)']
+      },
+      detected: {
+        docs: [],
+        scripts: [],
+        tests: [],
+        ci: [],
+        services: []
+      },
+      generated: [
+        {
+          path: 'spec2flow/outputs/execution/environment-preparation-report.json',
+          kind: 'environment-preparation-report',
+          generated: true
+        }
+      ],
+      gaps: []
+    }
+  }, null, 2)}\n`, 'utf8');
+}
+
 function writeRequirementSummary(filePath: string, taskId: string): void {
   fs.writeFileSync(filePath, `${JSON.stringify({
     taskId,
@@ -686,5 +718,70 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('blocked');
     expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('approval-gate:human-approval-required');
     expect(executionStatePayload.executionState.status).toBe('blocked');
+  });
+
+  it('resolves schema-backed artifact paths from the repository root for nested .spec2flow worker state', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-platform-worker-state-'));
+    tempDirs.push(tempDir);
+    const repoRoot = path.join(tempDir, 'repo');
+    const statePath = path.join(repoRoot, '.spec2flow', 'runtime', 'platform-workers', 'run-1', 'environment-preparation', 'execution-state.json');
+    const reportPath = path.join(repoRoot, 'spec2flow', 'outputs', 'execution', 'environment-preparation-report.json');
+
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    writeEnvironmentPreparationReport(reportPath, repoRoot);
+
+    const taskGraphPayload: TaskGraphDocument = {
+      taskGraph: {
+        id: 'platform-worker-graph',
+        workflowName: 'platform-worker-flow',
+        tasks: [
+          {
+            id: 'environment-preparation',
+            stage: 'environment-preparation',
+            title: 'Prepare repository environment',
+            goal: 'Bootstrap the repository',
+            executorType: 'controller-agent',
+            roleProfile: createRoleProfile('controller-agent', 'environment-preparation-controller', ['environment-preparation-report'], 'bootstrap-only'),
+            status: 'ready'
+          }
+        ]
+      }
+    };
+    const executionStatePayload: ExecutionStateDocument = {
+      executionState: {
+        runId: 'run-1',
+        workflowName: 'platform-worker-flow',
+        status: 'running',
+        tasks: [
+          {
+            taskId: 'environment-preparation',
+            status: 'in-progress',
+            executor: 'controller-agent',
+            artifactRefs: [],
+            notes: []
+          }
+        ],
+        artifacts: [],
+        errors: []
+      }
+    };
+
+    expect(() => applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'environment-preparation',
+      taskStatus: 'blocked',
+      notes: ['summary:bootstrap-blocked'],
+      artifacts: [
+        {
+          id: 'environment-preparation-report',
+          kind: 'report',
+          path: 'spec2flow/outputs/execution/environment-preparation-report.json',
+          taskId: 'environment-preparation'
+        }
+      ],
+      errors: []
+    })).not.toThrow();
+
+    expect(executionStatePayload.executionState.tasks[0]?.status).toBe('blocked');
+    expect(executionStatePayload.executionState.artifacts).toHaveLength(1);
   });
 });

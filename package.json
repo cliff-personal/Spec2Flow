@@ -16,6 +16,7 @@
     "start:platform-task": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js start-platform-task",
     "expire:platform-leases": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js expire-platform-leases",
     "get:platform-run-state": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js get-platform-run-state",
+    "run:platform-worker-task": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js run-platform-worker-task",
     "migrate:copilot-sessions": "node scripts/migrate-copilot-sessions.mjs --report .spec2flow/runtime/copilot-session-migration-report.json",
     "spec2flow": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
     "spec2flow:dist": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",

@@ -231,6 +231,7 @@ npm run heartbeat:platform-task -- --database-url postgresql://localhost:5432/sp
 npm run start:platform-task -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform --task-id some-task-id --worker-id worker-1
 npm run expire:platform-leases -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform
 npm run get:platform-run-state -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform
+npm run spec2flow -- run-platform-worker-task --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --run-id spec2flow-platform --task-id environment-preparation --worker-id worker-1
 npm run generate:synapse-task-graph:frontend-change
 npm run generate:synapse-task-graph:withdrawal-change
 ```

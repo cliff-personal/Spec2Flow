@@ -42,10 +42,14 @@ function normalizeArtifactSearchValue(value: string): string {
 function inferArtifactBaseDir(statePath: string): string {
   const resolvedStatePath = path.resolve(statePath);
   const stateDir = path.dirname(resolvedStatePath);
+  const nestedSpec2flowMarker = `${path.sep}.spec2flow${path.sep}`;
+  const nestedSpec2flowIndex = stateDir.lastIndexOf(nestedSpec2flowMarker);
 
-  return path.basename(stateDir) === '.spec2flow'
-    ? path.dirname(stateDir)
-    : stateDir;
+  if (nestedSpec2flowIndex >= 0) {
+    return stateDir.slice(0, nestedSpec2flowIndex) || path.sep;
+  }
+
+  return stateDir;
 }
 
 function buildArtifactContractSummary(expectedArtifacts: string[], artifacts: ArtifactRef[]): ArtifactContractSummary {

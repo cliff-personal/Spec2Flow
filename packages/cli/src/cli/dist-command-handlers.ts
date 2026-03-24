@@ -9,6 +9,11 @@ import {
   leaseNextPlatformTask,
   startPlatformTask
 } from '../platform/platform-scheduler-service.js';
+import {
+  executePlatformWorkerMaterialization,
+  materializePlatformWorkerClaim,
+  persistPlatformWorkerResult
+} from '../platform/platform-worker-service.js';
 import { runClaimNextTask } from './claim-next-task-command.js';
 import { runExpirePlatformLeases, type PlatformLeaseExpirationSweepDocument } from './expire-platform-leases-command.js';
 import { runGenerateTaskGraph } from './generate-task-graph-command.js';
@@ -21,6 +26,7 @@ import { runMigratePlatformDb, type PlatformMigrationReportDocument } from './mi
 import { runPreflightCopilotCli } from './preflight-copilot-cli-command.js';
 import { runTaskWithAdapter, type AdapterTaskRunDocument } from './run-task-with-adapter-command.js';
 import { runDeterministicTaskCommand } from './run-deterministic-task-command.js';
+import { runPlatformWorkerTask, type PlatformWorkerRunDocument } from './run-platform-worker-task-command.js';
 import { runStartPlatformTask, type PlatformTaskStartDocument } from './start-platform-task-command.js';
 import { runUpdateExecutionState } from './update-execution-state-command.js';
 import { runValidateDocs, type DocsValidationReportDocument } from './validate-docs-command.js';
@@ -39,7 +45,7 @@ export interface DistCommandHandlerDependencies {
   fail: (message: string) => void;
   getRouteNameFromTaskId: (taskId: string | null | undefined) => string;
   parseCsvOption: (value: string | undefined) => string[];
-  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument | PlatformTaskLeaseDocument | PlatformTaskHeartbeatDocument | PlatformTaskStartDocument | PlatformLeaseExpirationSweepDocument | PlatformRunStateDocument) => void;
+  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument | PlatformTaskLeaseDocument | PlatformTaskHeartbeatDocument | PlatformTaskStartDocument | PlatformLeaseExpirationSweepDocument | PlatformRunStateDocument | PlatformWorkerRunDocument) => void;
   readStructuredFile: (filePath: string) => any;
   rootDir: string;
   sanitizeStageName: (stage: string) => string;
@@ -199,6 +205,137 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         sanitizeStageName: dependencies.sanitizeStageName,
         validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
         writeJson: dependencies.writeJson
+      }),
+    'run-platform-worker-task': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }),
+    'run-platform-requirements-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'requirements-analysis'
+      }),
+    'run-platform-implementation-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'code-implementation'
+      }),
+    'run-platform-test-design-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'test-design'
+      }),
+    'run-platform-execution-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'automated-execution'
+      }),
+    'run-platform-defect-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'defect-feedback'
+      }),
+    'run-platform-collaboration-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'collaboration'
       }),
     'run-deterministic-task': (options) =>
       runDeterministicTaskCommand(options, {

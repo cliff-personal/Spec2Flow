@@ -170,6 +170,13 @@ The PostgreSQL commands are:
 - `start-platform-task`: transition one leased task into `in-progress`
 - `expire-platform-leases`: requeue or block stale leased work after timeout
 - `get-platform-run-state`: read one DB-backed run snapshot with tasks, events, and artifacts
+- `run-platform-worker-task`: materialize one leased DB-backed task into a worker claim, execute it, and persist the result back to PostgreSQL
+- `run-platform-requirements-worker`: stage-locked wrapper for `requirements-analysis`
+- `run-platform-implementation-worker`: stage-locked wrapper for `code-implementation`
+- `run-platform-test-design-worker`: stage-locked wrapper for `test-design`
+- `run-platform-execution-worker`: stage-locked wrapper for `automated-execution`
+- `run-platform-defect-worker`: stage-locked wrapper for `defect-feedback`
+- `run-platform-collaboration-worker`: stage-locked wrapper for `collaboration`
 
 Example bootstrap flow:
 
@@ -215,6 +222,21 @@ npm run get:platform-run-state -- \
   --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
   --database-schema spec2flow_platform \
   --run-id spec2flow-platform-phase2
+
+npm run spec2flow -- run-platform-worker-task \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase3 \
+  --task-id environment-preparation \
+  --worker-id worker-1
+
+npm run spec2flow -- run-platform-requirements-worker \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --run-id spec2flow-platform-phase3 \
+  --task-id frontend-smoke--requirements-analysis \
+  --worker-id worker-1 \
+  --adapter-runtime docs/examples/synapse-network/model-adapter-runtime.json
 ```
 
 This persistence layer does not replace `task-graph.json` or `execution-state.json` yet.
@@ -235,6 +257,15 @@ Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
 - lease ownership is stored in PostgreSQL through `leased_by_worker_id`, `lease_expires_at`, and `last_heartbeat_at`
 - stale leases can be recovered without editing JSON files by running `expire-platform-leases`
 - `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
+
+Phase 3 adds the first DB-backed worker runtime harness:
+
+- one leased task is materialized into a standard `TaskClaimPayload` so existing adapter and deterministic executors can be reused
+- the worker harness writes a local claim file and a materialized `execution-state.json` under `.spec2flow/runtime/platform-workers/`
+- after the run finishes, task status changes, promoted downstream tasks, artifacts, and worker events are persisted back into PostgreSQL
+- deterministic execution remains the default only for `environment-preparation` and `automated-execution` when no `--adapter-runtime` is supplied
+- non-deterministic stages require `--adapter-runtime`
+- the current worker harness does not run its own background heartbeat loop yet, so long-running work still depends on external heartbeat renewal or a sufficiently long lease window
 
 ## Recommended Integration Layout
 
