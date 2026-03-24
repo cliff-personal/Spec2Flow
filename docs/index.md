@@ -1,5 +1,9 @@
 # Docs Index
 
+- Status: active
+- Source of truth: `README.md`, `AGENTS.md`, `docs/structure.md`, `llms.txt`
+- Verified with: `npm run build`, `npm run test:unit`
+
 ## Purpose
 
 This file is the shortest stable map for humans and AI agents reading Spec2Flow.

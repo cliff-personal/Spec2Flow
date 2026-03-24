@@ -1,5 +1,9 @@
 # Copilot Customization and Maintenance Strategy
 
+- Status: active
+- Source of truth: `.github/copilot-instructions.md`, `.github/instructions/`, `package.json`
+- Verified with: `npm run build`, `npm run test:unit`
+
 ## Purpose
 
 This document defines how Spec2Flow should use Copilot customization files, TypeScript constraints, and tests to keep the repository maintainable over time.

@@ -1,5 +1,9 @@
 # Spec2Flow
 
+- Status: active
+- Source of truth: `AGENTS.md`, `package.json`, `schemas/`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:synapse-example`
+
 **Spec2Flow** is an open-source AI workflow framework for turning product requirements and repository context into a repeatable engineering loop.
 
 It is the control plane for an agent-friendly development workflow:

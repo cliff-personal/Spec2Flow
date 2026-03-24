@@ -1,5 +1,9 @@
 # Collaboration Workflow
 
+- Status: active
+- Source of truth: `docs/playbooks/collaboration.md`, `docs/usage-guide.md`, `package.json`
+- Verified with: `npm run build`, `npm run test:unit`
+
 ## Goal
 
 Define a simple, reviewable workflow that connects Copilot, Playwright, GitHub Actions, and GitHub Issues.

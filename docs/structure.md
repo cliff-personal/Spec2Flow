@@ -1,5 +1,9 @@
 # Repository Structure
 
+- Status: active
+- Source of truth: `package.json`, `AGENTS.md`, `llms.txt`
+- Verified with: `npm run build`, `npm run test:unit`
+
 ## Goal
 
 Keep the repository simple to navigate for both humans and agents while leaving room for future expansion.

@@ -1,5 +1,9 @@
 # Harness Engineering for Spec2Flow
 
+- Status: active
+- Source of truth: `AGENTS.md`, `docs/index.md`, `docs/playbooks/index.md`, `docs/adr/index.md`
+- Verified with: `npm run build`, `npm run test:unit`
+
 ## Purpose
 
 This document captures how Spec2Flow should evolve its documentation and Copilot customization so the repository is easier for AI agents to navigate, safer to extend, and less likely to drift over time.
@@ -354,9 +358,8 @@ Every durable doc should imply one primary owner:
 Use a small header block for major docs:
 
 - status
-- owner
 - source of truth
-- last verified
+- verified with
 
 ### Add doc checks to CI over time
 
@@ -421,13 +424,19 @@ Why:
 
 Recommended order of operations:
 
-1. add `llms.txt` at the repository root
-2. add a short docs index or agent map
-3. create `docs/playbooks/` for the six workflow stages
-4. create `docs/adr/` for stable architectural decisions
-5. add document status and freshness markers to major docs
-6. add a small doc-validation script or CI check
-7. add one or two repo-native skills instead of importing many generic ones
+Completed in the current repository state:
+
+1. added `llms.txt` at the repository root
+2. added a short docs index and agent map
+3. created `docs/playbooks/` for the six workflow stages
+4. created `docs/adr/` for stable architectural decisions
+5. added document status and freshness markers to major docs
+
+Recommended next steps:
+
+1. add a small doc-validation script or CI check
+2. add one or two repo-native skills instead of importing many generic ones
+3. move superseded plan-heavy docs into a clearer active versus historical structure
 
 ## Bottom Line
 

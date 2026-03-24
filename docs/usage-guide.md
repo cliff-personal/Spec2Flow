@@ -1,5 +1,9 @@
 # Usage Guide
 
+- Status: active
+- Source of truth: `package.json`, `docs/examples/synapse-network/README.md`, `docs/playbooks/index.md`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:synapse-example`
+
 ## Goal
 
 Explain how another project can adopt the Spec2Flow workflow using repository config, adapter-backed agents, deterministic execution, and collaboration tooling.
