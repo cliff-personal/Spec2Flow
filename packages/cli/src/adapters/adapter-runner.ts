@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -1519,6 +1519,13 @@ function buildExternalAdapterFailureMessage(error: ExternalAdapterCommandError):
     : `adapter command failed: ${detail}`;
 }
 
+function createAbortError(message: string): Error & { code: string; name: string; } {
+  const error = new Error(message) as Error & { code: string; name: string; };
+  error.name = 'AbortError';
+  error.code = 'ABORT_ERR';
+  return error;
+}
+
 function parseAdapterStdoutPayload(stdout: string): unknown {
   const trimmed = stdout.trim();
   if (!trimmed) {
@@ -1651,6 +1658,150 @@ export function runExternalAdapter(
   return normalizeAdapterRunPayload(adapterOutputPayload, adapterRuntimePayload, claimPayload);
 }
 
+export async function runExternalAdapterAsync(
+  adapterRuntimePayload: AdapterRuntimeDocument,
+  claimPayload: TaskClaimPayload,
+  statePath: string,
+  taskGraphPath: string,
+  options: Record<string, any> = {}
+): Promise<AdapterRunDocument> {
+  const adapterRuntime = adapterRuntimePayload.adapterRuntime;
+  const templateContext = buildAdapterTemplateContext(claimPayload, statePath, taskGraphPath, {
+    ...options,
+    adapterRuntimePayload
+  });
+  const command = expandTemplateValue(adapterRuntime.command, templateContext);
+  const args = (adapterRuntime.args ?? []).map((arg) => expandTemplateValue(arg, templateContext));
+  const env = {
+    ...process.env,
+    ...Object.fromEntries(
+      Object.entries(adapterRuntime.env ?? {}).map(([key, value]) => [key, expandTemplateValue(value, templateContext)])
+    )
+  };
+  const cwd = adapterRuntime.cwd ? resolveFromCwd(expandTemplateValue(adapterRuntime.cwd, templateContext)) : process.cwd();
+  const timeout = typeof adapterRuntime.timeoutMs === 'number' && adapterRuntime.timeoutMs > 0
+    ? adapterRuntime.timeoutMs
+    : undefined;
+  const abortSignal = options.signal as AbortSignal | undefined;
+
+  const stdout = await new Promise<string>((resolve, reject) => {
+    if (abortSignal?.aborted) {
+      reject(createAbortError(`adapter command aborted before start: ${command}`));
+      return;
+    }
+
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let settled = false;
+    let timedOut = false;
+    let abortTriggered = false;
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
+    const cleanup = (): void => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
+      if (abortSignal) {
+        abortSignal.removeEventListener('abort', onAbort);
+      }
+    };
+
+    const finish = (callback: () => void): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      callback();
+    };
+
+    const onAbort = (): void => {
+      abortTriggered = true;
+      child.kill('SIGTERM');
+    };
+
+    child.stdout?.on('data', (chunk: Buffer | string) => {
+      stdoutChunks.push(Buffer.from(chunk));
+    });
+    child.stderr?.on('data', (chunk: Buffer | string) => {
+      stderrChunks.push(Buffer.from(chunk));
+    });
+    child.on('error', (error) => {
+      finish(() => reject(error));
+    });
+    child.on('close', (code, signal) => {
+      const stdoutText = Buffer.concat(stdoutChunks).toString('utf8');
+      const stderrText = Buffer.concat(stderrChunks).toString('utf8');
+
+      if (abortTriggered) {
+        finish(() => reject(createAbortError(`adapter command aborted: ${command}`)));
+        return;
+      }
+
+      if (timedOut) {
+        finish(() => resolve(JSON.stringify(buildAdapterTimeoutRunOutput(adapterRuntimePayload, claimPayload, timeout).adapterRun)));
+        return;
+      }
+
+      if (code !== 0) {
+        const commandError: ExternalAdapterCommandError = {
+          stderr: stderrText,
+          stdout: stdoutText
+        };
+        if (typeof code === 'number') {
+          commandError.code = code;
+        }
+        if (signal) {
+          commandError.signal = signal;
+        }
+        finish(() => reject(new Error(buildExternalAdapterFailureMessage(commandError))));
+        return;
+      }
+
+      finish(() => resolve(stdoutText));
+    });
+
+    child.stdin?.end(`${JSON.stringify(claimPayload, null, 2)}\n`);
+
+    if (typeof timeout === 'number') {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+      }, timeout);
+    }
+
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+
+  if (typeof timeout === 'number') {
+    try {
+      const timeoutPayload = JSON.parse(stdout) as AdapterRunDocument['adapterRun'];
+      if (timeoutPayload?.summary === buildAdapterTimeoutRunOutput(adapterRuntimePayload, claimPayload, timeout).adapterRun.summary) {
+        return {
+          adapterRun: timeoutPayload
+        };
+      }
+    } catch {
+      // fall through to normal parsing
+    }
+  }
+
+  const adapterOutputPayload = adapterRuntime.outputMode === 'stdout'
+    ? parseAdapterStdoutPayload(stdout)
+    : readAdapterOutput(adapterRuntime, templateContext);
+
+  return normalizeAdapterRunPayload(adapterOutputPayload, adapterRuntimePayload, claimPayload);
+}
+
 export function executeTaskRun(
   statePath: string,
   taskGraphPath: string,
@@ -1708,6 +1859,95 @@ export function executeTaskRun(
     ? runExternalAdapter(adapterRuntimePayload, claimPayload, statePath, taskGraphPath, {
         ...resolvedOptions,
         getRouteNameFromTaskId
+      })
+    : buildSimulatedAdapterOutput(claimPayload, adapterCapabilityPayload, {
+        ...resolvedOptions,
+        sanitizeStageName,
+        getRouteNameFromTaskId,
+        parseCsvOption
+      });
+  const requirementsEnrichedRunOutput = enrichRequirementsAnalysisRunOutput(runOutput, claim, adapterRuntimePayload);
+  const implementationEnrichedRunOutput = enrichCodeImplementationRunOutput(requirementsEnrichedRunOutput, claim, adapterRuntimePayload);
+  const testDesignEnrichedRunOutput = enrichTestDesignRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
+  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
+  const validatedRunOutput = applyRolePolicyToRunOutput(claim, collaborationEnrichedRunOutput);
+
+  const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+    taskId: claim.taskId,
+    taskStatus: validatedRunOutput.adapterRun.status,
+    notes: [`summary:${validatedRunOutput.adapterRun.summary}`, ...validatedRunOutput.adapterRun.notes],
+    artifacts: validatedRunOutput.adapterRun.artifacts,
+    errors: validatedRunOutput.adapterRun.errors,
+    ...(executor === undefined ? {} : { executor }),
+    ...(workflowStatus === undefined ? {} : { workflowStatus }),
+    ...(currentStage === undefined ? {} : { currentStage })
+  });
+
+  return {
+    adapterRun: validatedRunOutput.adapterRun,
+    receipt: receipt.taskResult,
+    mode: adapterRuntimePayload ? 'external-adapter' : 'simulation'
+  };
+}
+
+export async function executeTaskRunAsync(
+  statePath: string,
+  taskGraphPath: string,
+  claimPayload: TaskClaimPayload,
+  options: CliOptions,
+  dependencies: AdapterRunnerDependencies & { signal?: AbortSignal; }
+): Promise<TaskExecutionResult> {
+  const { validateAdapterRuntimePayload, sanitizeStageName, getRouteNameFromTaskId, parseCsvOption } = dependencies;
+  const resolvedOptions = options ?? {};
+  const executionStatePayload = readStructuredFile(statePath) as ExecutionStateDocument;
+  const taskGraphPayload = readStructuredFile(taskGraphPath) as TaskGraphDocument;
+  const adapterCapabilityPayload = loadOptionalStructuredFile<AdapterCapabilityDocument>(
+    typeof resolvedOptions['adapter-capability'] === 'string' ? resolvedOptions['adapter-capability'] : undefined
+  );
+  const claim = claimPayload.taskClaim;
+
+  if (!claim) {
+    fail('execute-task-run requires a task claim payload');
+  }
+
+  const adapterRuntimePath = typeof resolvedOptions['adapter-runtime'] === 'string' ? resolvedOptions['adapter-runtime'] : null;
+  const adapterRuntimeSelection = adapterRuntimePath
+    ? (() => {
+        const rootRuntimePayload = readStructuredFile(adapterRuntimePath) as AdapterRuntimeDocument;
+        validateAdapterRuntimePayload(rootRuntimePayload, adapterRuntimePath);
+        return resolveAdapterRuntimeForStage(adapterRuntimePath, rootRuntimePayload, claim.stage, {
+          readStructuredFile,
+          validateAdapterRuntimePayload
+        });
+      })()
+    : null;
+  const adapterRuntimePayload = adapterRuntimeSelection?.runtimePayload ?? null;
+
+  const executor = typeof resolvedOptions.executor === 'string' ? resolvedOptions.executor : undefined;
+  const workflowStatus: ExecutionStatus | undefined =
+    resolvedOptions.status === 'pending' ||
+    resolvedOptions.status === 'running' ||
+    resolvedOptions.status === 'blocked' ||
+    resolvedOptions.status === 'completed' ||
+    resolvedOptions.status === 'failed' ||
+    resolvedOptions.status === 'cancelled'
+      ? resolvedOptions.status
+      : undefined;
+  const currentStage: TaskStage | undefined =
+    resolvedOptions.stage === 'environment-preparation' ||
+    resolvedOptions.stage === 'requirements-analysis' ||
+    resolvedOptions.stage === 'code-implementation' ||
+    resolvedOptions.stage === 'test-design' ||
+    resolvedOptions.stage === 'automated-execution' ||
+    resolvedOptions.stage === 'defect-feedback' ||
+    resolvedOptions.stage === 'collaboration'
+      ? resolvedOptions.stage
+      : undefined;
+  const runOutput = adapterRuntimePayload
+    ? await runExternalAdapterAsync(adapterRuntimePayload, claimPayload, statePath, taskGraphPath, {
+        ...resolvedOptions,
+        getRouteNameFromTaskId,
+        signal: dependencies.signal
       })
     : buildSimulatedAdapterOutput(claimPayload, adapterCapabilityPayload, {
         ...resolvedOptions,

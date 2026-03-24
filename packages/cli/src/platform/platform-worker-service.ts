@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { executeTaskRun, type AdapterRunnerDependencies, type CliOptions as AdapterCliOptions } from '../adapters/adapter-runner.js';
+import { executeTaskRunAsync, type AdapterRunnerDependencies, type CliOptions as AdapterCliOptions } from '../adapters/adapter-runner.js';
 import {
   buildTaskClaim,
   type AdapterCapabilityDocument,
@@ -10,7 +10,7 @@ import {
   validateExecutionStatePayload
 } from '../runtime/execution-state-service.js';
 import { applyTaskResult } from '../runtime/task-result-service.js';
-import { runDeterministicTask } from '../runtime/deterministic-execution-service.js';
+import { runDeterministicTaskAsync } from '../runtime/deterministic-execution-service.js';
 import { loadOptionalStructuredFile, readStructuredFile, writeJson } from '../shared/fs-utils.js';
 import { insertPlatformArtifacts, insertPlatformEvents } from './platform-repository.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
@@ -88,13 +88,21 @@ export interface ExecutePlatformWorkerMaterializationOptions {
   adapterCapabilityPath?: string;
   executor?: string;
   expectedStage?: TaskStage;
+  signal?: AbortSignal;
 }
 
 export interface PlatformWorkerExecutionResult {
-  mode: 'deterministic' | 'external-adapter';
+  mode: 'deterministic' | 'external-adapter' | 'stopped';
   adapterRun: AdapterRunDocument['adapterRun'];
   receipt: TaskResultDocument['taskResult'];
   materialization: PlatformWorkerMaterialization;
+}
+
+export interface BuildStoppedPlatformWorkerExecutionOptions {
+  materialization: PlatformWorkerMaterialization;
+  message: string;
+  code?: string;
+  recoverable?: boolean;
 }
 
 function sanitizeFileToken(value: string): string {
@@ -329,11 +337,15 @@ function assertExpectedStage(actualStage: TaskStage, expectedStage: TaskStage | 
   }
 }
 
-function runDeterministicMaterializedTask(
+async function runDeterministicMaterializedTask(
   materialization: PlatformWorkerMaterialization,
   options: ExecutePlatformWorkerMaterializationOptions
-): PlatformWorkerExecutionResult {
-  const adapterRunDocument = runDeterministicTask(materialization.claimPayload);
+): Promise<PlatformWorkerExecutionResult> {
+  const adapterRunDocument = await runDeterministicTaskAsync(
+    materialization.claimPayload,
+    process.cwd(),
+    options.signal ? { signal: options.signal } : {}
+  );
   const executionStatePayload = readStructuredFile(materialization.executionStatePath) as ExecutionStateDocument;
   const receipt = applyTaskResult(executionStatePayload, materialization.taskGraphPayload, materialization.executionStatePath, {
     taskId: materialization.taskId,
@@ -352,16 +364,16 @@ function runDeterministicMaterializedTask(
   };
 }
 
-function runExternalMaterializedTask(
+async function runExternalMaterializedTask(
   materialization: PlatformWorkerMaterialization,
   options: ExecutePlatformWorkerMaterializationOptions,
   dependencies: AdapterRunnerDependencies
-): PlatformWorkerExecutionResult {
+): Promise<PlatformWorkerExecutionResult> {
   if (!options.adapterRuntimePath) {
     throw new Error(`platform worker for ${materialization.stage} requires --adapter-runtime`);
   }
 
-  const result = executeTaskRun(
+  const result = await executeTaskRunAsync(
     materialization.executionStatePath,
     materialization.taskGraphPath,
     materialization.claimPayload,
@@ -370,7 +382,10 @@ function runExternalMaterializedTask(
       'adapter-runtime': options.adapterRuntimePath,
       ...(options.executor ? { executor: options.executor } : {})
     } satisfies AdapterCliOptions,
-    dependencies
+    {
+      ...dependencies,
+      ...(options.signal ? { signal: options.signal } : {})
+    }
   );
 
   return {
@@ -381,10 +396,10 @@ function runExternalMaterializedTask(
   };
 }
 
-export function executePlatformWorkerMaterialization(
+export async function executePlatformWorkerMaterialization(
   options: ExecutePlatformWorkerMaterializationOptions,
   dependencies: AdapterRunnerDependencies
-): PlatformWorkerExecutionResult {
+): Promise<PlatformWorkerExecutionResult> {
   assertExpectedStage(options.materialization.stage, options.expectedStage);
 
   if (
@@ -395,6 +410,58 @@ export function executePlatformWorkerMaterialization(
   }
 
   return runExternalMaterializedTask(options.materialization, options, dependencies);
+}
+
+export function buildStoppedPlatformWorkerExecutionResult(
+  options: BuildStoppedPlatformWorkerExecutionOptions
+): PlatformWorkerExecutionResult {
+  const executionStatePayload = readStructuredFile(options.materialization.executionStatePath) as ExecutionStateDocument;
+  const code = options.code ?? 'platform-worker-stopped';
+  const receipt = applyTaskResult(executionStatePayload, options.materialization.taskGraphPayload, options.materialization.executionStatePath, {
+    taskId: options.materialization.taskId,
+    taskStatus: 'blocked',
+    notes: [`summary:${options.message}`, `platform-worker-stop:${code}`],
+    artifacts: [],
+    errors: [
+      {
+        code,
+        message: options.message,
+        taskId: options.materialization.taskId,
+        recoverable: options.recoverable ?? true
+      }
+    ]
+  });
+
+  return {
+    mode: 'stopped',
+    adapterRun: {
+      adapterName: 'spec2flow-platform-worker',
+      provider: 'spec2flow-platform-worker',
+      taskId: options.materialization.taskId,
+      runId: options.materialization.runId,
+      stage: options.materialization.stage,
+      status: 'blocked',
+      summary: options.message,
+      notes: [`platform-worker-stop:${code}`],
+      activity: {
+        commands: [],
+        editedFiles: [],
+        artifactFiles: [],
+        collaborationActions: []
+      },
+      artifacts: [],
+      errors: [
+        {
+          code,
+          message: options.message,
+          taskId: options.materialization.taskId,
+          recoverable: options.recoverable ?? true
+        }
+      ]
+    },
+    receipt: receipt.taskResult,
+    materialization: options.materialization
+  };
 }
 
 function buildExecutionStateTaskIndex(executionStatePayload: ExecutionStateDocument): Map<string, ExecutionStateDocument['executionState']['tasks'][number]> {

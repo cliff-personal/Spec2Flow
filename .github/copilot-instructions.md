@@ -4,9 +4,10 @@
 - Detailed rationale and maintenance policy live in `docs/copilot.md`.
 
 ## Repository Intake
-- Read `llms.txt` first to get the shortest repository map and reading order.
+- For every new task in this repository, read `llms.txt` first before planning, editing, or running commands.
 - Read `AGENTS.md` next for architectural boundaries.
 - Read `docs/index.md` next to route into the minimal source-of-truth doc set.
+- If the task is narrow, stop after the minimal relevant docs; do not broaden context without need.
 
 ## Change Scope
 - Prefer focused changes over broad rewrites.

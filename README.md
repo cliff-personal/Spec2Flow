@@ -236,6 +236,12 @@ npm run generate:synapse-task-graph:frontend-change
 npm run generate:synapse-task-graph:withdrawal-change
 ```
 
+`run-platform-worker-task` now includes execution-time lease protection:
+
+- it starts a background heartbeat loop while the task is running
+- it auto-renews the active lease on the configured heartbeat cadence
+- it stops work if lease ownership is lost or if heartbeat transport failures hit the configured threshold
+
 Spec2Flow now supports two adapter integration modes:
 
 - capability-only simulation through `simulate-model-run`

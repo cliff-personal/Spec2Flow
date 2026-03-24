@@ -10,6 +10,7 @@ import {
   startPlatformTask
 } from '../platform/platform-scheduler-service.js';
 import {
+  buildStoppedPlatformWorkerExecutionResult,
   executePlatformWorkerMaterialization,
   materializePlatformWorkerClaim,
   persistPlatformWorkerResult
@@ -208,10 +209,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-worker-task': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,
@@ -225,10 +228,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-requirements-worker': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,
@@ -244,10 +249,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-implementation-worker': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,
@@ -263,10 +270,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-test-design-worker': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,
@@ -282,10 +291,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-execution-worker': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,
@@ -301,10 +312,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-defect-worker': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,
@@ -320,10 +333,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'run-platform-collaboration-worker': (options) =>
       runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
         createPlatformPool,
         executePlatformWorkerMaterialization,
         fail: dependencies.fail,
         getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
         materializePlatformWorkerClaim,
         parseCsvOption: dependencies.parseCsvOption,
         persistPlatformWorkerResult,

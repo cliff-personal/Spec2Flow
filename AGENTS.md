@@ -92,6 +92,11 @@ Repository intake order for AI agents:
 - `AGENTS.md`: read second for architecture boundaries and repository rules
 - `docs/index.md`: read third for question-based source-of-truth routing
 
+Mandatory intake rule:
+- on every new task, read `llms.txt` before planning, editing files, or running commands
+- then confirm boundaries in `AGENTS.md`
+- then use `docs/index.md` to expand only into the minimal relevant source-of-truth set
+
 Start here when you need the system map:
 - `llms.txt`: machine-readable repository map for AI agents and external tooling
 - `README.md`: product overview and goals

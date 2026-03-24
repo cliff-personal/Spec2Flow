@@ -16,9 +16,15 @@ Use it to answer two questions quickly:
 ## Read First
 
 1. [llms.txt](/Users/cliff/workspace/Spec2Flow/llms.txt)
-2. [README.md](/Users/cliff/workspace/Spec2Flow/README.md)
-3. [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
-4. [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
+2. [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
+3. [docs/index.md](/Users/cliff/workspace/Spec2Flow/docs/index.md)
+4. [README.md](/Users/cliff/workspace/Spec2Flow/README.md)
+
+Repository intake rule for AI agents:
+
+- Read [llms.txt](/Users/cliff/workspace/Spec2Flow/llms.txt) first on every new task.
+- Read [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md) next for repository boundaries.
+- Use this index third to choose the smallest relevant source-of-truth set before reading deeper docs or code.
 
 Docs governance quick path:
 

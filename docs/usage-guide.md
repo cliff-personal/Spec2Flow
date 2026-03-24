@@ -263,9 +263,15 @@ Phase 3 adds the first DB-backed worker runtime harness:
 - one leased task is materialized into a standard `TaskClaimPayload` so existing adapter and deterministic executors can be reused
 - the worker harness writes a local claim file and a materialized `execution-state.json` under `.spec2flow/runtime/platform-workers/`
 - after the run finishes, task status changes, promoted downstream tasks, artifacts, and worker events are persisted back into PostgreSQL
+- the worker harness now runs its own background heartbeat loop, renews leases during async execution, and stops work when lease ownership is lost or heartbeat failures cross the configured threshold
 - deterministic execution remains the default only for `environment-preparation` and `automated-execution` when no `--adapter-runtime` is supplied
 - non-deterministic stages require `--adapter-runtime`
-- the current worker harness does not run its own background heartbeat loop yet, so long-running work still depends on external heartbeat renewal or a sufficiently long lease window
+
+The default stop semantics for `run-platform-worker-task` are:
+
+- stop immediately when PostgreSQL rejects a heartbeat because the task is no longer owned, no longer leased, or the lease already expired
+- stop and persist a blocked task receipt after three consecutive heartbeat transport failures unless `--heartbeat-error-threshold` overrides that budget
+- stop heartbeating as soon as execution finishes and hand the final result back through the normal persistence contract
 
 ## Recommended Integration Layout
 
