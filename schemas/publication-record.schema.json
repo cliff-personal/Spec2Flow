@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/publication-record.schema.json",
+  "title": "Spec2Flow Publication Record",
+  "description": "Structured publication audit record for the collaboration stage.",
+  "type": "object",
+  "required": [
+    "publicationId",
+    "taskId",
+    "stage",
+    "status",
+    "publishMode",
+    "summary",
+    "handoffType",
+    "approvalRequired",
+    "autoCommitEnabled",
+    "artifactRefs",
+    "nextActions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "publicationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "const": "collaboration"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["published", "approval-required", "blocked"]
+    },
+    "publishMode": {
+      "type": "string",
+      "enum": ["auto-commit", "manual-handoff"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "handoffType": {
+      "type": "string",
+      "enum": ["pull-request", "issue", "review", "status-update"]
+    },
+    "approvalRequired": {
+      "type": "boolean"
+    },
+    "autoCommitEnabled": {
+      "type": "boolean"
+    },
+    "branchName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "commitSha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "commitMessage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prTitle": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prDraftPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gateReason": {
+      "type": "string",
+      "enum": [
+        "human-approval-required",
+        "auto-commit-disabled",
+        "missing-implementation-summary",
+        "no-scoped-changes",
+        "staged-changes-outside-scope",
+        "publish-command-failed"
+      ]
+    },
+    "artifactRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nextActions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

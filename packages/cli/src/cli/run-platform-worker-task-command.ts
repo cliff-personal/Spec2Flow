@@ -56,6 +56,7 @@ export interface PlatformWorkerRunDocument {
     taskResult: TaskResult;
     updatedTasks: PersistPlatformWorkerResult['updatedTasks'];
     insertedArtifactCount: number;
+    publicationsInserted: number;
     requestedRepairAttempts: number;
     resolvedRepairAttempts: number;
     blockedRepairAttempts: number;
@@ -330,6 +331,7 @@ export async function runPlatformWorkerTask(
         taskResult: executionResult.receipt,
         updatedTasks: persistResult.updatedTasks,
         insertedArtifactCount: persistResult.insertedArtifactCount,
+        publicationsInserted: persistResult.publicationsInserted,
         requestedRepairAttempts: persistResult.requestedRepairAttempts,
         resolvedRepairAttempts: persistResult.resolvedRepairAttempts,
         blockedRepairAttempts: persistResult.blockedRepairAttempts,

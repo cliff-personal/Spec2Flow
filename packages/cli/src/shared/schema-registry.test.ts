@@ -172,6 +172,25 @@ describe('schema-registry', () => {
         requireHumanApproval: true
       }
     })).toBe(true);
+
+    expect(validators.publicationRecord({
+      publicationId: 'publication-1',
+      taskId: 'frontend-smoke--collaboration',
+      stage: 'collaboration',
+      status: 'published',
+      publishMode: 'auto-commit',
+      summary: 'Published the frontend smoke collaboration handoff.',
+      handoffType: 'pull-request',
+      approvalRequired: false,
+      autoCommitEnabled: true,
+      branchName: 'spec2flow/frontend-smoke-20260324',
+      commitSha: 'abc123',
+      commitMessage: 'spec2flow: publish frontend smoke handoff',
+      prTitle: 'Frontend smoke collaboration handoff',
+      prDraftPath: 'spec2flow/outputs/collaboration/frontend-smoke/pr-draft.md',
+      artifactRefs: ['implementation-summary', 'execution-report'],
+      nextActions: ['Open the pull request handoff for review.']
+    })).toBe(true);
   });
 
   it('accepts risk policy rules with auto-repair fields', () => {

@@ -142,3 +142,30 @@ export interface CollaborationHandoff {
   nextActions: string[];
   reviewPolicy: ReviewPolicy;
 }
+
+export interface PublicationRecord {
+  generatedAt?: string;
+  publicationId: string;
+  taskId: string;
+  stage: 'collaboration';
+  status: 'published' | 'approval-required' | 'blocked';
+  publishMode: 'auto-commit' | 'manual-handoff';
+  summary: string;
+  handoffType: CollaborationHandoff['handoffType'];
+  approvalRequired: boolean;
+  autoCommitEnabled: boolean;
+  branchName?: string;
+  commitSha?: string;
+  commitMessage?: string;
+  prTitle?: string;
+  prDraftPath?: string;
+  gateReason?:
+    | 'human-approval-required'
+    | 'auto-commit-disabled'
+    | 'missing-implementation-summary'
+    | 'no-scoped-changes'
+    | 'staged-changes-outside-scope'
+    | 'publish-command-failed';
+  artifactRefs: string[];
+  nextActions: string[];
+}

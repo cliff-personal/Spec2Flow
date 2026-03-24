@@ -15,6 +15,7 @@ import type { ArtifactRef, ErrorItem, ExecutionStateDocument, ExecutionStatus, T
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import { validateSchemaBackedArtifacts } from './stage-deliverable-validation.js';
 import { applyAutoRepairPolicy } from './auto-repair-policy-service.js';
+import { applyCollaborationPublicationPolicy } from './collaboration-publication-service.js';
 import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
 import type { Task, TaskExecutorType, TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
 
@@ -330,6 +331,7 @@ export function applyTaskResult(
   const taskGraphTask = taskGraphTaskIndex.get(payload.taskId);
 
   const artifactBaseDir = inferArtifactBaseDir(statePath);
+  const generatedArtifacts: ArtifactRef[] = [];
   if (!taskState || !taskGraphTask) {
     fail(`unknown task id: ${payload.taskId}`);
   }
@@ -383,6 +385,36 @@ export function applyTaskResult(
   }
 
   enforceCollaborationApprovalGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
+  const publicationDecision = applyCollaborationPublicationPolicy({
+    taskGraphTask,
+    taskState,
+    artifacts: payload.artifacts,
+    allArtifacts: [
+      ...(executionStatePayload.executionState.artifacts ?? []),
+      ...payload.artifacts
+    ],
+    artifactBaseDir
+  });
+  if (publicationDecision.generatedArtifacts.length > 0) {
+    generatedArtifacts.push(...publicationDecision.generatedArtifacts);
+    const nextTaskArtifactRefs = appendUniqueItems(
+      taskState.artifactRefs,
+      publicationDecision.generatedArtifacts.map((artifact) => artifact.id)
+    );
+    if (nextTaskArtifactRefs !== undefined) {
+      taskState.artifactRefs = nextTaskArtifactRefs;
+    }
+    executionStatePayload.executionState.artifacts = [
+      ...(executionStatePayload.executionState.artifacts ?? []),
+      ...publicationDecision.generatedArtifacts
+    ];
+  }
+  if (publicationDecision.notes.length > 0) {
+    addTaskNotes(taskState, publicationDecision.notes);
+  }
+  if (publicationDecision.status === 'blocked') {
+    setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
+  }
   const autoRepairDecision = applyAutoRepairPolicy({
     taskGraphTaskIndex,
     taskStateIndex,
@@ -413,7 +445,7 @@ export function applyTaskResult(
     taskState.status,
     statePath,
     payload.notes,
-    payload.artifacts,
+    [...payload.artifacts, ...generatedArtifacts],
     artifactContract,
     payload.errors
   );

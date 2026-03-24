@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -305,7 +306,7 @@ function writeRequirementSummary(filePath: string, taskId: string): void {
   }, null, 2)}\n`, 'utf8');
 }
 
-function writeImplementationSummary(filePath: string, taskId: string): void {
+function writeImplementationSummary(filePath: string, taskId: string, changedFilePath = 'packages/cli/src/runtime/task-result-service.ts'): void {
   fs.writeFileSync(filePath, `${JSON.stringify({
     taskId,
     stage: 'code-implementation',
@@ -313,7 +314,7 @@ function writeImplementationSummary(filePath: string, taskId: string): void {
     summary: 'Applied the implementation update.',
     changedFiles: [
       {
-        path: 'packages/cli/src/runtime/task-result-service.ts',
+        path: changedFilePath,
         changeType: 'modified'
       }
     ]
@@ -361,22 +362,40 @@ function writeTestCases(filePath: string, taskId: string): void {
   }, null, 2)}\n`, 'utf8');
 }
 
-function writeCollaborationHandoff(filePath: string, taskId: string, readiness: 'ready' | 'blocked' | 'awaiting-approval'): void {
+function writeCollaborationHandoff(
+  filePath: string,
+  taskId: string,
+  readiness: 'ready' | 'blocked' | 'awaiting-approval',
+  options: {
+    approvalRequired?: boolean;
+    handoffType?: 'pull-request' | 'issue' | 'review' | 'status-update';
+  } = {}
+): void {
   fs.writeFileSync(filePath, `${JSON.stringify({
     taskId,
     stage: 'collaboration',
     summary: 'The change is ready for a review handoff.',
-    handoffType: 'review',
+    handoffType: options.handoffType ?? 'review',
     readiness,
-    approvalRequired: true,
+    approvalRequired: options.approvalRequired ?? true,
     artifactRefs: ['implementation-summary', 'execution-report'],
     nextActions: ['Request human review'],
     reviewPolicy: {
       required: true,
       reviewAgentCount: 1,
-      requireHumanApproval: true
+      requireHumanApproval: options.approvalRequired ?? true
     }
   }, null, 2)}\n`, 'utf8');
+}
+
+function initGitRepo(repositoryRoot: string): void {
+  fs.mkdirSync(path.join(repositoryRoot, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(repositoryRoot, 'src', 'app.ts'), 'export const value = 1;\n', 'utf8');
+  execFileSync('git', ['init'], { cwd: repositoryRoot, encoding: 'utf8' });
+  execFileSync('git', ['config', 'user.email', 'spec2flow@example.com'], { cwd: repositoryRoot, encoding: 'utf8' });
+  execFileSync('git', ['config', 'user.name', 'Spec2Flow Tests'], { cwd: repositoryRoot, encoding: 'utf8' });
+  execFileSync('git', ['add', 'src/app.ts'], { cwd: repositoryRoot, encoding: 'utf8' });
+  execFileSync('git', ['commit', '-m', 'initial'], { cwd: repositoryRoot, encoding: 'utf8' });
 }
 
 function writeExecutionReport(filePath: string, taskId: string): void {
@@ -548,7 +567,7 @@ describe('task-result-service', () => {
 
     getTaskState(executionStatePayload, 0).status = 'completed';
     getTaskState(executionStatePayload, 1).status = 'ready';
-    writeImplementationSummary(implementationSummaryPath, 'frontend-smoke--code-implementation');
+    writeImplementationSummary(implementationSummaryPath, 'frontend-smoke--code-implementation', 'src/app.ts');
 
     applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
       taskId: 'frontend-smoke--code-implementation',
@@ -736,6 +755,70 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('blocked');
     expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('approval-gate:human-approval-required');
     expect(executionStatePayload.executionState.status).toBe('blocked');
+  });
+
+  it('publishes the collaboration handoff into a branch, commit, and PR draft when auto-commit is allowed', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const repoRoot = path.dirname(statePath);
+    const implementationSummaryPath = path.join(repoRoot, 'implementation-summary.json');
+    const collaborationHandoffPath = path.join(repoRoot, 'collaboration-handoff.json');
+
+    initGitRepo(repoRoot);
+    fs.writeFileSync(path.join(repoRoot, 'src', 'app.ts'), 'export const value = 2;\n', 'utf8');
+    writeImplementationSummary(implementationSummaryPath, 'frontend-smoke--code-implementation', 'src/app.ts');
+    writeCollaborationHandoff(collaborationHandoffPath, 'frontend-smoke--collaboration', 'ready', {
+      approvalRequired: false,
+      handoffType: 'pull-request'
+    });
+
+    taskGraphPayload.taskGraph.tasks[5]!.reviewPolicy = {
+      ...(taskGraphPayload.taskGraph.tasks[5]!.reviewPolicy ?? {}),
+      requireHumanApproval: false,
+      allowAutoCommit: true
+    };
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'completed';
+    getTaskState(executionStatePayload, 3).status = 'completed';
+    getTaskState(executionStatePayload, 4).status = 'completed';
+    getTaskState(executionStatePayload, 5).status = 'ready';
+    executionStatePayload.executionState.artifacts = [
+      {
+        id: 'implementation-summary',
+        kind: 'report',
+        path: implementationSummaryPath,
+        taskId: 'frontend-smoke--code-implementation'
+      }
+    ];
+
+    const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--collaboration',
+      taskStatus: 'completed',
+      notes: ['summary:collaboration-handoff-prepared'],
+      artifacts: [
+        {
+          id: 'collaboration-handoff',
+          kind: 'report',
+          path: collaborationHandoffPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ],
+      errors: []
+    });
+
+    expect(receipt.taskResult.status).toBe('completed');
+    expect(receipt.taskResult.artifacts.map((artifact) => artifact.id)).toEqual(expect.arrayContaining(['publication-record', 'pr-draft']));
+    expect(executionStatePayload.executionState.tasks[5]?.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('publication-status:published');
+    expect(executionStatePayload.executionState.status).toBe('completed');
+
+    const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    expect(currentBranch).toMatch(/^spec2flow\/frontend-smoke-/);
+    const publicationRecordPath = path.join(repoRoot, 'spec2flow', 'outputs', 'collaboration', 'frontend-smoke', 'publication-record.json');
+    const prDraftPath = path.join(repoRoot, 'spec2flow', 'outputs', 'collaboration', 'frontend-smoke', 'pr-draft.md');
+    expect(fs.existsSync(publicationRecordPath)).toBe(true);
+    expect(fs.existsSync(prDraftPath)).toBe(true);
   });
 
   it('requeues the owning implementation stage after defect-feedback completes when auto-repair policy allows it', () => {

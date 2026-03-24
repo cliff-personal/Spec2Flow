@@ -1,7 +1,7 @@
 # Collaboration Playbook
 
 - Status: active
-- Source of truth: `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/shared/task-role-profile.ts`, `packages/cli/src/runtime/task-result-service.ts`
+- Source of truth: `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/shared/task-role-profile.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/collaboration-publication-service.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run run:synapse-copilot-cli-loop`
 
 ## Starts When
@@ -24,6 +24,8 @@ If the route review policy requires human approval, that requirement stays in `r
 ## Emits
 
 - `collaboration-handoff`
+- `publication-record`
+- optional `pr-draft`
 
 These artifacts should be ready for PR, issue, or review workflow handoff.
 
@@ -45,7 +47,12 @@ The role profile uses command policy `collaboration-only`.
 
 ## Handoff
 
-This is the terminal route stage. It packages the route for review, approval, or external collaboration without mutating repository state.
+The collaboration agent itself still packages the route for review, approval, or external collaboration without mutating repository state.
+
+After a valid handoff is submitted, the controller can now apply a policy-gated publish step:
+
+- if `allowAutoCommit` is enabled and approval is not required, the controller may create a `spec2flow/...` branch and commit the scoped implementation files
+- if auto-commit is disabled or approval is still required, the controller blocks the task with a `publication-record` and optional `pr-draft` artifact so an operator can publish manually
 
 ## Validation Path
 

@@ -14,6 +14,7 @@ import { runDeterministicTaskAsync } from '../runtime/deterministic-execution-se
 import { loadOptionalStructuredFile, readStructuredFile, writeJson } from '../shared/fs-utils.js';
 import { insertPlatformArtifacts, insertPlatformEvents } from './platform-repository.js';
 import { reconcilePlatformAutoRepair } from './platform-auto-repair-service.js';
+import { reconcilePlatformPublications } from './platform-publication-service.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { getPlatformRunState } from './platform-scheduler-service.js';
 import type {
@@ -79,6 +80,7 @@ export interface PersistPlatformWorkerResult {
     nextStatus: TaskStatus;
   }>;
   insertedArtifactCount: number;
+  publicationsInserted: number;
   requestedRepairAttempts: number;
   resolvedRepairAttempts: number;
   blockedRepairAttempts: number;
@@ -747,6 +749,19 @@ function buildPlatformWorkerEvents(
   return events;
 }
 
+function inferArtifactBaseDir(statePath: string): string {
+  const resolvedStatePath = path.resolve(statePath);
+  const stateDir = path.dirname(resolvedStatePath);
+  const nestedSpec2flowMarker = `${path.sep}.spec2flow${path.sep}`;
+  const nestedSpec2flowIndex = stateDir.lastIndexOf(nestedSpec2flowMarker);
+
+  if (nestedSpec2flowIndex >= 0) {
+    return stateDir.slice(0, nestedSpec2flowIndex) || path.sep;
+  }
+
+  return stateDir;
+}
+
 export async function persistPlatformWorkerResult(
   executor: SqlExecutor,
   schema: string,
@@ -796,6 +811,13 @@ export async function persistPlatformWorkerResult(
     await insertPlatformEvents(executor, schema, events);
   }
 
+  const publicationResult = await reconcilePlatformPublications(executor, schema, {
+    runId: options.runId,
+    taskId: options.taskId,
+    artifactBaseDir: inferArtifactBaseDir(options.materialization.executionStatePath),
+    newArtifacts
+  });
+
   const autoRepairResult = await reconcilePlatformAutoRepair(executor, schema, {
     runId: options.runId,
     currentTaskId: options.taskId,
@@ -818,6 +840,7 @@ export async function persistPlatformWorkerResult(
       nextStatus: task.nextStatus
     })),
     insertedArtifactCount: platformArtifacts.length,
+    publicationsInserted: publicationResult.publicationsInserted,
     requestedRepairAttempts: autoRepairResult.requestedRepairAttempts,
     resolvedRepairAttempts: autoRepairResult.resolvedRepairAttempts,
     blockedRepairAttempts: autoRepairResult.blockedRepairAttempts,

@@ -23,6 +23,7 @@ export interface SchemaValidators {
   executionReport: ValidateFunction;
   defectSummary: ValidateFunction;
   collaborationHandoff: ValidateFunction;
+  publicationRecord: ValidateFunction;
   executionState: ValidateFunction;
   taskResult: ValidateFunction;
   adapterRun: ValidateFunction;
@@ -45,6 +46,7 @@ export function getSchemaValidators(): SchemaValidators {
     executionReport: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/execution-report.schema.json'))),
     defectSummary: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/defect-summary.schema.json'))),
     collaborationHandoff: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/collaboration-handoff.schema.json'))),
+    publicationRecord: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/publication-record.schema.json'))),
     executionState: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/execution-state.schema.json'))),
     taskResult: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/task-result.schema.json'))),
     adapterRun: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/adapter-run.schema.json'))),

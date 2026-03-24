@@ -4,6 +4,7 @@ import type { TaskGraphDocument } from '../types/task-graph.js';
 import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
+  PlatformPublicationRecord,
   PlatformRepositoryRecord,
   PlatformRunRecord,
   PlatformTaskRecord
@@ -384,6 +385,43 @@ export async function insertPlatformArtifacts(
         artifact.path,
         artifact.schemaType ?? null,
         JSON.stringify(artifact.metadata ?? {})
+      ]
+    );
+  }
+}
+
+export async function insertPlatformPublications(
+  executor: SqlExecutor,
+  schema: string,
+  publications: PlatformPublicationRecord[]
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+
+  for (const publication of publications) {
+    await executor.query(
+      `
+        INSERT INTO ${quotedSchema}.publications (
+          publication_id,
+          run_id,
+          branch_name,
+          commit_sha,
+          pr_url,
+          publish_mode,
+          status,
+          metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+        ON CONFLICT (publication_id)
+        DO NOTHING
+      `,
+      [
+        publication.publicationId,
+        publication.runId,
+        publication.branchName ?? null,
+        publication.commitSha ?? null,
+        publication.prUrl ?? null,
+        publication.publishMode,
+        publication.status,
+        JSON.stringify(publication.metadata ?? {})
       ]
     );
   }

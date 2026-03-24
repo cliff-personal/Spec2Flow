@@ -11,7 +11,8 @@ type SchemaBackedArtifactId =
   | 'test-cases'
   | 'execution-report'
   | 'defect-summary'
-  | 'collaboration-handoff';
+  | 'collaboration-handoff'
+  | 'publication-record';
 
 interface SchemaBackedArtifactConfig {
   validate: (validators: SchemaValidators, payload: unknown) => boolean;
@@ -30,7 +31,8 @@ const schemaBackedArtifactIds: SchemaBackedArtifactId[] = [
   'test-cases',
   'execution-report',
   'defect-summary',
-  'collaboration-handoff'
+  'collaboration-handoff',
+  'publication-record'
 ];
 
 const schemaBackedArtifactConfigs: Record<SchemaBackedArtifactId, SchemaBackedArtifactConfig> = {
@@ -65,6 +67,10 @@ const schemaBackedArtifactConfigs: Record<SchemaBackedArtifactId, SchemaBackedAr
   'collaboration-handoff': {
     validate: (validators, payload) => validators.collaborationHandoff(payload),
     getErrors: (validators) => validators.collaborationHandoff.errors ?? []
+  },
+  'publication-record': {
+    validate: (validators, payload) => validators.publicationRecord(payload),
+    getErrors: (validators) => validators.publicationRecord.errors ?? []
   }
 };
 

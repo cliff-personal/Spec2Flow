@@ -28,7 +28,7 @@ This document is the working implementation plan for the platform-shaped version
 | Stage-specialized workers | Requirements, implementation, test, execution, defect, and collaboration run as role-scoped workers | `run-platform-worker-task`; `run-platform-requirements-worker`; `run-platform-implementation-worker`; `run-platform-test-design-worker`; `run-platform-execution-worker`; `run-platform-defect-worker`; `run-platform-collaboration-worker` | `partial` | DB-backed worker harness, execution-time heartbeat auto-renew, and stage entrypoints now exist, but there is still no long-running worker service or worker registry |
 | Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/auto-repair-policy-service.ts`; `packages/cli/src/runtime/task-result-service.ts`; `packages/cli/src/platform/platform-auto-repair-service.ts`; `packages/cli/src/platform/migrations/0003_platform_auto_repair.sql` | `partial` | Auto-repair policy fields, downstream rerun invalidation, repair escalation, repair-attempt records, and retry-budget persistence now exist, but there is still no background orchestration daemon or operator-facing repair console |
 | Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts` | `partial` | No service orchestration, no browser automation evidence pipeline, no richer environment convergence |
-| Collaboration publish flow | Commit code, create branch, optionally draft PR | Collaboration stage exists in graph only | `gap` | No git publication module, no commit policy engine, no PR integration |
+| Collaboration publish flow | Commit code, create branch, optionally draft PR | `packages/cli/src/runtime/collaboration-publication-service.ts`; `packages/cli/src/platform/platform-publication-service.ts`; `publications` table | `partial` | Controller-side branch creation, scoped auto-commit, publication records, and PR-draft artifacts now exist, but there is still no remote push, PR API integration, or operator approval UI |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
 | Event stream and observability | Operators can see progress, retries, and artifacts live | Workflow summaries and JSON artifacts exist on disk | `gap` | No event model, no event store, no streaming API, no telemetry surface |
 | Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | None | `gap` | No backend API, no frontend app, no run/task detail UI |
@@ -208,7 +208,7 @@ Unimplemented markers:
 
 ## Phase 5: Collaboration Publish Automation
 
-Status: `gap`
+Status: `partial`
 
 Goal:
 
@@ -232,10 +232,12 @@ Exit signal:
 
 Unimplemented markers:
 
-- `gap`: git publish service
-- `gap`: branch and commit tracking table
-- `gap`: PR integration
-- `gap`: collaboration handoff generator
+- `implemented`: git publish service with branch creation and deterministic scoped commits
+- `implemented`: publication persistence through the existing `publications` table
+- `implemented`: controller-generated PR draft artifacts and publication records
+- `partial`: collaboration handoff still originates from the existing collaboration artifact path rather than a separate publish planner
+- `gap`: remote push and PR API integration
+- `gap`: operator approval and publish controls in a web or API surface
 
 ## Phase 6: Event Model And Observability
 

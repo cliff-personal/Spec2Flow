@@ -77,7 +77,8 @@ function createMaterialization(): PlatformWorkerMaterialization {
       tasks: [],
       recentEvents: [],
       artifacts: [],
-      repairAttempts: []
+      repairAttempts: [],
+      publications: []
     }
   };
 }
@@ -135,6 +136,7 @@ function createPersistResult(): PersistPlatformWorkerResult {
       }
     ],
     insertedArtifactCount: 0,
+    publicationsInserted: 0,
     requestedRepairAttempts: 0,
     resolvedRepairAttempts: 0,
     blockedRepairAttempts: 0,
@@ -143,7 +145,8 @@ function createPersistResult(): PersistPlatformWorkerResult {
       tasks: [],
       recentEvents: [],
       artifacts: [],
-      repairAttempts: []
+      repairAttempts: [],
+      publications: []
     }
   };
 }

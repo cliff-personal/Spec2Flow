@@ -157,6 +157,24 @@ function buildArtifactRow(overrides: Partial<Record<string, unknown>> = {}): Rec
   };
 }
 
+function buildPublicationRow(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
+  return {
+    publication_id: 'publication-1',
+    run_id: 'run-1',
+    branch_name: 'spec2flow/frontend-smoke-20260324',
+    commit_sha: 'abc123',
+    pr_url: null,
+    publish_mode: 'auto-commit',
+    status: 'published',
+    metadata: {
+      taskId: 'frontend-smoke--collaboration'
+    },
+    created_at: '2026-03-24T10:04:00.000Z',
+    updated_at: '2026-03-24T10:04:05.000Z',
+    ...overrides
+  };
+}
+
 function listInsertedEventTypes(executor: SequentialExecutor): string[] {
   return executor.calls
     .filter((call) => call.text.includes('INSERT INTO "spec2flow_platform".events'))
@@ -530,6 +548,13 @@ describe('platform-scheduler-service', () => {
           rows: [],
           rowCount: 0
         }
+      },
+      {
+        match: 'FROM "spec2flow_platform".publications',
+        result: {
+          rows: [buildPublicationRow()],
+          rowCount: 1
+        }
       }
     ]);
 
@@ -557,5 +582,10 @@ describe('platform-scheduler-service', () => {
       path: '.spec2flow/runtime/report.json'
     });
     expect(result.repairAttempts).toEqual([]);
+    expect(result.publications[0]).toMatchObject({
+      publicationId: 'publication-1',
+      branchName: 'spec2flow/frontend-smoke-20260324',
+      status: 'published'
+    });
   });
 });

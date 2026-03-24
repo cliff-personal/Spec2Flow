@@ -53,6 +53,7 @@ export type {
   DeliverablePriority,
   ExecutionReport,
   ImplementationSummary,
+  PublicationRecord,
   RequirementSummary,
   TestCases,
   TestPlan
@@ -60,6 +61,7 @@ export type {
 export type {
   PlatformArtifactRecord,
   PlatformEventRecord,
+  PlatformPublicationRecord,
   PlatformRepairAttemptRecord,
   PlatformRepositoryRecord,
   PlatformRunRecord,

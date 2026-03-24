@@ -4,6 +4,7 @@ import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
+  PlatformPublicationRecord,
   PlatformRepairAttemptRecord,
   PlatformRunRecord,
   PlatformRunStateSnapshot,
@@ -100,6 +101,19 @@ interface PlatformRepairAttemptRow extends Record<string, unknown> {
   created_at: Date | string | null;
   updated_at: Date | string | null;
   completed_at: Date | string | null;
+}
+
+interface PlatformPublicationRow extends Record<string, unknown> {
+  publication_id: string;
+  run_id: string;
+  branch_name: string | null;
+  commit_sha: string | null;
+  pr_url: string | null;
+  publish_mode: string;
+  status: string;
+  metadata: Record<string, unknown>;
+  created_at: Date | string | null;
+  updated_at: Date | string | null;
 }
 
 export interface LeaseNextPlatformTaskOptions extends PlatformWorkerIdentity {
@@ -251,6 +265,21 @@ function mapPlatformRunRow(row: PlatformRunRow): PlatformRunRecord {
     updatedAt: normalizeTimestamp(row.updated_at),
     startedAt: normalizeTimestamp(row.started_at),
     completedAt: normalizeTimestamp(row.completed_at)
+  };
+}
+
+function mapPlatformPublicationRow(row: PlatformPublicationRow): PlatformPublicationRecord {
+  return {
+    publicationId: row.publication_id,
+    runId: row.run_id,
+    branchName: row.branch_name,
+    commitSha: row.commit_sha,
+    prUrl: row.pr_url,
+    publishMode: row.publish_mode,
+    status: row.status,
+    metadata: row.metadata ?? {},
+    createdAt: normalizeTimestamp(row.created_at),
+    updatedAt: normalizeTimestamp(row.updated_at)
   };
 }
 
@@ -859,12 +888,22 @@ export async function getPlatformRunState(
     `,
     [options.runId]
   );
+  const publicationResult = await executor.query<PlatformPublicationRow>(
+    `
+      SELECT *
+      FROM ${quotedSchema}.publications
+      WHERE run_id = $1
+      ORDER BY created_at ASC, publication_id ASC
+    `,
+    [options.runId]
+  );
 
   return {
     run: runResult.rows[0] ? mapPlatformRunRow(runResult.rows[0]) : null,
     tasks: taskResult.rows.map((row) => mapPlatformTaskRow(row)),
     recentEvents: eventResult.rows.map((row) => mapPlatformEventRow(row)),
     artifacts: artifactResult.rows.map((row) => mapPlatformArtifactRow(row)),
-    repairAttempts: repairAttemptResult.rows.map((row) => mapPlatformRepairAttemptRow(row))
+    repairAttempts: repairAttemptResult.rows.map((row) => mapPlatformRepairAttemptRow(row)),
+    publications: publicationResult.rows.map((row) => mapPlatformPublicationRow(row))
   };
 }

@@ -45,6 +45,11 @@ Define a simple, reviewable workflow that connects Copilot, Playwright, GitHub A
 - Use GitHub Issues to track open defects and follow-up work.
 - Close the loop by linking merged pull requests, successful runs, and resolved issues.
 
+Controller-side publication is now part of the collaboration closeout path:
+
+- when policy allows, Spec2Flow can create a scoped `spec2flow/...` branch and deterministic commit after the collaboration handoff
+- when policy blocks auto-commit, Spec2Flow writes a `publication-record` and optional PR draft artifact, then leaves the route blocked for manual publish
+
 ## Tool Responsibilities
 
 ### Copilot
@@ -77,6 +82,8 @@ Human review is required for:
 - deciding issue priority and severity
 - publishing externally visible bug reports
 - changing workflow conventions
+
+Remote push and PR API publication still stay outside the current automation boundary.
 
 ## Recommended Labels
 

@@ -87,6 +87,19 @@ export interface PlatformRepairAttemptRecord {
   completedAt?: string | null;
 }
 
+export interface PlatformPublicationRecord {
+  publicationId: string;
+  runId: string;
+  branchName?: string | null;
+  commitSha?: string | null;
+  prUrl?: string | null;
+  publishMode: string;
+  status: string;
+  metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface PlatformTaskLeaseRecord {
   runId: string;
   taskId: string;
@@ -127,4 +140,5 @@ export interface PlatformRunStateSnapshot {
   recentEvents: PlatformEventRecord[];
   artifacts: PlatformArtifactRecord[];
   repairAttempts: PlatformRepairAttemptRecord[];
+  publications: PlatformPublicationRecord[];
 }

@@ -282,6 +282,13 @@ Phase 4 now adds the first explicit auto-repair policy layer:
 - when repair is blocked by policy, blocked risk level, or exhausted budget, the route escalates into `collaboration` with explicit escalation notes instead of silently stalling
 - PostgreSQL-backed runs now persist repair attempts in `repair_attempts` and attach repair lifecycle events, including escalation, to the run history through `packages/cli/src/platform/platform-auto-repair-service.ts`
 
+Phase 5 now upgrades `collaboration` from a handoff-only stage into a policy-gated publish controller:
+
+- `packages/cli/src/runtime/collaboration-publication-service.ts` reads the completed `collaboration-handoff` and decides whether the route can auto-publish or must stop at a manual gate
+- when `reviewPolicy.allowAutoCommit` is enabled and approval is not required, the controller creates a scoped `spec2flow/...` branch, stages the implementation-summary file set, and creates a deterministic git commit
+- when auto-commit is blocked, the controller writes a `publication-record` plus optional `pr-draft` artifact and moves the route to `blocked` so an operator can publish manually
+- PostgreSQL-backed runs now persist those publication outcomes in `publications` and emit publication events through `packages/cli/src/platform/platform-publication-service.ts`
+
 ## Recommended Integration Layout
 
 Another repository does not need to copy the entire Spec2Flow repository structure.
