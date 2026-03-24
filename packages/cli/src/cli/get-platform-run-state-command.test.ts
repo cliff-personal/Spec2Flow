@@ -27,7 +27,8 @@ describe('get-platform-run-state-command', () => {
         run: null,
         tasks: [],
         recentEvents: [],
-        artifacts: []
+        artifacts: [],
+        repairAttempts: []
       })),
       printJson: vi.fn(),
       resolvePlatformDatabaseConfig: vi.fn(() => ({
@@ -43,7 +44,8 @@ describe('get-platform-run-state-command', () => {
         run: null,
         tasks: [],
         recentEvents: [],
-        artifacts: []
+        artifacts: [],
+        repairAttempts: []
       }
     });
   });

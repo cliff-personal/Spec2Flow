@@ -117,7 +117,11 @@ export function createPlatformRunInitializationPlan(
     roleProfile: task.roleProfile,
     ...(task.reviewPolicy ? { reviewPolicy: task.reviewPolicy } : {}),
     ...(task.artifactsDir ? { artifactsDir: task.artifactsDir } : {}),
-    attempts: 0
+    attempts: 0,
+    retryCount: 0,
+    maxRetries: task.reviewPolicy?.maxExecutionRetries ?? 3,
+    autoRepairCount: 0,
+    maxAutoRepairAttempts: task.reviewPolicy?.maxAutoRepairAttempts ?? 0
   }));
 
   const events: PlatformEventRecord[] = [
@@ -282,13 +286,15 @@ export async function insertPlatformTasks(
           attempts,
           retry_count,
           max_retries,
+          auto_repair_count,
+          max_auto_repair_attempts,
           current_lease_id,
           leased_by_worker_id,
           lease_expires_at,
           last_heartbeat_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
-          $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22
+          $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
         )
       `,
       [
@@ -310,6 +316,8 @@ export async function insertPlatformTasks(
         task.attempts ?? 0,
         task.retryCount ?? 0,
         task.maxRetries ?? 3,
+        task.autoRepairCount ?? 0,
+        task.maxAutoRepairAttempts ?? 0,
         task.currentLeaseId ?? null,
         task.leasedByWorkerId ?? null,
         task.leaseExpiresAt ?? null,

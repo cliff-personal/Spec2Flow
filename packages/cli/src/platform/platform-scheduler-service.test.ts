@@ -92,6 +92,8 @@ function buildTaskRow(overrides: Partial<Record<string, unknown>> = {}): Record<
     attempts: 0,
     retry_count: 0,
     max_retries: 3,
+    auto_repair_count: 0,
+    max_auto_repair_attempts: 0,
     current_lease_id: null,
     leased_by_worker_id: null,
     lease_expires_at: null,
@@ -521,6 +523,13 @@ describe('platform-scheduler-service', () => {
           rows: [buildArtifactRow()],
           rowCount: 1
         }
+      },
+      {
+        match: 'FROM "spec2flow_platform".repair_attempts',
+        result: {
+          rows: [],
+          rowCount: 0
+        }
       }
     ]);
 
@@ -547,5 +556,6 @@ describe('platform-scheduler-service', () => {
       artifactId: 'artifact-1',
       path: '.spec2flow/runtime/report.json'
     });
+    expect(result.repairAttempts).toEqual([]);
   });
 });

@@ -396,6 +396,24 @@ function writeExecutionReport(filePath: string, taskId: string): void {
   }, null, 2)}\n`, 'utf8');
 }
 
+function writeDefectSummary(filePath: string, taskId: string, recommendedAction: 'fix-implementation' | 'clarify-requirements' | 'expand-tests' | 'rerun-execution' = 'fix-implementation'): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'defect-feedback',
+    summary: 'The defect can be auto-repaired by rerunning the owning stage.',
+    failureType: recommendedAction === 'clarify-requirements'
+      ? 'requirements'
+      : recommendedAction === 'expand-tests'
+        ? 'test-design'
+        : recommendedAction === 'rerun-execution'
+          ? 'execution'
+          : 'implementation',
+    severity: 'medium',
+    evidenceRefs: ['execution-report'],
+    recommendedAction
+  }, null, 2)}\n`, 'utf8');
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     const tempDir = tempDirs.pop();
@@ -718,6 +736,58 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('blocked');
     expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('approval-gate:human-approval-required');
     expect(executionStatePayload.executionState.status).toBe('blocked');
+  });
+
+  it('requeues the owning implementation stage after defect-feedback completes when auto-repair policy allows it', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const implementationSummaryPath = path.join(path.dirname(statePath), 'implementation-summary.json');
+    const defectSummaryPath = path.join(path.dirname(statePath), 'defect-summary.json');
+
+    taskGraphPayload.taskGraph.tasks.forEach((task) => {
+      task.reviewPolicy = {
+        ...(task.reviewPolicy ?? {}),
+        maxAutoRepairAttempts: 2
+      };
+    });
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'blocked';
+    getTaskState(executionStatePayload, 2).status = 'skipped';
+    getTaskState(executionStatePayload, 3).status = 'skipped';
+    getTaskState(executionStatePayload, 4).status = 'ready';
+    getTaskState(executionStatePayload, 4).notes = [
+      'route-trigger:code-implementation',
+      'route-class:implementation-defect',
+      'route-origin:frontend-smoke--code-implementation'
+    ];
+    getTaskState(executionStatePayload, 5).status = 'pending';
+
+    writeImplementationSummary(implementationSummaryPath, 'frontend-smoke--code-implementation');
+    writeDefectSummary(defectSummaryPath, 'frontend-smoke--defect-feedback', 'fix-implementation');
+
+    const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--defect-feedback',
+      taskStatus: 'completed',
+      notes: ['summary:defect-analysis-complete'],
+      artifacts: [
+        {
+          id: 'defect-summary',
+          kind: 'report',
+          path: defectSummaryPath,
+          taskId: 'frontend-smoke--defect-feedback'
+        }
+      ],
+      errors: []
+    });
+
+    expect(receipt.taskResult.status).toBe('pending');
+    expect(executionStatePayload.executionState.tasks[1]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[1]?.notes).toContain('auto-repair-attempt:1');
+    expect(executionStatePayload.executionState.tasks[2]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.tasks[3]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.tasks[4]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.tasks[5]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.currentStage).toBe('code-implementation');
   });
 
   it('resolves schema-backed artifact paths from the repository root for nested .spec2flow worker state', () => {

@@ -76,7 +76,8 @@ function createMaterialization(): PlatformWorkerMaterialization {
       run: null,
       tasks: [],
       recentEvents: [],
-      artifacts: []
+      artifacts: [],
+      repairAttempts: []
     }
   };
 }
@@ -134,11 +135,15 @@ function createPersistResult(): PersistPlatformWorkerResult {
       }
     ],
     insertedArtifactCount: 0,
+    requestedRepairAttempts: 0,
+    resolvedRepairAttempts: 0,
+    blockedRepairAttempts: 0,
     platformRunState: {
       run: null,
       tasks: [],
       recentEvents: [],
-      artifacts: []
+      artifacts: [],
+      repairAttempts: []
     }
   };
 }

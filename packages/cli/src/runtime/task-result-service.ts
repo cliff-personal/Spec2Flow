@@ -39,6 +39,20 @@ function normalizeArtifactSearchValue(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function getLatestTaskNoteValue(notes: string[] | undefined, prefix: string): string | null {
+  const match = [...(notes ?? [])].reverse().find((note) => note.startsWith(prefix));
+  return match ? match.slice(prefix.length) : null;
+}
+
+function getLatestTaskNoteNumber(notes: string[] | undefined, prefix: string): number {
+  const values = (notes ?? [])
+    .filter((note) => note.startsWith(prefix))
+    .map((note) => Number.parseInt(note.slice(prefix.length), 10))
+    .filter((value) => Number.isInteger(value) && value >= 0);
+
+  return values.length > 0 ? Math.max(...values) : 0;
+}
+
 function inferArtifactBaseDir(statePath: string): string {
   const resolvedStatePath = path.resolve(statePath);
   const stateDir = path.dirname(resolvedStatePath);
@@ -214,7 +228,8 @@ function routeStageOutcomeToDefect(
   addTaskNotes(defectTaskState, [
     `route-trigger:${stage}`,
     `route-class:${failureClass}`,
-    `route-reason:${taskStatus === 'failed' || taskStatus === 'blocked' ? taskStatus : 'artifact-contract-missing'}`
+    `route-reason:${taskStatus === 'failed' || taskStatus === 'blocked' ? taskStatus : 'artifact-contract-missing'}`,
+    `route-origin:${taskId}`
   ]);
 
   if (collaborationTaskState.status === 'ready') {
@@ -225,7 +240,7 @@ function routeStageOutcomeToDefect(
     return;
   }
 
-  if (defectTaskState.status === 'pending') {
+  if (['pending', 'completed', 'skipped', 'blocked'].includes(defectTaskState.status)) {
     defectTaskState.status = 'ready';
   }
 }
@@ -315,6 +330,163 @@ function routeAutomatedExecutionOutcome(
   }
 }
 
+type DefectSummaryPayload = {
+  recommendedAction?: string;
+  failureType?: string;
+};
+
+function getRoutePrefix(taskId: string): string | null {
+  if (!taskId.includes('--')) {
+    return null;
+  }
+
+  return taskId.split('--')[0] ?? null;
+}
+
+function readDefectSummaryPayload(artifacts: ArtifactRef[], artifactBaseDir: string): DefectSummaryPayload | null {
+  const defectArtifact = artifacts.find((artifact) => {
+    const searchableValues = [artifact.id, artifact.path].map((value) => normalizeArtifactSearchValue(String(value)));
+    return searchableValues.some((value) => value.includes('defect-summary'));
+  });
+
+  if (!defectArtifact) {
+    return null;
+  }
+
+  try {
+    return readStructuredFileFrom(artifactBaseDir, defectArtifact.path) as DefectSummaryPayload;
+  } catch {
+    return null;
+  }
+}
+
+function getRepairTargetStageFromDefectSummary(defectSummaryPayload: DefectSummaryPayload | null): TaskStage | null {
+  switch (defectSummaryPayload?.recommendedAction) {
+    case 'clarify-requirements':
+      return 'requirements-analysis';
+    case 'fix-implementation':
+      return 'code-implementation';
+    case 'expand-tests':
+      return 'test-design';
+    case 'rerun-execution':
+      return 'automated-execution';
+    default:
+      break;
+  }
+
+  switch (defectSummaryPayload?.failureType) {
+    case 'requirements':
+      return 'requirements-analysis';
+    case 'implementation':
+      return 'code-implementation';
+    case 'test-design':
+      return 'test-design';
+    case 'execution':
+      return 'automated-execution';
+    default:
+      return null;
+  }
+}
+
+function resetTaskStateForRetry(taskState: TaskState, status: TaskStatus): void {
+  taskState.status = status;
+  delete taskState.startedAt;
+  delete taskState.completedAt;
+}
+
+function maybeTriggerAutoRepair(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskGraphTask: Task,
+  taskState: TaskState,
+  artifacts: ArtifactRef[],
+  artifactContract: ArtifactContractSummary,
+  artifactBaseDir: string
+): void {
+  if (taskGraphTask.stage !== 'defect-feedback' || taskState.status !== 'completed' || artifactContract.status === 'missing') {
+    return;
+  }
+
+  const routePrefix = getRoutePrefix(taskGraphTask.id);
+  const defectSummaryPayload = readDefectSummaryPayload(artifacts, artifactBaseDir);
+  const targetStage = getRepairTargetStageFromDefectSummary(defectSummaryPayload);
+
+  if (!routePrefix || !targetStage) {
+    return;
+  }
+
+  const targetTaskId = `${routePrefix}--${targetStage}`;
+  const targetTask = taskGraphTaskIndex.get(targetTaskId);
+  const targetTaskState = taskStateIndex.get(targetTaskId);
+  if (!targetTask || !targetTaskState) {
+    return;
+  }
+
+  const maxAutoRepairAttempts = targetTask.reviewPolicy?.maxAutoRepairAttempts ?? 0;
+  if (maxAutoRepairAttempts <= 0) {
+    return;
+  }
+
+  if ((targetTask.reviewPolicy?.blockedRiskLevels ?? []).includes(targetTask.riskLevel ?? 'low')) {
+    addTaskNotes(taskState, [
+      'auto-repair:blocked-risk-level',
+      `auto-repair-target:${targetTaskId}`
+    ]);
+    return;
+  }
+
+  const nextAttemptNumber = getLatestTaskNoteNumber(targetTaskState.notes, 'auto-repair-attempt:') + 1;
+  if (nextAttemptNumber > maxAutoRepairAttempts) {
+    addTaskNotes(taskState, [
+      'auto-repair:budget-exhausted',
+      `auto-repair-target:${targetTaskId}`
+    ]);
+    return;
+  }
+
+  const stageOrder: Record<Exclude<TaskStage, 'environment-preparation'>, number> = {
+    'requirements-analysis': 1,
+    'code-implementation': 2,
+    'test-design': 3,
+    'automated-execution': 4,
+    'defect-feedback': 5,
+    'collaboration': 6
+  };
+  const normalizedTargetStage = targetStage as Exclude<TaskStage, 'environment-preparation'>;
+
+  resetTaskStateForRetry(targetTaskState, 'ready');
+  addTaskNotes(targetTaskState, [
+    `auto-repair-attempt:${nextAttemptNumber}`,
+    `auto-repair-trigger:${taskGraphTask.id}`,
+    `auto-repair-class:${getLatestTaskNoteValue(taskState.notes, 'route-class:') ?? 'unknown'}`,
+    `auto-repair-reason:${defectSummaryPayload?.recommendedAction ?? 'unknown'}`
+  ]);
+
+  for (const [candidateTaskId, candidateTask] of taskGraphTaskIndex) {
+    if (!candidateTaskId.startsWith(`${routePrefix}--`) || candidateTaskId === targetTaskId || candidateTask.stage === 'environment-preparation') {
+      continue;
+    }
+
+    const candidateTaskState = taskStateIndex.get(candidateTaskId);
+    if (!candidateTaskState) {
+      continue;
+    }
+
+    const candidateStage = candidateTask.stage as Exclude<TaskStage, 'environment-preparation'>;
+    if (stageOrder[candidateStage] > stageOrder[normalizedTargetStage]) {
+      resetTaskStateForRetry(candidateTaskState, 'pending');
+      addTaskNotes(candidateTaskState, [
+        `auto-repair-reset:${targetTaskId}`
+      ]);
+    }
+  }
+
+  addTaskNotes(taskState, [
+    `auto-repair-triggered:${targetTaskId}`,
+    `auto-repair-attempt:${nextAttemptNumber}`
+  ]);
+}
+
 export function applyTaskResult(
   executionStatePayload: ExecutionStateDocument,
   taskGraphPayload: TaskGraphDocument,
@@ -381,6 +553,7 @@ export function applyTaskResult(
   }
 
   enforceCollaborationApprovalGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
+  maybeTriggerAutoRepair(taskGraphTaskIndex, taskStateIndex, taskGraphTask, taskState, payload.artifacts, artifactContract, artifactBaseDir);
 
   promoteReadyTasks(taskGraphPayload, executionStatePayload);
   executionStatePayload.executionState.status = payload.workflowStatus ?? inferExecutionStateStatus(executionStatePayload.executionState.tasks);

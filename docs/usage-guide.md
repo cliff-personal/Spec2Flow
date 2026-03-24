@@ -273,6 +273,13 @@ The default stop semantics for `run-platform-worker-task` are:
 - stop and persist a blocked task receipt after three consecutive heartbeat transport failures unless `--heartbeat-error-threshold` overrides that budget
 - stop heartbeating as soon as execution finishes and hand the final result back through the normal persistence contract
 
+Phase 4 now adds the first explicit auto-repair policy layer:
+
+- risk-policy rules can declare `maxAutoRepairAttempts`, `maxExecutionRetries`, `allowAutoCommit`, and `blockedRiskLevels`
+- route task `reviewPolicy` now carries those fields into the controller path
+- `task-result-service` can requeue the owning stage after `defect-feedback` completes when the defect summary recommends a repairable action and the repair budget still allows it
+- PostgreSQL-backed runs now persist repair attempts in `repair_attempts` and attach repair lifecycle events to the run history
+
 ## Recommended Integration Layout
 
 Another repository does not need to copy the entire Spec2Flow repository structure.

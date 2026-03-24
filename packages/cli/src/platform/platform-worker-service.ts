@@ -13,6 +13,7 @@ import { applyTaskResult } from '../runtime/task-result-service.js';
 import { runDeterministicTaskAsync } from '../runtime/deterministic-execution-service.js';
 import { loadOptionalStructuredFile, readStructuredFile, writeJson } from '../shared/fs-utils.js';
 import { insertPlatformArtifacts, insertPlatformEvents } from './platform-repository.js';
+import { reconcilePlatformAutoRepair } from './platform-auto-repair-service.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { getPlatformRunState } from './platform-scheduler-service.js';
 import type {
@@ -78,6 +79,9 @@ export interface PersistPlatformWorkerResult {
     nextStatus: TaskStatus;
   }>;
   insertedArtifactCount: number;
+  requestedRepairAttempts: number;
+  resolvedRepairAttempts: number;
+  blockedRepairAttempts: number;
   platformRunState: PlatformRunStateSnapshot;
 }
 
@@ -792,6 +796,13 @@ export async function persistPlatformWorkerResult(
     await insertPlatformEvents(executor, schema, events);
   }
 
+  const autoRepairResult = await reconcilePlatformAutoRepair(executor, schema, {
+    runId: options.runId,
+    currentTaskId: options.taskId,
+    previousState,
+    nextState
+  });
+
   const platformRunState = await getPlatformRunState(executor, schema, {
     runId: options.runId,
     eventLimit: options.eventLimit ?? DEFAULT_PLATFORM_WORKER_EVENT_LIMIT
@@ -807,6 +818,9 @@ export async function persistPlatformWorkerResult(
       nextStatus: task.nextStatus
     })),
     insertedArtifactCount: platformArtifacts.length,
+    requestedRepairAttempts: autoRepairResult.requestedRepairAttempts,
+    resolvedRepairAttempts: autoRepairResult.resolvedRepairAttempts,
+    blockedRepairAttempts: autoRepairResult.blockedRepairAttempts,
     platformRunState
   };
 }

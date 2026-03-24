@@ -56,6 +56,9 @@ export interface PlatformWorkerRunDocument {
     taskResult: TaskResult;
     updatedTasks: PersistPlatformWorkerResult['updatedTasks'];
     insertedArtifactCount: number;
+    requestedRepairAttempts: number;
+    resolvedRepairAttempts: number;
+    blockedRepairAttempts: number;
     platformRunState: PlatformRunStateSnapshot;
   };
 }
@@ -327,6 +330,9 @@ export async function runPlatformWorkerTask(
         taskResult: executionResult.receipt,
         updatedTasks: persistResult.updatedTasks,
         insertedArtifactCount: persistResult.insertedArtifactCount,
+        requestedRepairAttempts: persistResult.requestedRepairAttempts,
+        resolvedRepairAttempts: persistResult.resolvedRepairAttempts,
+        blockedRepairAttempts: persistResult.blockedRepairAttempts,
         platformRunState: persistResult.platformRunState
       }
     };

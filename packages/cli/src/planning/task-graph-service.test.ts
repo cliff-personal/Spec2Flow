@@ -127,7 +127,11 @@ describe('task-graph-service route selection', () => {
               },
               requires: {
                 humanApproval: true,
-                reviewAgents: 1
+                reviewAgents: 1,
+                maxAutoRepairAttempts: 2,
+                maxExecutionRetries: 4,
+                allowAutoCommit: false,
+                blockedRiskLevels: ['critical']
               }
             }
           ]
@@ -149,7 +153,10 @@ describe('task-graph-service route selection', () => {
     expect(collaborationTask?.roleProfile.specialistRole).toBe('collaboration-agent');
     expect(collaborationTask?.reviewPolicy).toMatchObject({
       requireHumanApproval: true,
-      required: true
+      required: true,
+      maxAutoRepairAttempts: 2,
+      maxExecutionRetries: 4,
+      blockedRiskLevels: ['critical']
     });
   });
 });

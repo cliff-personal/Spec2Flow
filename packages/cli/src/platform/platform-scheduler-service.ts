@@ -4,6 +4,7 @@ import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
+  PlatformRepairAttemptRecord,
   PlatformRunRecord,
   PlatformRunStateSnapshot,
   PlatformTaskLeaseRecord,
@@ -37,6 +38,8 @@ interface PlatformTaskRow extends Record<string, unknown> {
   attempts: number;
   retry_count: number;
   max_retries: number;
+  auto_repair_count: number;
+  max_auto_repair_attempts: number;
   current_lease_id: string | null;
   leased_by_worker_id: string | null;
   lease_expires_at: Date | string | null;
@@ -81,6 +84,22 @@ interface PlatformArtifactRow extends Record<string, unknown> {
   schema_type: string | null;
   metadata: Record<string, unknown>;
   created_at: Date | string | null;
+}
+
+interface PlatformRepairAttemptRow extends Record<string, unknown> {
+  repair_attempt_id: string;
+  run_id: string;
+  source_task_id: string;
+  trigger_task_id: string;
+  source_stage: TaskStage;
+  failure_class: string;
+  recommended_action: string | null;
+  attempt_number: number;
+  status: PlatformRepairAttemptRecord['status'];
+  metadata: Record<string, unknown>;
+  created_at: Date | string | null;
+  updated_at: Date | string | null;
+  completed_at: Date | string | null;
 }
 
 export interface LeaseNextPlatformTaskOptions extends PlatformWorkerIdentity {
@@ -186,6 +205,8 @@ function mapPlatformTaskRow(row: PlatformTaskRow): PlatformTaskRecord {
     attempts: row.attempts,
     retryCount: row.retry_count,
     maxRetries: row.max_retries,
+    autoRepairCount: row.auto_repair_count,
+    maxAutoRepairAttempts: row.max_auto_repair_attempts,
     currentLeaseId: row.current_lease_id,
     leasedByWorkerId: row.leased_by_worker_id,
     leaseExpiresAt: normalizeTimestamp(row.lease_expires_at),
@@ -193,6 +214,24 @@ function mapPlatformTaskRow(row: PlatformTaskRow): PlatformTaskRecord {
     createdAt: normalizeTimestamp(row.created_at),
     updatedAt: normalizeTimestamp(row.updated_at),
     startedAt: normalizeTimestamp(row.started_at),
+    completedAt: normalizeTimestamp(row.completed_at)
+  };
+}
+
+function mapPlatformRepairAttemptRow(row: PlatformRepairAttemptRow): PlatformRepairAttemptRecord {
+  return {
+    repairAttemptId: row.repair_attempt_id,
+    runId: row.run_id,
+    sourceTaskId: row.source_task_id,
+    triggerTaskId: row.trigger_task_id,
+    sourceStage: row.source_stage,
+    failureClass: row.failure_class,
+    recommendedAction: row.recommended_action,
+    attemptNumber: row.attempt_number,
+    status: row.status,
+    metadata: row.metadata ?? {},
+    createdAt: normalizeTimestamp(row.created_at),
+    updatedAt: normalizeTimestamp(row.updated_at),
     completedAt: normalizeTimestamp(row.completed_at)
   };
 }
@@ -811,11 +850,21 @@ export async function getPlatformRunState(
     `,
     [options.runId]
   );
+  const repairAttemptResult = await executor.query<PlatformRepairAttemptRow>(
+    `
+      SELECT *
+      FROM ${quotedSchema}.repair_attempts
+      WHERE run_id = $1
+      ORDER BY created_at ASC, repair_attempt_id ASC
+    `,
+    [options.runId]
+  );
 
   return {
     run: runResult.rows[0] ? mapPlatformRunRow(runResult.rows[0]) : null,
     tasks: taskResult.rows.map((row) => mapPlatformTaskRow(row)),
     recentEvents: eventResult.rows.map((row) => mapPlatformEventRow(row)),
-    artifacts: artifactResult.rows.map((row) => mapPlatformArtifactRow(row))
+    artifacts: artifactResult.rows.map((row) => mapPlatformArtifactRow(row)),
+    repairAttempts: repairAttemptResult.rows.map((row) => mapPlatformRepairAttemptRow(row))
   };
 }

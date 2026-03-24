@@ -72,6 +72,16 @@
           "properties": {
             "humanApproval": { "type": "boolean", "default": false },
             "reviewAgents": { "type": "integer", "minimum": 0, "default": 0 },
+            "maxAutoRepairAttempts": { "type": "integer", "minimum": 0, "default": 0 },
+            "maxExecutionRetries": { "type": "integer", "minimum": 0, "default": 0 },
+            "allowAutoCommit": { "type": "boolean", "default": false },
+            "blockedRiskLevels": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["low", "medium", "high", "critical"]
+              }
+            },
             "mustRunCommands": {
               "type": "array",
               "items": { "type": "string", "minLength": 1 }

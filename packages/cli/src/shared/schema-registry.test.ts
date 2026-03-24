@@ -173,4 +173,38 @@ describe('schema-registry', () => {
       }
     })).toBe(true);
   });
+
+  it('accepts risk policy rules with auto-repair fields', () => {
+    const validators = getSchemaValidators();
+
+    expect(validators.risk({
+      riskPolicy: {
+        automationLevels: [
+          {
+            name: 'default',
+            description: 'Default repository automation level.',
+            maxAutonomy: 'execute-to-pr'
+          }
+        ],
+        rules: [
+          {
+            name: 'frontend-medium',
+            level: 'medium',
+            match: {
+              workflowNames: ['frontend-smoke']
+            },
+            requires: {
+              humanApproval: false,
+              reviewAgents: 1,
+              maxAutoRepairAttempts: 2,
+              maxExecutionRetries: 4,
+              allowAutoCommit: false,
+              blockedRiskLevels: ['critical']
+            }
+          }
+        ],
+        defaultLevel: 'default'
+      }
+    })).toBe(true);
+  });
 });

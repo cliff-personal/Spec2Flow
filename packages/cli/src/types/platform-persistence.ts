@@ -57,6 +57,8 @@ export interface PlatformTaskRecord {
   attempts?: number;
   retryCount?: number;
   maxRetries?: number;
+  autoRepairCount?: number;
+  maxAutoRepairAttempts?: number;
   currentLeaseId?: string | null;
   leasedByWorkerId?: string | null;
   leaseExpiresAt?: string | null;
@@ -64,6 +66,24 @@ export interface PlatformTaskRecord {
   createdAt?: string | null;
   updatedAt?: string | null;
   startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export type PlatformRepairAttemptStatus = 'requested' | 'succeeded' | 'failed' | 'blocked';
+
+export interface PlatformRepairAttemptRecord {
+  repairAttemptId: string;
+  runId: string;
+  sourceTaskId: string;
+  triggerTaskId: string;
+  sourceStage: TaskStage;
+  failureClass: string;
+  recommendedAction?: string | null;
+  attemptNumber: number;
+  status: PlatformRepairAttemptStatus;
+  metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   completedAt?: string | null;
 }
 
@@ -106,4 +126,5 @@ export interface PlatformRunStateSnapshot {
   tasks: PlatformTaskRecord[];
   recentEvents: PlatformEventRecord[];
   artifacts: PlatformArtifactRecord[];
+  repairAttempts: PlatformRepairAttemptRecord[];
 }

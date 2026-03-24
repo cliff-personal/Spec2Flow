@@ -323,7 +323,11 @@ function buildReviewPolicy(rule: Record<string, any> | null) {
   return {
     required: Boolean((rule?.requires?.reviewAgents ?? 0) > 0 || rule?.requires?.humanApproval),
     reviewAgentCount: rule?.requires?.reviewAgents ?? 0,
-    requireHumanApproval: rule?.requires?.humanApproval ?? false
+    requireHumanApproval: rule?.requires?.humanApproval ?? false,
+    maxAutoRepairAttempts: rule?.requires?.maxAutoRepairAttempts ?? 0,
+    maxExecutionRetries: rule?.requires?.maxExecutionRetries ?? 0,
+    allowAutoCommit: rule?.requires?.allowAutoCommit ?? false,
+    blockedRiskLevels: rule?.requires?.blockedRiskLevels ?? []
   };
 }
 

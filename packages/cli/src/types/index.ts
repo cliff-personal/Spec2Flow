@@ -60,6 +60,7 @@ export type {
 export type {
   PlatformArtifactRecord,
   PlatformEventRecord,
+  PlatformRepairAttemptRecord,
   PlatformRepositoryRecord,
   PlatformRunRecord,
   PlatformRunStateSnapshot,
