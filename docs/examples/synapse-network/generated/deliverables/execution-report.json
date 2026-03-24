@@ -1,0 +1,24 @@
+{
+  "taskId": "frontend-smoke--automated-execution",
+  "stage": "automated-execution",
+  "goal": "Run the frontend smoke validation path",
+  "summary": "The frontend smoke command completed and produced reusable evidence.",
+  "outcome": "passed",
+  "commands": [
+    {
+      "command": "npm run test:unit",
+      "status": "passed",
+      "exitCode": 0,
+      "evidenceRefs": [
+        "verification-evidence"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "verification-evidence",
+      "path": "spec2flow/outputs/execution/frontend-smoke/test-output.log",
+      "kind": "log"
+    }
+  ]
+}

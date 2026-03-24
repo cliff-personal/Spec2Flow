@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runClaimNextTask } from './claim-next-task-command.js';
@@ -66,11 +67,11 @@ function buildTaskGraphFixture(taskGraphPath: string): TaskGraphDocument {
       canReadRepository: true,
       canEditFiles: true,
       canRunCommands: true,
-      canWriteArtifacts: true,
-      canOpenCollaboration: false,
-      requiredAdapterSupports: [],
-      expectedArtifacts: ['implementation-summary']
-    },
+       canWriteArtifacts: true,
+       canOpenCollaboration: false,
+       requiredAdapterSupports: [],
+       expectedArtifacts: ['implementation-summary', 'code-diff']
+     },
     status: 'pending',
     dependsOn: [requirementsTask.id],
     targetFiles: ['apps/frontend/src/App.tsx'],
@@ -109,11 +110,11 @@ function buildDefectLoopTaskGraphFixture(): TaskGraphDocument {
       canReadRepository: true,
       canEditFiles: false,
       canRunCommands: true,
-      canWriteArtifacts: true,
-      canOpenCollaboration: false,
-      requiredAdapterSupports: [],
-      expectedArtifacts: ['execution-report']
-    },
+       canWriteArtifacts: true,
+       canOpenCollaboration: false,
+       requiredAdapterSupports: [],
+       expectedArtifacts: ['execution-report', 'verification-evidence']
+     },
     status: 'ready',
     verifyCommands: ['npm run test:unit']
   };
@@ -134,7 +135,7 @@ function buildDefectLoopTaskGraphFixture(): TaskGraphDocument {
       canWriteArtifacts: true,
       canOpenCollaboration: false,
       requiredAdapterSupports: [],
-      expectedArtifacts: ['bug-draft']
+      expectedArtifacts: ['defect-summary', 'bug-draft']
     },
     status: 'pending',
     dependsOn: [executionTask.id]
@@ -198,6 +199,43 @@ function readStateOrTaskGraph(filePath: string): ExecutionStateDocument | TaskGr
   return readStructuredFile(filePath) as ExecutionStateDocument | TaskGraphDocument;
 }
 
+function buildRequirementSummaryArtifact(taskId: string): Record<string, unknown> {
+  return {
+    taskId,
+    stage: 'requirements-analysis',
+    goal: 'Summarize the frontend smoke route requirements',
+    summary: 'The route needs a scoped requirements handoff.',
+    sources: ['docs/architecture.md']
+  };
+}
+
+function buildImplementationSummaryArtifact(taskId: string): Record<string, unknown> {
+  return {
+    taskId,
+    stage: 'code-implementation',
+    goal: 'Apply the approved frontend smoke update',
+    summary: 'Updated the frontend smoke entrypoint and touched one target file.',
+    changedFiles: [
+      {
+        path: 'apps/frontend/src/App.tsx',
+        changeType: 'modified'
+      }
+    ]
+  };
+}
+
+function buildDefectSummaryArtifact(taskId: string): Record<string, unknown> {
+  return {
+    taskId,
+    stage: 'defect-feedback',
+    summary: 'The failed smoke run points to a route-guard regression in the implementation stage.',
+    failureType: 'implementation',
+    severity: 'high',
+    evidenceRefs: ['execution-report', 'execution-log'],
+    recommendedAction: 'fix-implementation'
+  };
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop();
@@ -218,8 +256,8 @@ describe('command chain integration', () => {
     const implementationArtifactPath = path.join(tempDir, 'implementation-summary.json');
 
     writeFixtureState(taskGraphPath, statePath);
-    fs.writeFileSync(requirementsArtifactPath, '{"summary":true}\n', 'utf8');
-    fs.writeFileSync(implementationArtifactPath, '{"implementation":true}\n', 'utf8');
+    fs.writeFileSync(requirementsArtifactPath, `${JSON.stringify(buildRequirementSummaryArtifact('frontend-smoke--requirements-analysis'), null, 2)}\n`, 'utf8');
+    fs.writeFileSync(implementationArtifactPath, `${JSON.stringify(buildImplementationSummaryArtifact('frontend-smoke--code-implementation'), null, 2)}\n`, 'utf8');
 
     runClaimNextTask({
       state: statePath,
@@ -307,7 +345,7 @@ describe('command chain integration', () => {
     const resumedClaimPath = path.join(tempDir, 'resumed-task-claim.json');
 
     writeFixtureState(taskGraphPath, statePath);
-    fs.writeFileSync(requirementsArtifactPath, '{"summary":true}\n', 'utf8');
+    fs.writeFileSync(requirementsArtifactPath, `${JSON.stringify(buildRequirementSummaryArtifact('frontend-smoke--requirements-analysis'), null, 2)}\n`, 'utf8');
 
     runClaimNextTask({
       state: statePath,
@@ -363,6 +401,51 @@ describe('command chain integration', () => {
     expect(resumedClaim.taskClaim?.taskId).toBe('frontend-smoke--code-implementation');
     expect(resumedClaim.taskClaim?.runtimeContext.attempt).toBe(1);
     expect(resumedClaim.taskClaim?.stage).toBe('code-implementation');
+  });
+
+  it('rejects invalid schema-backed artifacts before update-execution-state persists them', () => {
+    const tempDir = createTempDir();
+    const taskGraphPath = path.join(tempDir, 'task-graph.json');
+    const statePath = path.join(tempDir, 'execution-state.json');
+    const invalidImplementationArtifactPath = path.join(tempDir, 'implementation-summary.invalid.json');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    writeFixtureState(taskGraphPath, statePath);
+    fs.writeFileSync(invalidImplementationArtifactPath, `${JSON.stringify({
+      taskId: 'frontend-smoke--code-implementation',
+      stage: 'code-implementation',
+      goal: 'Apply the approved frontend smoke update',
+      summary: 'This payload is invalid because changedFiles is missing.'
+    }, null, 2)}\n`, 'utf8');
+
+    expect(() => runUpdateExecutionState({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      'task-id': 'frontend-smoke--code-implementation',
+      'task-status': 'in-progress',
+      executor: 'implementation-agent',
+      'add-artifacts': `implementation-summary|report|${invalidImplementationArtifactPath}`
+    }, {
+      fail: createFail(),
+      parseCsvOption,
+      printJson: vi.fn(),
+      readStructuredFile: readStateOrTaskGraph,
+      writeJson
+    })).toThrow('process.exit:1');
+
+    const persistedState = readExecutionState(statePath);
+    const implementationTaskState = persistedState.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--code-implementation');
+    const implementationArtifacts = (persistedState.executionState.artifacts ?? []).filter((artifact) => artifact.id === 'implementation-summary');
+
+    expect(implementationTaskState?.status).toBe('pending');
+    expect(implementationTaskState?.attempts).toBe(0);
+    expect(implementationArtifacts).toHaveLength(0);
+
+    exitSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it('routes automated-execution into defect-feedback when the artifact contract is missing', () => {
@@ -421,7 +504,7 @@ describe('command chain integration', () => {
 
     expect(automatedExecutionTask?.status).toBe('completed');
     expect(automatedExecutionTask?.notes).toContain('artifact-contract:missing');
-    expect(automatedExecutionTask?.notes).toContain('artifact-contract-missing:execution-report');
+    expect(automatedExecutionTask?.notes).toContain('artifact-contract-missing:execution-report,verification-evidence');
     expect(defectTask?.status).toBe('ready');
     expect(defectTask?.notes).toContain('route-trigger:automated-execution');
     expect(defectTask?.notes).toContain('route-reason:artifact-contract-missing');
@@ -452,6 +535,7 @@ describe('command chain integration', () => {
     const defectClaimPath = path.join(tempDir, 'defect-task-claim.json');
     const collaborationClaimPath = path.join(tempDir, 'collaboration-task-claim.json');
     const logArtifactPath = path.join(tempDir, 'execution-log.txt');
+    const defectSummaryPath = path.join(tempDir, 'defect-summary.json');
     const bugDraftPath = path.join(tempDir, 'bug-draft.md');
 
     const taskGraphPayload = buildDefectLoopTaskGraphFixture();
@@ -466,6 +550,7 @@ describe('command chain integration', () => {
     });
     writeJson(statePath, executionStatePayload);
     fs.writeFileSync(logArtifactPath, 'execution log\n', 'utf8');
+    fs.writeFileSync(defectSummaryPath, `${JSON.stringify(buildDefectSummaryArtifact('frontend-smoke--defect-feedback'), null, 2)}\n`, 'utf8');
     fs.writeFileSync(bugDraftPath, '# Bug draft\n', 'utf8');
 
     runClaimNextTask({
@@ -515,7 +600,7 @@ describe('command chain integration', () => {
       'result-status': 'completed',
       summary: 'defect analysis completed',
       notes: 'bug-draft-ready',
-      'add-artifacts': `bug-draft|report|${bugDraftPath}`
+      'add-artifacts': `defect-summary|report|${defectSummaryPath},bug-draft|report|${bugDraftPath}`
     }, {
       fail: createFail(),
       printJson: vi.fn(),
@@ -531,6 +616,7 @@ describe('command chain integration', () => {
     expect(defectTask?.notes).toContain('route-trigger:automated-execution');
     expect(defectTask?.notes).toContain('route-reason:artifact-contract-missing');
     expect(defectTask?.notes).toContain('bug-draft-ready');
+    expect(defectTask?.artifactRefs).toContain('defect-summary');
     expect(defectTask?.artifactRefs).toContain('bug-draft');
     expect(collaborationTask?.status).toBe('ready');
     expect(stateAfterDefect.executionState.currentStage).toBe('collaboration');

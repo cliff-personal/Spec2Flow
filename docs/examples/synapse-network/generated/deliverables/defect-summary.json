@@ -1,0 +1,13 @@
+{
+  "taskId": "frontend-smoke--defect-feedback",
+  "stage": "defect-feedback",
+  "summary": "The failed smoke run points to an implementation-level defect in the route guard.",
+  "failureType": "implementation",
+  "severity": "high",
+  "evidenceRefs": [
+    "execution-report",
+    "verification-evidence"
+  ],
+  "recommendedAction": "fix-implementation",
+  "bugDraftPath": "spec2flow/outputs/bugs/frontend-smoke-bug-draft.md"
+}

@@ -85,6 +85,9 @@ Primary contract files:
 - `model-adapter-capability.json`
 - `model-adapter-runtime.json`
 
+Runtime configuration reference:
+- [docs/runtime-config-reference.md](runtime-config-reference.md)
+
 ## 3. Agent Workflow Layer
 This layer is responsible for the stages where human intent and repository context need interpretation.
 
@@ -260,6 +263,8 @@ This means a stage is not only a status label. It is also an execution contract 
 - forbidden behavior: bypassing policy gates for PR or issue creation
 - primary output: collaboration handoff artifact
 
+Human approval remains part of `reviewPolicy`, but it does not change the collaboration stage executor name.
+
 ## Structured Handoff Model
 
 The specialists should cooperate through structured task and artifact objects, not through a shared long-running conversation.
@@ -314,9 +319,29 @@ Multi-agent design is primarily a specialization model, not a session-count mode
 
 The recommended default remains:
 
-- one session per `runId + routeName + executorType`
+- one session per specialist agent name
 
-That gives each specialist enough continuity for one route and one responsibility without turning the entire workflow into one polluted session.
+The bundled Copilot runtime now uses `specialistSessionKey`, which resolves to the specialist role name such as `requirements-agent` or `implementation-agent`.
+
+That keeps session reuse stable across workflow runs and routes while still separating responsibilities by specialist.
+
+Only stable single-role keys are persisted by default. When a runtime supplies a multi-part key such as `runId + routeName + executorType`, the bundled adapter now treats that session as ephemeral, removes any stale record left by older runs, and leaves no session-store file behind after the task finishes.
+
+The current adapter template context also exposes override keys for repositories that intentionally want a different tradeoff. They are not the default operating model:
+
+- `specialistSessionKey`
+- `runSessionKey`
+- `routeSessionKey`
+- `stageSessionKey`
+- `executorSessionKey`
+- `routeExecutorSessionKey`
+- `taskSessionKey`
+
+The built-in default already uses `specialistSessionKey`, which scopes Copilot CLI sessions directly to names such as `requirements-agent`, `implementation-agent`, or `defect-agent`.
+
+If a repository wants to keep dynamic multi-part keys durable anyway, it must opt in explicitly through `SPEC2FLOW_COPILOT_SESSION_PERSIST_MODE=always`. Without any extra configuration, the bundled adapter uses the cleanup-safe `auto` behavior: persist only stable specialist keys and keep dynamic keys ephemeral.
+
+The field-level runtime configuration reference lives in [docs/runtime-config-reference.md](runtime-config-reference.md). Keep session-key, persistence-mode, env-field, and `stageRuntimeRefs` details there rather than duplicating them across architecture and usage docs.
 
 This means:
 
@@ -492,7 +517,7 @@ The bundled example adapter now uses GitHub Copilot CLI programmatic prompt mode
 
 The adapter can now reuse Copilot CLI sessions through `--resume`, but session routing stays in the adapter layer rather than the controller layer.
 
-The recommended routing is one session per `runId + routeName + executorType`. That preserves continuity for one specialist responsibility while keeping execution state, dependencies, artifacts, and failure handling outside the model session.
+The bundled runtime now defaults to one session per specialist agent name through `specialistSessionKey`. That preserves continuity for one specialist responsibility while preventing new workflow runs from spawning duplicate sessions for the same agent.
 
 This means Spec2Flow does not assume one global chat for a workflow run, and it also does not require one fresh session per task. The adapter chooses the right middle ground based on provider behavior and the workflow's specialization boundaries.
 
@@ -501,9 +526,13 @@ GitHub Copilot Chat inside the IDE should still be treated as an interactive sur
 The runtime contract is:
 
 1. `claim-next-task` emits one task claim
-2. `run-task-with-adapter` or `run-workflow-loop --adapter-runtime ...` executes the external command
+2. `run-deterministic-task`, `run-task-with-adapter`, or `run-workflow-loop --adapter-runtime ...` executes the task through the declared runtime path
 3. the external command returns one structured result
 4. Spec2Flow writes that result into `execution-state.json`
+
+One `model-adapter-runtime.json` file can now stay as the loop entrypoint while delegating specific stages to different runtime files through `stageRuntimeRefs`. This keeps the controller command surface stable while allowing deterministic and provider-backed stages to coexist in one workflow run.
+
+Use [docs/runtime-config-reference.md](runtime-config-reference.md) for the runtime field meanings and override rules.
 
 This keeps the controller/provider seam explicit and replaceable.
 
@@ -517,12 +546,14 @@ The current CLI responsibilities are:
 - `claim-next-task`: choose the next ready `taskId`, mark it in progress, and emit a model-facing task payload
 - `submit-task-result`: persist the output of one claimed task and unlock downstream nodes
 - `simulate-model-run`: emulate a provider adapter and validate the full claim-to-result loop
+- `run-deterministic-task`: execute one claimed deterministic task directly through the Spec2Flow CLI for controller-approved stages such as `environment-preparation` and `automated-execution`
 - `run-task-with-adapter`: execute one claimed task through an external provider adapter command
 - `run-workflow-loop`: repeatedly claim and execute tasks until the run completes or reaches a configured step cap
 
 This means the current implementation boundary is:
 - Spec2Flow CLI now handles planning-state persistence, deterministic status transitions, task claiming, and task result write-back
-- a provider adapter can now be any external command described by `model-adapter-runtime.json`
+- Spec2Flow CLI can now deterministically execute selected stages without an external provider when the task is controller-safe
+- a provider adapter can now be any external command described by `model-adapter-runtime.json`, and one runtime file can delegate selected stages to other runtime files
 - `simulate-model-run` still exists to validate the loop without a provider dependency
 - `run-workflow-loop` can now drive multiple subtasks either through simulation or through an external adapter command using the same persisted runtime contracts
 
@@ -743,7 +774,7 @@ For the current implementation, the most defensible operating model is:
 
 1. keep Spec2Flow focused on workflow orchestration and persisted state
 2. keep stage-to-role mapping explicit through `executorType` and stage policy
-3. keep one tool-enabled specialist session per `runId + routeName + executorType`
+3. keep one tool-enabled specialist session per specialist agent name by default, and opt into narrower keys only when isolation matters more than continuity
 4. allow stage-specific write and shell permissions through the adapter runtime
 5. use repository-native validation commands as the default execution layer
 6. route defect loops by failure class instead of always returning to requirements analysis

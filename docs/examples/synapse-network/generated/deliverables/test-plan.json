@@ -1,0 +1,18 @@
+{
+  "taskId": "frontend-smoke--test-design",
+  "stage": "test-design",
+  "goal": "Design smoke coverage for frontend-smoke",
+  "summary": "Focus on one happy-path smoke case and one blocking edge case.",
+  "cases": [
+    {
+      "id": "frontend-smoke-happy-path",
+      "title": "Frontend smoke happy path",
+      "level": "smoke",
+      "priority": "high",
+      "objective": "Verify the smoke route renders without blocking errors.",
+      "targetFiles": [
+        "apps/frontend/src/App.tsx"
+      ]
+    }
+  ]
+}

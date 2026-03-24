@@ -1,5 +1,13 @@
 # CLI Refactor Plan
 
+- Status: historical
+- Source of truth: `packages/cli/src/`, `docs/architecture.md`, `docs/copilot.md`
+- Verified with: archived for reference only
+
+## Archive Note
+
+This refactor plan is complete and retained only as code archaeology. The active CLI structure is described by the current source tree and repository structure docs.
+
 ## Goal
 
 Split the original CLI monolith by domain responsibility while keeping the CLI surface stable during the migration.

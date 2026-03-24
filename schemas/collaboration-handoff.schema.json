@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/collaboration-handoff.schema.json",
+  "title": "Spec2Flow Collaboration Handoff",
+  "description": "Structured handoff artifact for the collaboration stage.",
+  "type": "object",
+  "required": ["taskId", "stage", "summary", "handoffType", "readiness", "approvalRequired", "artifactRefs", "nextActions", "reviewPolicy"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "const": "collaboration"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "handoffType": {
+      "type": "string",
+      "enum": ["pull-request", "issue", "review", "status-update"]
+    },
+    "readiness": {
+      "type": "string",
+      "enum": ["ready", "blocked", "awaiting-approval"]
+    },
+    "approvalRequired": {
+      "type": "boolean"
+    },
+    "artifactRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nextActions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reviewPolicy": {
+      "type": "object",
+      "required": ["required", "reviewAgentCount", "requireHumanApproval"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "reviewAgentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requireHumanApproval": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

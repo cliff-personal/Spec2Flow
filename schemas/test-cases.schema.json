@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/test-cases.schema.json",
+  "title": "Spec2Flow Test Cases",
+  "description": "Structured test cases for the test-design stage.",
+  "type": "object",
+  "required": ["taskId", "stage", "goal", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "const": "test-design"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "priority", "automationCandidate", "steps", "expectedResults"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "automationCandidate": {
+            "type": "boolean"
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expectedResults": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "targetFiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

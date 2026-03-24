@@ -92,6 +92,13 @@ describe('run-task-with-adapter-command', () => {
 
   it('prints the adapter run payload when no output path is provided', () => {
     const printJson = vi.fn();
+    const adapterRuntimePayload = { adapterRuntime: { command: 'adapter-command', outputMode: 'stdout' } };
+    const claimPayload = {
+      taskClaim: {
+        taskId: 'frontend-smoke--requirements-analysis',
+        stage: 'requirements-analysis'
+      }
+    };
     const outputPayload = {
       adapterRun: { status: 'completed' },
       receipt: { taskId: 'frontend-smoke--requirements-analysis', status: 'completed' }
@@ -110,12 +117,78 @@ describe('run-task-with-adapter-command', () => {
       getRouteNameFromTaskId: vi.fn(),
       parseCsvOption: vi.fn(),
       printJson,
-      readStructuredFile: vi.fn(() => ({})),
+      readStructuredFile: vi.fn((filePath: string) => filePath === 'adapter-runtime.json' ? adapterRuntimePayload : claimPayload),
       sanitizeStageName: vi.fn(),
       validateAdapterRuntimePayload: vi.fn(),
       writeJson: vi.fn()
     });
 
     expect(printJson).toHaveBeenCalledWith(outputPayload);
+  });
+
+  it('preflights the stage-selected runtime when stage runtime refs are configured', () => {
+    const rootRuntimePayload = {
+      adapterRuntime: {
+        command: 'root-command',
+        outputMode: 'stdout',
+        stageRuntimeRefs: {
+          'environment-preparation': './deterministic-runtime.json'
+        }
+      }
+    };
+    const deterministicRuntimePayload = {
+      adapterRuntime: {
+        command: 'deterministic-command',
+        provider: 'spec2flow-deterministic',
+        outputMode: 'stdout'
+      }
+    };
+    const claimPayload = {
+      taskClaim: {
+        taskId: 'environment-preparation',
+        stage: 'environment-preparation'
+      }
+    };
+    const ensureAdapterPreflight = vi.fn();
+    const validateAdapterRuntimePayload = vi.fn();
+
+    mocks.executeTaskRun.mockReturnValue({
+      adapterRun: { status: 'completed' },
+      receipt: { taskId: 'environment-preparation', status: 'completed' }
+    });
+
+    runTaskWithAdapter({
+      state: 'execution-state.json',
+      'task-graph': 'task-graph.json',
+      claim: 'task-claim.json',
+      'adapter-runtime': '/tmp/root-runtime.json'
+    }, {
+      ensureAdapterPreflight,
+      fail: vi.fn(),
+      getRouteNameFromTaskId: vi.fn(),
+      parseCsvOption: vi.fn(),
+      printJson: vi.fn(),
+      readStructuredFile: vi.fn((filePath: string) => {
+        if (filePath === '/tmp/root-runtime.json') {
+          return rootRuntimePayload;
+        }
+        if (filePath === '/tmp/deterministic-runtime.json') {
+          return deterministicRuntimePayload;
+        }
+        return claimPayload;
+      }),
+      sanitizeStageName: vi.fn(),
+      validateAdapterRuntimePayload,
+      writeJson: vi.fn()
+    });
+
+    expect(validateAdapterRuntimePayload).toHaveBeenNthCalledWith(1, rootRuntimePayload, '/tmp/root-runtime.json');
+    expect(validateAdapterRuntimePayload).toHaveBeenNthCalledWith(2, deterministicRuntimePayload, '/tmp/deterministic-runtime.json');
+    expect(ensureAdapterPreflight).toHaveBeenCalledWith({
+      state: 'execution-state.json',
+      'task-graph': 'task-graph.json',
+      claim: 'task-claim.json',
+      'adapter-runtime': '/tmp/root-runtime.json'
+    }, deterministicRuntimePayload);
   });
 });

@@ -158,23 +158,20 @@ The next implementation target is to establish:
 - a minimal execution baseline through canonical validation commands and Playwright where needed
 - a GitHub Issues-based defect feedback loop
 
-The repository now includes a baseline GitHub Actions validation workflow at `.github/workflows/validate.yml` that runs `npm run build`, `npm run test:unit`, and `npm run validate:docs` on pull requests and pushes to `main`.
-
 ## Key Docs
 
+- Docs governance lives in two places: use [docs/structure.md](docs/structure.md) for active documentation layout rules and [docs/plans/index.md](docs/plans/index.md) for archived and plan-only placement rules.
 - [AGENTS.md](AGENTS.md)
 - [llms.txt](llms.txt)
 - [docs/index.md](docs/index.md)
 - [docs/copilot.md](docs/copilot.md)
 - [docs/Harness_engineering.md](docs/Harness_engineering.md)
-- [docs/mvp.md](docs/mvp.md)
 - [docs/architecture.md](docs/architecture.md)
-- [docs/roadmap.md](docs/roadmap.md)
 - [docs/structure.md](docs/structure.md)
 - [docs/collaboration.md](docs/collaboration.md)
-- [docs/implementation-plan.md](docs/implementation-plan.md)
-- [docs/full-implementation-plan.md](docs/full-implementation-plan.md)
 - [docs/usage-guide.md](docs/usage-guide.md)
+- [docs/plans/index.md](docs/plans/index.md)
+- [docs/plans/historical/index.md](docs/plans/historical/index.md)
 - [docs/synapse-integration-automation-design.md](docs/synapse-integration-automation-design.md)
 
 ## Current Contracts

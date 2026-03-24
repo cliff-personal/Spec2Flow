@@ -25,11 +25,28 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1
+        },
         "outputMode": {
           "type": "string",
           "enum": ["stdout", "file"]
         },
-        "outputPath": { "type": "string", "minLength": 1 }
+        "outputPath": { "type": "string", "minLength": 1 },
+        "stageRuntimeRefs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "environment-preparation": { "type": "string", "minLength": 1 },
+            "requirements-analysis": { "type": "string", "minLength": 1 },
+            "code-implementation": { "type": "string", "minLength": 1 },
+            "test-design": { "type": "string", "minLength": 1 },
+            "automated-execution": { "type": "string", "minLength": 1 },
+            "defect-feedback": { "type": "string", "minLength": 1 },
+            "collaboration": { "type": "string", "minLength": 1 }
+          }
+        }
       }
     }
   }

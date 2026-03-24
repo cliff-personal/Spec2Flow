@@ -406,7 +406,7 @@ spec2flow:
 
 - 由 Spec2Flow controller 根据 `taskId` 和 stage 选择执行角色
 - 由 provider adapter 为这个角色装配上下文、权限和能力
-- 在 provider 内复用合适粒度的 session，例如 `runId + routeName + executorType`
+- 在 provider 内复用合适粒度的 session，例如固定 specialist agent session，或在需要更强隔离时使用 `runId + routeName + executorType`
 
 这意味着“多 agent”首先是一个职责分离模型，其次才是一个会话数量模型。
 

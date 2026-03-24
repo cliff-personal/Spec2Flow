@@ -1,5 +1,13 @@
 # TypeScript Migration Plan
 
+- Status: historical
+- Source of truth: `packages/cli/src/`, `packages/cli/dist/`, `docs/copilot.md`
+- Verified with: archived for reference only
+
+## Archive Note
+
+This migration plan is complete enough to archive. The repository now uses the TypeScript CLI source tree and compiled dist runtime as the active implementation surface.
+
 ## Goal
 
 Migrate Spec2Flow to TypeScript incrementally while preserving:

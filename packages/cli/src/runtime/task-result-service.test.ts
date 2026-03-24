@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import process from 'node:process';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyTaskResult } from './task-result-service.js';
 import type { ExecutionStateDocument } from '../types/execution-state.js';
 import type { TaskGraphDocument, TaskRoleProfile } from '../types/task-graph.js';
@@ -102,6 +103,267 @@ function createWorkflowDocuments(): { taskGraphPayload: TaskGraphDocument; execu
   };
 }
 
+function createPhaseTwoWorkflowDocuments(): { taskGraphPayload: TaskGraphDocument; executionStatePayload: ExecutionStateDocument; statePath: string } {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-task-result-phase-two-'));
+  tempDirs.push(tempDir);
+  const statePath = path.join(tempDir, 'execution-state.json');
+
+  return {
+    statePath,
+    taskGraphPayload: {
+      taskGraph: {
+        id: 'workflow',
+        workflowName: 'workflow',
+        tasks: [
+          {
+            id: 'frontend-smoke--requirements-analysis',
+            stage: 'requirements-analysis',
+            title: 'Analyze requirements',
+            goal: 'Analyze requirements',
+            executorType: 'requirements-agent',
+            roleProfile: createRoleProfile('requirements-agent', 'requirements-analysis-specialist', ['requirements-summary'], 'none'),
+            status: 'ready',
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
+          },
+          {
+            id: 'frontend-smoke--code-implementation',
+            stage: 'code-implementation',
+            title: 'Implement change',
+            goal: 'Implement change',
+            executorType: 'implementation-agent',
+            roleProfile: createRoleProfile('implementation-agent', 'code-implementation-specialist', ['implementation-summary'], 'safe-repo-commands'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--requirements-analysis'],
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
+          },
+          {
+            id: 'frontend-smoke--test-design',
+            stage: 'test-design',
+            title: 'Design tests',
+            goal: 'Design tests',
+            executorType: 'test-design-agent',
+            roleProfile: createRoleProfile('test-design-agent', 'test-design-specialist', ['test-plan', 'test-cases'], 'safe-repo-commands'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--code-implementation'],
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
+          },
+          {
+            id: 'frontend-smoke--automated-execution',
+            stage: 'automated-execution',
+            title: 'Run checks',
+            goal: 'Run checks',
+            executorType: 'execution-agent',
+            roleProfile: createRoleProfile('execution-agent', 'automated-execution-specialist', ['execution-report', 'verification-evidence'], 'verification-only'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--test-design'],
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
+          },
+          {
+            id: 'frontend-smoke--defect-feedback',
+            stage: 'defect-feedback',
+            title: 'Analyze defects',
+            goal: 'Analyze defects',
+            executorType: 'defect-agent',
+            roleProfile: createRoleProfile('defect-agent', 'defect-feedback-specialist', ['defect-summary'], 'none'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--automated-execution'],
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
+          },
+          {
+            id: 'frontend-smoke--collaboration',
+            stage: 'collaboration',
+            title: 'Collaborate',
+            goal: 'Collaborate',
+            executorType: 'collaboration-agent',
+            roleProfile: createRoleProfile('collaboration-agent', 'collaboration-specialist', ['collaboration-handoff'], 'collaboration-only'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--defect-feedback'],
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
+          }
+        ]
+      }
+    },
+    executionStatePayload: {
+      executionState: {
+        runId: 'run-1',
+        workflowName: 'workflow',
+        status: 'running',
+        tasks: [
+          {
+            taskId: 'frontend-smoke--requirements-analysis',
+            status: 'ready',
+            executor: 'requirements-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--code-implementation',
+            status: 'pending',
+            executor: 'implementation-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--test-design',
+            status: 'pending',
+            executor: 'test-design-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--automated-execution',
+            status: 'pending',
+            executor: 'execution-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--defect-feedback',
+            status: 'pending',
+            executor: 'defect-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--collaboration',
+            status: 'pending',
+            executor: 'collaboration-agent',
+            artifactRefs: [],
+            notes: []
+          }
+        ],
+        artifacts: [],
+        errors: []
+      }
+    }
+  };
+}
+
+function writeRequirementSummary(filePath: string, taskId: string): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'requirements-analysis',
+    goal: 'Analyze requirements',
+    summary: 'Requirements are scoped and summarized.',
+    sources: ['docs/architecture.md']
+  }, null, 2)}\n`, 'utf8');
+}
+
+function writeImplementationSummary(filePath: string, taskId: string): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'code-implementation',
+    goal: 'Implement change',
+    summary: 'Applied the implementation update.',
+    changedFiles: [
+      {
+        path: 'packages/cli/src/runtime/task-result-service.ts',
+        changeType: 'modified'
+      }
+    ]
+  }, null, 2)}\n`, 'utf8');
+}
+
+function writeTestPlan(filePath: string, taskId: string): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'test-design',
+    goal: 'Design tests',
+    summary: 'Covers the main smoke path.',
+    cases: [
+      {
+        id: 'smoke-path',
+        title: 'Smoke path',
+        level: 'smoke',
+        priority: 'high'
+      }
+    ]
+  }, null, 2)}\n`, 'utf8');
+}
+
+function writeTestCases(filePath: string, taskId: string): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'test-design',
+    goal: 'Design tests',
+    cases: [
+      {
+        id: 'smoke-path',
+        title: 'Smoke path',
+        priority: 'high',
+        automationCandidate: true,
+        steps: [
+          'Run the schema-backed test-design task.',
+          'Collect the generated artifacts.'
+        ],
+        expectedResults: [
+          'Both test-plan and test-cases artifacts are persisted.',
+          'The automated-execution stage receives ready status.'
+        ]
+      }
+    ]
+  }, null, 2)}\n`, 'utf8');
+}
+
+function writeCollaborationHandoff(filePath: string, taskId: string, readiness: 'ready' | 'blocked' | 'awaiting-approval'): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'collaboration',
+    summary: 'The change is ready for a review handoff.',
+    handoffType: 'review',
+    readiness,
+    approvalRequired: true,
+    artifactRefs: ['implementation-summary', 'execution-report'],
+    nextActions: ['Request human review'],
+    reviewPolicy: {
+      required: true,
+      reviewAgentCount: 1,
+      requireHumanApproval: true
+    }
+  }, null, 2)}\n`, 'utf8');
+}
+
+function writeExecutionReport(filePath: string, taskId: string): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'automated-execution',
+    goal: 'Run checks',
+    summary: 'Executed the validation path and collected evidence.',
+    outcome: 'partial',
+    commands: [
+      {
+        command: 'npm run test:unit',
+        status: 'passed',
+        exitCode: 0
+      }
+    ]
+  }, null, 2)}\n`, 'utf8');
+}
+
 afterEach(() => {
   while (tempDirs.length > 0) {
     const tempDir = tempDirs.pop();
@@ -111,9 +373,20 @@ afterEach(() => {
   }
 });
 
+function getTaskState(executionStatePayload: ExecutionStateDocument, index: number) {
+  const taskState = executionStatePayload.executionState.tasks[index];
+  if (!taskState) {
+    throw new Error(`missing task state at index ${index}`);
+  }
+
+  return taskState;
+}
+
 describe('task-result-service', () => {
   it('routes to defect feedback when automated execution artifacts are missing', () => {
     const { executionStatePayload, taskGraphPayload, statePath } = createWorkflowDocuments();
+    const executionReportPath = path.join(path.dirname(statePath), 'execution-report.json');
+    writeExecutionReport(executionReportPath, 'frontend-smoke--automated-execution');
 
     applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
       taskId: 'frontend-smoke--automated-execution',
@@ -123,7 +396,7 @@ describe('task-result-service', () => {
         {
           id: 'execution-report',
           kind: 'report',
-          path: 'tmp/execution-report.json',
+          path: executionReportPath,
           taskId: 'frontend-smoke--automated-execution'
         }
       ],
@@ -137,6 +410,8 @@ describe('task-result-service', () => {
 
   it('auto-skips defect feedback when automated execution artifact contract is satisfied', () => {
     const { executionStatePayload, taskGraphPayload, statePath } = createWorkflowDocuments();
+    const executionReportPath = path.join(path.dirname(statePath), 'execution-report.json');
+    writeExecutionReport(executionReportPath, 'frontend-smoke--automated-execution');
 
     applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
       taskId: 'frontend-smoke--automated-execution',
@@ -146,7 +421,7 @@ describe('task-result-service', () => {
         {
           id: 'execution-report',
           kind: 'report',
-          path: 'tmp/execution-report.json',
+          path: executionReportPath,
           taskId: 'frontend-smoke--automated-execution'
         },
         {
@@ -162,5 +437,254 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[1]?.status).toBe('skipped');
     expect(executionStatePayload.executionState.tasks[1]?.notes).toContain('route-auto-skip:defect-feedback');
     expect(executionStatePayload.executionState.tasks[2]?.status).toBe('ready');
+  });
+
+  it('fails when a schema-backed artifact payload does not match its contract', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createWorkflowDocuments();
+    const invalidExecutionReportPath = path.join(path.dirname(statePath), 'execution-report.json');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    fs.writeFileSync(invalidExecutionReportPath, '{"not":"an execution report"}\n', 'utf8');
+
+    expect(() => applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--automated-execution',
+      taskStatus: 'completed',
+      notes: ['summary:execution-finished'],
+      artifacts: [
+        {
+          id: 'execution-report',
+          kind: 'report',
+          path: invalidExecutionReportPath,
+          taskId: 'frontend-smoke--automated-execution'
+        }
+      ],
+      errors: []
+    })).toThrow('process.exit:1');
+
+    exitSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('routes requirements-analysis failures into defect-feedback and skips downstream implementation stages', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+
+    applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--requirements-analysis',
+      taskStatus: 'failed',
+      notes: ['summary:requirements-failed'],
+      artifacts: [],
+      errors: [
+        {
+          code: 'requirements-conflict',
+          message: 'The requirement scope is inconsistent.',
+          taskId: 'frontend-smoke--requirements-analysis'
+        }
+      ]
+    });
+
+    expect(executionStatePayload.executionState.tasks[1]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[2]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[3]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[4]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[4]?.notes).toContain('route-class:requirement-misunderstanding');
+  });
+
+  it('routes implementation failures into defect-feedback and skips downstream execution stages', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const implementationSummaryPath = path.join(path.dirname(statePath), 'implementation-summary.json');
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'ready';
+    writeImplementationSummary(implementationSummaryPath, 'frontend-smoke--code-implementation');
+
+    applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--code-implementation',
+      taskStatus: 'blocked',
+      notes: ['summary:implementation-blocked'],
+      artifacts: [
+        {
+          id: 'implementation-summary',
+          kind: 'report',
+          path: implementationSummaryPath,
+          taskId: 'frontend-smoke--code-implementation'
+        }
+      ],
+      errors: [
+        {
+          code: 'implementation-defect',
+          message: 'The implementation failed validation.',
+          taskId: 'frontend-smoke--code-implementation'
+        }
+      ]
+    });
+
+    expect(executionStatePayload.executionState.tasks[2]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[3]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[4]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[4]?.notes).toContain('route-class:implementation-defect');
+  });
+
+  it('routes weak test-design outputs into defect-feedback when the test artifact contract is incomplete', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const testPlanPath = path.join(path.dirname(statePath), 'test-plan.json');
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'ready';
+    writeTestPlan(testPlanPath, 'frontend-smoke--test-design');
+
+    applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--test-design',
+      taskStatus: 'completed',
+      notes: ['summary:test-design-partial'],
+      artifacts: [
+        {
+          id: 'test-plan',
+          kind: 'report',
+          path: testPlanPath,
+          taskId: 'frontend-smoke--test-design'
+        }
+      ],
+      errors: []
+    });
+
+    expect(executionStatePayload.executionState.tasks[3]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[4]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[4]?.notes).toContain('route-class:missing-or-weak-test-coverage');
+  });
+
+  it('advances test-design to automated-execution when both schema-backed test artifacts are valid', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const testPlanPath = path.join(path.dirname(statePath), 'test-plan.json');
+    const testCasesPath = path.join(path.dirname(statePath), 'test-cases.json');
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'ready';
+    writeTestPlan(testPlanPath, 'frontend-smoke--test-design');
+    writeTestCases(testCasesPath, 'frontend-smoke--test-design');
+
+    const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--test-design',
+      taskStatus: 'completed',
+      notes: ['summary:test-design-complete'],
+      artifacts: [
+        {
+          id: 'test-plan',
+          kind: 'report',
+          path: testPlanPath,
+          taskId: 'frontend-smoke--test-design'
+        },
+        {
+          id: 'test-cases',
+          kind: 'report',
+          path: testCasesPath,
+          taskId: 'frontend-smoke--test-design'
+        }
+      ],
+      errors: []
+    });
+
+    expect(receipt.taskResult.status).toBe('completed');
+    expect(receipt.taskResult.artifactContract.status).toBe('satisfied');
+    expect(executionStatePayload.executionState.tasks[2]?.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[3]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[4]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.currentStage).toBe('automated-execution');
+  });
+
+  it('rejects invalid test-cases artifacts before persisting a test-design result', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const testPlanPath = path.join(path.dirname(statePath), 'test-plan.json');
+    const invalidTestCasesPath = path.join(path.dirname(statePath), 'test-cases.json');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'ready';
+    writeTestPlan(testPlanPath, 'frontend-smoke--test-design');
+    fs.writeFileSync(statePath, `${JSON.stringify(executionStatePayload, null, 2)}\n`, 'utf8');
+    fs.writeFileSync(invalidTestCasesPath, `${JSON.stringify({
+      taskId: 'frontend-smoke--test-design',
+      stage: 'test-design',
+      goal: 'Design tests',
+      cases: [
+        {
+          id: 'missing-expected-results',
+          title: 'Missing expected results',
+          priority: 'critical',
+          automationCandidate: true,
+          steps: ['Submit an invalid test-cases artifact.']
+        }
+      ]
+    }, null, 2)}\n`, 'utf8');
+
+    expect(() => applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--test-design',
+      taskStatus: 'completed',
+      notes: ['summary:test-design-invalid'],
+      artifacts: [
+        {
+          id: 'test-plan',
+          kind: 'report',
+          path: testPlanPath,
+          taskId: 'frontend-smoke--test-design'
+        },
+        {
+          id: 'test-cases',
+          kind: 'report',
+          path: invalidTestCasesPath,
+          taskId: 'frontend-smoke--test-design'
+        }
+      ],
+      errors: []
+    })).toThrow('process.exit:1');
+
+    const persistedState = JSON.parse(fs.readFileSync(statePath, 'utf8')) as ExecutionStateDocument;
+    expect(persistedState.executionState.tasks[2]?.status).toBe('ready');
+    expect(persistedState.executionState.tasks[3]?.status).toBe('pending');
+    expect(persistedState.executionState.artifacts).toHaveLength(0);
+
+    exitSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('blocks collaboration completion when human approval is still pending', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const collaborationHandoffPath = path.join(path.dirname(statePath), 'collaboration-handoff.json');
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'completed';
+    getTaskState(executionStatePayload, 3).status = 'completed';
+    getTaskState(executionStatePayload, 4).status = 'completed';
+    getTaskState(executionStatePayload, 5).status = 'ready';
+    writeCollaborationHandoff(collaborationHandoffPath, 'frontend-smoke--collaboration', 'awaiting-approval');
+
+    const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--collaboration',
+      taskStatus: 'completed',
+      notes: ['summary:collaboration-handoff-prepared'],
+      artifacts: [
+        {
+          id: 'collaboration-handoff',
+          kind: 'report',
+          path: collaborationHandoffPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ],
+      errors: []
+    });
+
+    expect(receipt.taskResult.status).toBe('blocked');
+    expect(executionStatePayload.executionState.tasks[5]?.status).toBe('blocked');
+    expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('approval-gate:human-approval-required');
+    expect(executionStatePayload.executionState.status).toBe('blocked');
   });
 });

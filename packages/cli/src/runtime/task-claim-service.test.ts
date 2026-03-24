@@ -33,7 +33,7 @@ describe('task-claim-service', () => {
           }
         }
       })
-    ).toEqual(['docs/vision.md', 'docs/architecture.md']);
+    ).toEqual(['AGENTS.md', '.github/copilot-instructions.md', 'docs/vision.md', 'docs/architecture.md']);
   });
 
   it('marks the next ready task in progress and returns a structured task claim', () => {
@@ -159,7 +159,7 @@ describe('task-claim-service', () => {
       requirementRef: 'requirements/provider-registration.md',
       routeSelectionMode: 'requirement',
       selectedRoutes: ['provider-registration-flow'],
-      docs: ['docs/vision.md', 'docs/architecture.md'],
+      docs: ['AGENTS.md', '.github/copilot-instructions.md', 'docs/vision.md', 'docs/architecture.md'],
       changedFiles: ['services/provider-service/app.ts']
     });
     expect(claimPayload.taskClaim?.runtimeContext.attempt).toBe(1);

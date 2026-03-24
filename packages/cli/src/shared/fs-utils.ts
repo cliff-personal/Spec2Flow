@@ -15,8 +15,16 @@ export function resolveFromCwd(value: string): string {
   return path.resolve(process.cwd(), value);
 }
 
+export function resolveFromBaseDir(baseDir: string | undefined, value: string): string {
+  return path.resolve(baseDir ?? process.cwd(), value);
+}
+
 export function readStructuredFile(filePath: string): unknown {
-  const resolvedPath = resolveFromCwd(filePath);
+  return readStructuredFileFrom(undefined, filePath);
+}
+
+export function readStructuredFileFrom(baseDir: string | undefined, filePath: string): unknown {
+  const resolvedPath = resolveFromBaseDir(baseDir, filePath);
   const content = fs.readFileSync(resolvedPath, 'utf8');
 
   if (resolvedPath.endsWith('.json')) {
@@ -31,7 +39,7 @@ export function readJsonFile<T = unknown>(filePath: string): T {
 }
 
 export function readTextFile(filePath: string): string {
-  return fs.readFileSync(resolveFromCwd(filePath), 'utf8');
+  return fs.readFileSync(resolveFromBaseDir(undefined, filePath), 'utf8');
 }
 
 export function readChangedFilesContent(content: string): string[] {
@@ -46,17 +54,25 @@ export function ensureDirForFile(filePath: string): void {
 }
 
 export function writeJson(filePath: string, data: unknown): void {
-  const resolvedPath = resolveFromCwd(filePath);
+  writeJsonFrom(undefined, filePath, data);
+}
+
+export function writeJsonFrom(baseDir: string | undefined, filePath: string, data: unknown): void {
+  const resolvedPath = resolveFromBaseDir(baseDir, filePath);
   ensureDirForFile(resolvedPath);
   fs.writeFileSync(resolvedPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 
 export function resolveMaybeFromCwd(value: string | undefined): string | null {
+  return resolveMaybeFromBaseDir(undefined, value);
+}
+
+export function resolveMaybeFromBaseDir(baseDir: string | undefined, value: string | undefined): string | null {
   if (!value) {
     return null;
   }
 
-  return resolveFromCwd(value);
+  return resolveFromBaseDir(baseDir, value);
 }
 
 export function fileExists(filePath: string): boolean {
@@ -68,14 +84,16 @@ export function fileExists(filePath: string): boolean {
 }
 
 export function loadOptionalStructuredFile<T = unknown>(filePath: string | undefined): T | null {
-  const resolvedPath = resolveMaybeFromCwd(filePath);
+  return loadOptionalStructuredFileFrom(undefined, filePath);
+}
+
+export function loadOptionalStructuredFileFrom<T = unknown>(baseDir: string | undefined, filePath: string | undefined): T | null {
+  const resolvedPath = resolveMaybeFromBaseDir(baseDir, filePath);
   if (!resolvedPath || !fileExists(resolvedPath)) {
     return null;
   }
 
-  const existingFilePath = filePath as string;
-
-  return readStructuredFile(existingFilePath) as T;
+  return readStructuredFileFrom(baseDir, filePath as string) as T;
 }
 
 export function printJson(data: unknown): void {

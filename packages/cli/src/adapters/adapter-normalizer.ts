@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { fail, fileExists, readStructuredFile, resolveFromCwd } from '../shared/fs-utils.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import type {
@@ -34,6 +36,64 @@ interface AdapterRunActivityLike {
   collaborationActions?: unknown;
 }
 
+const schemaBackedArtifactIds = new Set([
+  'environment-preparation-report',
+  'requirements-summary',
+  'implementation-summary',
+  'test-plan',
+  'test-cases',
+  'execution-report',
+  'defect-summary',
+  'collaboration-handoff'
+]);
+
+function normalizePathSeparators(filePath: string): string {
+  return filePath.replaceAll('\\', '/');
+}
+
+function isPathWithinDirectory(filePath: string, directoryPath: string): boolean {
+  const relativePath = path.relative(directoryPath, filePath);
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+function inferRepositoryRoot(adapterRuntimePayload: AdapterRuntimeDocument, claimPayload: TaskClaimPayload): string | null {
+  const runtimeCwd = adapterRuntimePayload.adapterRuntime.cwd?.trim();
+  if (runtimeCwd) {
+    return path.resolve(runtimeCwd);
+  }
+
+  const projectAdapterRef = claimPayload.taskClaim?.repositoryContext.projectAdapterRef?.trim();
+  if (!projectAdapterRef) {
+    return null;
+  }
+
+  const resolvedProjectAdapterRef = resolveFromCwd(projectAdapterRef);
+  return path.resolve(path.dirname(resolvedProjectAdapterRef), '..');
+}
+
+function normalizeEditedFilePath(filePath: string, repositoryRoot: string | null): string | null {
+  const normalizedInput = normalizePathSeparators(filePath.trim());
+  if (!normalizedInput) {
+    return null;
+  }
+
+  if (!repositoryRoot) {
+    return normalizedInput;
+  }
+
+  if (!path.isAbsolute(normalizedInput)) {
+    return normalizedInput;
+  }
+
+  const resolvedFilePath = path.resolve(normalizedInput);
+  if (!isPathWithinDirectory(resolvedFilePath, repositoryRoot)) {
+    return null;
+  }
+
+  const relativePath = path.relative(repositoryRoot, resolvedFilePath);
+  return normalizePathSeparators(relativePath || path.basename(resolvedFilePath));
+}
+
 export function buildAdapterTemplateContext(
   claimPayload: TaskClaimPayload,
   statePath: string,
@@ -48,6 +108,7 @@ export function buildAdapterTemplateContext(
   const provider = (claim.runtimeContext?.provider ?? {}) as { adapter?: string; sessionId?: string };
   const routeName = options.getRouteNameFromTaskId(claim.taskId ?? '');
   const sessionNamespace = provider.sessionId ?? claim.runId ?? '';
+  const specialistSessionScope = claim.roleProfile.specialistRole ?? claim.executorType ?? '';
 
   const buildSessionKey = (...parts: string[]) => parts.filter(Boolean).join('::');
 
@@ -67,6 +128,8 @@ export function buildAdapterTemplateContext(
     goal: claim.goal ?? '',
     providerSessionId: provider.sessionId ?? '',
     sessionNamespace,
+    specialistSessionId: specialistSessionScope,
+    specialistSessionKey: buildSessionKey(specialistSessionScope),
     runSessionKey: buildSessionKey(sessionNamespace),
     routeSessionKey: buildSessionKey(sessionNamespace, routeName),
     stageSessionKey: buildSessionKey(sessionNamespace, claim.stage ?? ''),
@@ -95,6 +158,104 @@ export function normalizeAdapterArtifacts(artifacts: AdapterArtifactLike[] | und
     path: artifact.path,
     taskId: artifact.taskId ?? taskId
   }));
+}
+
+function inferArtifactKindFromPath(filePath: string): ArtifactRef['kind'] {
+  const normalizedPath = filePath.trim().toLowerCase();
+  const extension = path.extname(normalizedPath);
+
+  if (normalizedPath.includes('screenshot') || ['.png', '.jpg', '.jpeg', '.webp'].includes(extension)) {
+    return 'screenshot';
+  }
+
+  if (normalizedPath.includes('trace') || extension === '.zip') {
+    return 'trace';
+  }
+
+  if (normalizedPath.includes('bug-draft')) {
+    return 'bug-draft';
+  }
+
+  if (normalizedPath.includes('diff') || extension === '.diff' || extension === '.patch') {
+    return 'diff';
+  }
+
+  if (normalizedPath.includes('log') || extension === '.log') {
+    return 'log';
+  }
+
+  return 'report';
+}
+
+function inferArtifactIdFromPath(filePath: string, fallbackId: string): string {
+  const normalizedPath = filePath.trim().replaceAll('\\', '/');
+  const baseName = path.basename(normalizedPath);
+  const extension = path.extname(baseName);
+  const withoutExtension = extension ? baseName.slice(0, -extension.length) : baseName;
+  const normalizedCharacters: string[] = [];
+  let previousWasSeparator = false;
+
+  for (const character of withoutExtension.toLowerCase()) {
+    const isAlphaNumeric =
+      (character >= 'a' && character <= 'z') ||
+      (character >= '0' && character <= '9');
+
+    if (isAlphaNumeric) {
+      normalizedCharacters.push(character);
+      previousWasSeparator = false;
+      continue;
+    }
+
+    if (!previousWasSeparator && normalizedCharacters.length > 0) {
+      normalizedCharacters.push('-');
+      previousWasSeparator = true;
+    }
+  }
+
+  while (normalizedCharacters.at(-1) === '-') {
+    normalizedCharacters.pop();
+  }
+
+  const normalized = normalizedCharacters.join('');
+
+  return normalized || fallbackId;
+}
+
+function normalizeActivityArtifactFiles(activityArtifactFiles: string[], taskId: string): ArtifactRef[] {
+  return activityArtifactFiles.map((artifactPath, index) => {
+    const fallbackId = `${taskId}-artifact-file-${index + 1}`;
+    const inferredId = inferArtifactIdFromPath(artifactPath, fallbackId);
+    const parsedArtifactPath = path.parse(artifactPath.trim());
+    const id = schemaBackedArtifactIds.has(inferredId) && parsedArtifactPath.ext.toLowerCase() !== '.json'
+      ? fallbackId
+      : inferredId;
+
+    return {
+      id,
+      kind: inferArtifactKindFromPath(artifactPath),
+      path: artifactPath,
+      taskId
+    };
+  });
+}
+
+function mergeArtifactRefs(explicitArtifacts: ArtifactRef[], activityArtifacts: ArtifactRef[]): ArtifactRef[] {
+  const mergedArtifacts = [...explicitArtifacts];
+  const seenKeys = new Set(
+    explicitArtifacts.map((artifact) => `${artifact.id}::${artifact.path}`.toLowerCase())
+  );
+
+  for (const artifact of activityArtifacts) {
+    const artifactKey = `${artifact.id}::${artifact.path}`.toLowerCase();
+    if (seenKeys.has(artifactKey)) {
+      continue;
+    }
+
+    mergedArtifacts.push(artifact);
+    seenKeys.add(artifactKey);
+  }
+
+  return mergedArtifacts;
 }
 
 export function normalizeAdapterErrors(errors: AdapterErrorLike[] | undefined, taskId: string): ErrorItem[] {
@@ -184,6 +345,14 @@ export function normalizeAdapterRunPayload(
     fail('adapter output must be a JSON object or contain an adapterRun object');
   }
 
+  const repositoryRoot = inferRepositoryRoot(adapterRuntimePayload, claimPayload);
+  const normalizedActivity = normalizeAdapterRunActivity(adapterRun.activity);
+  normalizedActivity.editedFiles = normalizedActivity.editedFiles
+    .map((filePath) => normalizeEditedFilePath(filePath, repositoryRoot))
+    .filter((filePath): filePath is string => Boolean(filePath));
+  const explicitArtifacts = normalizeAdapterArtifacts(adapterRun.artifacts, claim.taskId);
+  const activityArtifacts = normalizeActivityArtifactFiles(normalizedActivity.artifactFiles, claim.taskId);
+
   const normalizedPayload: AdapterRunDocument = {
     adapterRun: {
       adapterName: adapterRun.adapterName ?? adapterRuntimePayload.adapterRuntime.name,
@@ -194,8 +363,8 @@ export function normalizeAdapterRunPayload(
       status: adapterRun.status ?? 'completed',
       summary: adapterRun.summary ?? `${claim.taskId}-completed`,
       notes: adapterRun.notes ?? [],
-      activity: normalizeAdapterRunActivity(adapterRun.activity),
-      artifacts: normalizeAdapterArtifacts(adapterRun.artifacts, claim.taskId),
+      activity: normalizedActivity,
+      artifacts: mergeArtifactRefs(explicitArtifacts, activityArtifacts),
       errors: normalizeAdapterErrors(adapterRun.errors, claim.taskId)
     }
   };

@@ -1,7 +1,7 @@
 # Collaboration Workflow
 
 - Status: active
-- Source of truth: `docs/playbooks/collaboration.md`, `docs/usage-guide.md`, `package.json`, `.github/workflows/validate.yml`
+- Source of truth: `docs/playbooks/collaboration.md`, `docs/usage-guide.md`, `package.json`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
 
 ## Goal
@@ -64,8 +64,6 @@ Define a simple, reviewable workflow that connects Copilot, Playwright, GitHub A
 - run validation in a repeatable environment
 - publish artifacts
 - expose run status to pull requests
-
-The current baseline workflow is `.github/workflows/validate.yml`. It runs `npm run build`, `npm run test:unit`, and `npm run validate:docs` for pull requests and pushes to `main`.
 
 ### GitHub Issues
 - track requirements

@@ -1,0 +1,14 @@
+{
+  "taskId": "frontend-smoke--requirements-analysis",
+  "stage": "requirements-analysis",
+  "goal": "Summarize scope, impacted services, and acceptance criteria for frontend-smoke",
+  "summary": "The frontend-smoke route needs a concise requirement handoff before implementation starts.",
+  "sources": [
+    "docs/examples/synapse-network/generated/task-claim.json",
+    "docs/examples/synapse-network/topology.yaml"
+  ],
+  "acceptanceCriteria": [
+    "The route scope stays limited to frontend smoke behavior.",
+    "The next implementation stage can act without rediscovering route intent."
+  ]
+}

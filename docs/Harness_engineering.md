@@ -435,14 +435,14 @@ Completed in the current repository state:
 Recommended next steps:
 
 1. add one or two repo-native skills instead of importing many generic ones
-2. move superseded plan-heavy docs into a clearer active versus historical structure
 
 Now implemented in the current repository state:
 
 - `npm run validate:docs` validates active docs plus canonical machine-critical docs
 - it checks metadata headers, source-of-truth paths, referenced `npm run` scripts, and local markdown links
 - the validation scope stays intentionally narrow so historical and design docs do not create noisy failures
-- `.github/workflows/validate.yml` runs `npm run build`, `npm run test:unit`, and `npm run validate:docs` on pull requests and pushes to `main`
+- completed and superseded plans now live under `docs/plans/historical/` instead of the primary docs root
+- `docs/plans/index.md` defines where plan docs belong so the docs root stays focused on active source-of-truth material
 
 ## Bottom Line
 

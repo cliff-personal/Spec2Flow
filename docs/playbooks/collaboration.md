@@ -10,7 +10,9 @@ This stage starts after the route's `defect-feedback` task is completed or skipp
 
 In the task graph it is created as `<route-name>--collaboration` and depends on `<route-name>--defect-feedback`.
 
-The executor is `collaboration-agent` by default, or `human` when the route review policy requires human approval.
+The executor is always `collaboration-agent`.
+
+If the route review policy requires human approval, that requirement stays in `reviewPolicy` and gates the handoff, but it does not change the executor type.
 
 ## Consumes
 
@@ -22,7 +24,6 @@ The executor is `collaboration-agent` by default, or `human` when the route revi
 ## Emits
 
 - `collaboration-handoff`
-- or `human-approval-record` when the executor type is `human`
 
 These artifacts should be ready for PR, issue, or review workflow handoff.
 

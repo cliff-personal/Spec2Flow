@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => ({
   parseErrorOption: vi.fn(),
   promoteReadyTasks: vi.fn(),
   setTaskTerminalTimestamp: vi.fn(),
-  validateExecutionStatePayload: vi.fn()
+  validateExecutionStatePayload: vi.fn(),
+  validateSchemaBackedArtifacts: vi.fn()
 }));
 
 vi.mock('../runtime/execution-state-service.js', () => ({
@@ -26,6 +27,10 @@ vi.mock('../runtime/execution-state-service.js', () => ({
   promoteReadyTasks: mocks.promoteReadyTasks,
   setTaskTerminalTimestamp: mocks.setTaskTerminalTimestamp,
   validateExecutionStatePayload: mocks.validateExecutionStatePayload
+}));
+
+vi.mock('../runtime/stage-deliverable-validation.js', () => ({
+  validateSchemaBackedArtifacts: mocks.validateSchemaBackedArtifacts
 }));
 
 import { runUpdateExecutionState } from './update-execution-state-command.js';
@@ -171,6 +176,9 @@ describe('update-execution-state-command', () => {
     expect(taskState.notes).toEqual(['existing', 'note-a', 'note-b']);
     expect(taskState.artifactRefs).toEqual(['artifact:existing', 'artifact:new-ref']);
     expect(mocks.setTaskTerminalTimestamp).toHaveBeenCalled();
+    expect(mocks.validateSchemaBackedArtifacts).toHaveBeenCalledWith([
+      { taskId: taskState.taskId, path: 'artifact:new', kind: 'report' }
+    ]);
     expect(mocks.promoteReadyTasks).toHaveBeenCalledWith(taskGraphPayload, executionStatePayload);
     expect(mocks.validateExecutionStatePayload).toHaveBeenCalledWith(executionStatePayload, 'execution-state.json');
     expect(writeJson).toHaveBeenCalledWith('execution-state.json', executionStatePayload);

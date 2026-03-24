@@ -15,6 +15,14 @@ export interface SchemaValidators {
   project: ValidateFunction;
   topology: ValidateFunction;
   risk: ValidateFunction;
+  environmentPreparationReport: ValidateFunction;
+  requirementSummary: ValidateFunction;
+  implementationSummary: ValidateFunction;
+  testPlan: ValidateFunction;
+  testCases: ValidateFunction;
+  executionReport: ValidateFunction;
+  defectSummary: ValidateFunction;
+  collaborationHandoff: ValidateFunction;
   executionState: ValidateFunction;
   taskResult: ValidateFunction;
   adapterRun: ValidateFunction;
@@ -29,6 +37,14 @@ export function getSchemaValidators(): SchemaValidators {
     project: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/project-adapter.schema.json'))),
     topology: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/system-topology.schema.json'))),
     risk: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/risk-policy.schema.json'))),
+    environmentPreparationReport: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/environment-preparation-report.schema.json'))),
+    requirementSummary: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/requirement-summary.schema.json'))),
+    implementationSummary: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/implementation-summary.schema.json'))),
+    testPlan: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/test-plan.schema.json'))),
+    testCases: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/test-cases.schema.json'))),
+    executionReport: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/execution-report.schema.json'))),
+    defectSummary: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/defect-summary.schema.json'))),
+    collaborationHandoff: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/collaboration-handoff.schema.json'))),
     executionState: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/execution-state.schema.json'))),
     taskResult: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/task-result.schema.json'))),
     adapterRun: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/adapter-run.schema.json'))),

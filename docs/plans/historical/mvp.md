@@ -1,5 +1,13 @@
 # Spec2Flow MVP
 
+- Status: historical
+- Source of truth: `README.md`, `docs/architecture.md`, `docs/usage-guide.md`
+- Verified with: archived for reference only
+
+## Archive Note
+
+This MVP plan is kept for historical context. Current behavior and workflow expectations now live in the active repository docs and playbooks.
+
 ## Objective
 
 Build a practical first version of Spec2Flow that can connect requirements analysis, code implementation support, test design, deterministic execution, defect feedback, and team collaboration into one usable workflow.

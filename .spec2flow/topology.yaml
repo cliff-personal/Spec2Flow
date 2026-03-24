@@ -1,0 +1,111 @@
+topology:
+  services:
+    - name: cli
+      kind: backend
+      critical: true
+      healthChecks:
+        - type: command
+          target: npm run build
+          timeoutSeconds: 120
+
+    - name: docs
+      kind: other
+      dependsOn:
+        - cli
+      healthChecks:
+        - type: command
+          target: npm run validate:docs
+          timeoutSeconds: 120
+
+    - name: schemas
+      kind: other
+      dependsOn:
+        - cli
+      healthChecks:
+        - type: command
+          target: npm run build
+          timeoutSeconds: 120
+
+  startupOrder:
+    - cli
+    - docs
+    - schemas
+
+  workflowRoutes:
+    - name: docs-governance
+      entryServices:
+        - docs
+        - cli
+      verifyCommands:
+        - npm run build
+        - npm run test:unit
+        - npm run validate:docs
+      artifactTargets:
+        - .spec2flow/generated/execution/docs-governance
+      requirementSignals:
+        summary: Documentation governance, navigation, and validator changes.
+        keywords:
+          - docs
+          - documentation
+          - validate:docs
+          - validator
+          - architecture
+          - usage
+          - index
+          - 文档
+          - 校验
+        phrases:
+          - docs governance
+          - documentation cleanup
+          - validate docs
+          - docs validator
+          - 文档治理
+
+    - name: cli-runtime
+      entryServices:
+        - cli
+      verifyCommands:
+        - npm run build
+        - npm run test:unit
+      artifactTargets:
+        - .spec2flow/generated/execution/cli-runtime
+      requirementSignals:
+        summary: CLI runtime, workflow loop, and adapter execution changes.
+        keywords:
+          - cli
+          - runtime
+          - workflow
+          - adapter
+          - task graph
+          - execution state
+          - 命令行
+          - 运行时
+        phrases:
+          - workflow loop
+          - execution state
+          - task graph
+          - cli runtime
+
+    - name: schema-contracts
+      entryServices:
+        - schemas
+        - cli
+      verifyCommands:
+        - npm run build
+        - npm run test:unit
+      artifactTargets:
+        - .spec2flow/generated/execution/schema-contracts
+      requirementSignals:
+        summary: Schema, contract, and type-alignment changes.
+        keywords:
+          - schema
+          - contract
+          - type
+          - validation
+          - json schema
+          - 契约
+          - 类型
+        phrases:
+          - schema contract
+          - contract alignment
+          - json schema

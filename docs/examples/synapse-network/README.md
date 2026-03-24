@@ -104,20 +104,22 @@ npm run spec2flow -- generate-task-graph \
 
 `model-adapter-runtime.json` 现在调用 `example-command-adapter.mjs` 这个真实 Copilot CLI adapter。它会读取 claim，执行 `gh copilot -p`，并在配置了 session key 时自动用 `--resume` 复用已有 Copilot CLI session，然后返回结构化结果，由 CLI 写回状态。
 
+`model-adapter-runtime.json` 的字段说明现在统一收口在 [docs/runtime-config-reference.md](../../runtime-config-reference.md)。这里不再重复维护整套字段解释。
+
+你可以把它当成这几个问题的统一答案：
+
+- 顶层 `adapterRuntime` 每个字段是干什么的
+- 哪些字段是默认值，通常不需要动
+- 哪些字段只在 override 默认行为时才应该改
+- 自用 runtime 里的 `cwd`、`timeoutMs`、`stageRuntimeRefs` 分别是什么意思
+
 运行前至少需要满足：
 
 - `gh` 已安装
 - `gh copilot -- --help` 可运行
 - `gh copilot login` 已完成
 
-可选设置：
-
-- `SPEC2FLOW_COPILOT_MODEL`
-- `SPEC2FLOW_COPILOT_ADAPTER_NAME`
-- `SPEC2FLOW_COPILOT_CWD`
-- `SPEC2FLOW_COPILOT_SESSION_KEY`
-- `SPEC2FLOW_COPILOT_SESSION_ID`
-- `SPEC2FLOW_COPILOT_SESSION_DIR`
+环境变量也统一收口到 [docs/runtime-config-reference.md](../../runtime-config-reference.md)。那里已经把 provider 配置、session 配置、控制器注入变量、权限开关拆开写清楚了。
 
 如果不设置 `SPEC2FLOW_COPILOT_MODEL`，adapter 会直接使用 Copilot CLI 当前账户的默认模型。这通常比硬编码 `gpt-5` 更稳，因为不同账户可用模型并不完全一致。
 
@@ -158,7 +160,34 @@ npm run spec2flow -- run-task-with-adapter \
 - 用 `--available-tools view,grep,glob` 收缩工具面
 - 用 `--disable-builtin-mcps` 避免不必要的远程能力
 
-示例 runtime 默认把 session 作用域设为 `runId + routeName + executorType`。这是比“整个工作流共用一个 session”更稳的默认值，因为 requirements、implementation、test、defect 这些职责会积累不同上下文，混在一个长会话里容易造成提示污染。
+现在仓库里的默认 runtime 把 session 作用域设为 specialist agent 名称，也就是 `requirements-agent`、`implementation-agent`、`test-design-agent`、`execution-agent`、`defect-agent`、`collaboration-agent` 这六类固定 session。这样同一个 agent 会跨 run 复用同一条会话，不会每次新 run 都再创建一组新 session。
+
+同时，这个 adapter 的内建默认行为就是 cleanup-safe 的 `auto` 模式，不需要额外配置。固定 specialist key 会落盘复用，而动态多段 key 会被当成临时 session 处理，执行结束后不会在 `.spec2flow/runtime/copilot-sessions` 留下历史记录。
+
+默认情况下不需要改 session 粒度。只有当你明确要覆盖默认 specialist 复用策略时，adapter template context 才需要用到这些 key：
+
+- `${specialistSessionKey}`: `specialist agent name`
+- `${runSessionKey}`: `runId`
+- `${routeSessionKey}`: `runId + routeName`
+- `${stageSessionKey}`: `runId + stage`
+- `${executorSessionKey}`: `runId + executorType`
+- `${routeExecutorSessionKey}`: `runId + routeName + executorType`
+- `${taskSessionKey}`: `runId + taskId`
+
+其中，覆盖默认值时建议这样理解：
+
+- `${specialistSessionKey}` 是当前默认值。大多数仓库保持这个值就够了
+- `${executorSessionKey}` 适合按 run 做 specialist 隔离，但默认会被当成临时 session，不会落盘残留
+- `${routeExecutorSessionKey}` 最适合强隔离，默认同样会被当成临时 session
+- `${taskSessionKey}` 会产生最多 session，默认也只建议临时使用
+
+如果你要清理旧版本遗留下来的 run-scoped session 文件，可以运行：
+
+```bash
+npm run migrate:copilot-sessions
+```
+
+它会把可迁移的旧记录归并到固定 specialist key，并删除旧的 run-scoped 文件，同时生成 `.spec2flow/runtime/copilot-session-migration-report.json` 报告。
 
 它不直接依赖 VS Code 里的 Copilot Chat 会话，而是走官方文档里的 Copilot CLI 命令面。
 

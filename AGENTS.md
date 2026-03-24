@@ -93,6 +93,7 @@ Start here when you need the system map:
 - `docs/index.md`: shortest docs map by question and source of truth
 - `docs/architecture.md`: runtime model and orchestration boundaries
 - `docs/copilot.md`: Copilot customization and maintenance policy
+- `docs/plans/index.md`: planning-doc layout rules and archival boundaries
 - `docs/synapse-integration-automation-design.md`: complex-system integration and multi-agent design
 - `docs/usage-guide.md`: usage patterns
 - `docs/structure.md`: repository layout

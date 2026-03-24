@@ -1,0 +1,22 @@
+{
+  "taskId": "frontend-smoke--collaboration",
+  "stage": "collaboration",
+  "summary": "The frontend smoke change is ready for a review handoff.",
+  "handoffType": "review",
+  "readiness": "awaiting-approval",
+  "approvalRequired": true,
+  "artifactRefs": [
+    "implementation-summary",
+    "execution-report",
+    "defect-summary"
+  ],
+  "nextActions": [
+    "Request human review for the smoke-route change.",
+    "Attach execution evidence to the review thread."
+  ],
+  "reviewPolicy": {
+    "required": true,
+    "reviewAgentCount": 1,
+    "requireHumanApproval": true
+  }
+}

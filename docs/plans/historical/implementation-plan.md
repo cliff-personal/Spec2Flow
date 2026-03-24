@@ -1,5 +1,13 @@
 # Implementation Plan
 
+- Status: historical
+- Source of truth: `docs/architecture.md`, `docs/usage-guide.md`, `docs/playbooks/index.md`
+- Verified with: archived for reference only
+
+## Archive Note
+
+This phased implementation plan has been superseded by the current architecture, playbooks, and stable command surfaces.
+
 ## Goal
 
 Move Spec2Flow from documentation bootstrap to a usable MVP built on Copilot, Playwright, GitHub Actions, and GitHub Issues.

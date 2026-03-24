@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/defect-summary.schema.json",
+  "title": "Spec2Flow Defect Summary",
+  "description": "Structured analysis artifact for the defect-feedback stage.",
+  "type": "object",
+  "required": ["taskId", "stage", "summary", "failureType", "severity", "evidenceRefs", "recommendedAction"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "const": "defect-feedback"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "failureType": {
+      "type": "string",
+      "enum": ["requirements", "implementation", "test-design", "execution", "collaboration", "unknown"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "recommendedAction": {
+      "type": "string",
+      "enum": ["fix-implementation", "clarify-requirements", "expand-tests", "rerun-execution", "handoff-review"]
+    },
+    "bugDraftPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repositoryGaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repositoryGap"
+      }
+    }
+  },
+  "$defs": {
+    "repositoryGap": {
+      "type": "object",
+      "required": ["code", "message", "recoverable"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

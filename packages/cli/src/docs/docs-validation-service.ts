@@ -8,7 +8,7 @@ const MARKDOWN_FILE_EXTENSION = '.md';
 
 export interface DocsValidationIssue {
   file: string;
-  kind: 'metadata' | 'source-of-truth' | 'script' | 'link';
+  kind: 'metadata' | 'source-of-truth' | 'script' | 'link' | 'layout';
   message: string;
 }
 
@@ -46,6 +46,8 @@ export function buildDocsValidationReport(repoRoot: string): DocsValidationRepor
     const isCanonicalDoc = CANONICAL_DOCS.has(relativeFilePath);
     const isActiveDoc = metadata.status === 'active';
 
+    validateDocsLayout(relativeFilePath, metadata, issues);
+
     if (!isCanonicalDoc && !isActiveDoc) {
       continue;
     }
@@ -55,6 +57,10 @@ export function buildDocsValidationReport(repoRoot: string): DocsValidationRepor
     if (isActiveDoc) {
       validateRequiredMetadata(relativeFilePath, metadata, issues);
       validateSourceOfTruthPaths(repoRoot, relativeFilePath, metadata.sourceOfTruthLine, issues);
+    }
+
+    if (isCanonicalDoc || isActiveDoc) {
+      validateArchivedPlanReferences(relativeFilePath, metadata.sourceOfTruthLine, content, issues);
     }
 
     validateReferencedScripts(relativeFilePath, content, availableScripts, issues);
@@ -253,6 +259,84 @@ function validateMarkdownLinks(
   }
 }
 
+function validateDocsLayout(relativeFilePath: string, metadata: ParsedMetadata, issues: DocsValidationIssue[]): void {
+  if (!relativeFilePath.startsWith('docs/')) {
+    return;
+  }
+
+  if (isHistoricalOrCompletedDocInDocsRoot(relativeFilePath, metadata.status)) {
+    issues.push({
+      file: relativeFilePath,
+      kind: 'layout',
+      message: 'completed or historical docs must live under docs/plans/ instead of docs root'
+    });
+  }
+
+  if (isPlanLikeDocInDocsRoot(relativeFilePath)) {
+    issues.push({
+      file: relativeFilePath,
+      kind: 'layout',
+      message: 'plan, roadmap, migration, and rollout docs must live under docs/plans/'
+    });
+  }
+}
+
+function validateArchivedPlanReferences(
+  relativeFilePath: string,
+  sourceOfTruthLine: string | null,
+  content: string,
+  issues: DocsValidationIssue[]
+): void {
+  for (const sourcePath of extractBacktickedValues(sourceOfTruthLine ?? '')) {
+    if (!isDirectArchivedPlanDocument(sourcePath)) {
+      continue;
+    }
+
+    issues.push({
+      file: relativeFilePath,
+      kind: 'source-of-truth',
+      message: `active or canonical docs cannot use archived plan files as source of truth: ${sourcePath}`
+    });
+  }
+
+  for (const linkTarget of extractMarkdownLinkTargets(content)) {
+    if (!isDirectArchivedPlanDocument(linkTarget)) {
+      continue;
+    }
+
+    issues.push({
+      file: relativeFilePath,
+      kind: 'layout',
+      message: `active or canonical docs must link to plan indexes instead of archived plan files: ${linkTarget}`
+    });
+  }
+}
+
+function isHistoricalOrCompletedDocInDocsRoot(relativeFilePath: string, status: string | null): boolean {
+  return isDirectChildOfDocs(relativeFilePath) && (status === 'historical' || status === 'completed');
+}
+
+function isPlanLikeDocInDocsRoot(relativeFilePath: string): boolean {
+  if (!isDirectChildOfDocs(relativeFilePath)) {
+    return false;
+  }
+
+  const fileName = path.basename(relativeFilePath, MARKDOWN_FILE_EXTENSION).toLowerCase();
+  return /(plan|roadmap|migration|rollout)/.test(fileName);
+}
+
+function isDirectChildOfDocs(relativeFilePath: string): boolean {
+  const segments = relativeFilePath.split('/');
+  return segments.length === 2;
+}
+
+function isDirectArchivedPlanDocument(targetPath: string): boolean {
+  const normalizedTarget = targetPath.replace(/\\/g, '/');
+
+  return /^docs\/plans\/(historical|completed)\/.+\.md$/i.test(normalizedTarget)
+    && !/\/index\.md$/i.test(normalizedTarget);
+}
+
 function shouldIgnoreLinkTarget(target: string): boolean {
   return target.startsWith('#')
     || /^https?:\/\//i.test(target)
@@ -277,6 +361,13 @@ function extractBacktickedValues(value: string): string[] {
     .map((match) => match[1]?.trim() ?? '')
     .filter(Boolean);
   return matches;
+}
+
+function extractMarkdownLinkTargets(content: string): string[] {
+  return [...content.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)]
+    .map((match) => match[1]?.trim() ?? '')
+    .filter(Boolean)
+    .map((target) => decodeURIComponent(stripWrappingAngleBrackets(stripOptionalTitle(target)).split('#', 1)[0] ?? ''));
 }
 
 function toRepoRelativePath(repoRoot: string, absolutePath: string): string {

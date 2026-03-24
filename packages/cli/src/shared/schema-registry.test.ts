@@ -76,4 +76,101 @@ describe('schema-registry', () => {
     expect(valid).toBe(false);
     expect(validators.taskResult.errors?.some((error) => error.instancePath === '/taskResult' && error.params.missingProperty === 'artifactContract')).toBe(true);
   });
+
+  it('accepts schema-backed stage deliverables', () => {
+    const validators = getSchemaValidators();
+
+    expect(validators.requirementSummary({
+      taskId: 'frontend-smoke--requirements-analysis',
+      stage: 'requirements-analysis',
+      goal: 'Summarize the frontend smoke route requirements',
+      summary: 'The route needs a scoped requirement summary before implementation starts.',
+      sources: ['docs/architecture.md']
+    })).toBe(true);
+
+    expect(validators.implementationSummary({
+      taskId: 'frontend-smoke--code-implementation',
+      stage: 'code-implementation',
+      goal: 'Apply the approved frontend smoke change',
+      summary: 'Updated the smoke route entrypoint and related docs.',
+      changedFiles: [
+        {
+          path: 'apps/frontend/src/App.tsx',
+          changeType: 'modified'
+        }
+      ]
+    })).toBe(true);
+
+    expect(validators.testPlan({
+      taskId: 'frontend-smoke--test-design',
+      stage: 'test-design',
+      goal: 'Plan smoke validation coverage',
+      summary: 'Focus on the happy path and one blocking edge.',
+      cases: [
+        {
+          id: 'smoke-happy-path',
+          title: 'Smoke happy path',
+          level: 'smoke',
+          priority: 'high'
+        }
+      ]
+    })).toBe(true);
+
+    expect(validators.testCases({
+      taskId: 'frontend-smoke--test-design',
+      stage: 'test-design',
+      goal: 'Define executable smoke cases',
+      cases: [
+        {
+          id: 'case-1',
+          title: 'Render smoke page',
+          priority: 'high',
+          automationCandidate: true,
+          steps: ['Open the smoke route'],
+          expectedResults: ['The smoke page renders']
+        }
+      ]
+    })).toBe(true);
+
+    expect(validators.executionReport({
+      taskId: 'frontend-smoke--automated-execution',
+      stage: 'automated-execution',
+      goal: 'Run frontend smoke validation',
+      summary: 'The smoke validation passed.',
+      outcome: 'passed',
+      commands: [
+        {
+          command: 'npm run test:unit',
+          status: 'passed',
+          exitCode: 0
+        }
+      ]
+    })).toBe(true);
+
+    expect(validators.defectSummary({
+      taskId: 'frontend-smoke--defect-feedback',
+      stage: 'defect-feedback',
+      summary: 'The execution failure points to a missing implementation guard.',
+      failureType: 'implementation',
+      severity: 'high',
+      evidenceRefs: ['spec2flow/outputs/execution/frontend-smoke/execution-report.json'],
+      recommendedAction: 'fix-implementation'
+    })).toBe(true);
+
+    expect(validators.collaborationHandoff({
+      taskId: 'frontend-smoke--collaboration',
+      stage: 'collaboration',
+      summary: 'The change is ready for human review.',
+      handoffType: 'review',
+      readiness: 'ready',
+      approvalRequired: true,
+      artifactRefs: ['implementation-summary', 'execution-report'],
+      nextActions: ['Request final review'],
+      reviewPolicy: {
+        required: true,
+        reviewAgentCount: 1,
+        requireHumanApproval: true
+      }
+    })).toBe(true);
+  });
 });

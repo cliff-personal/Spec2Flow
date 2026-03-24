@@ -1183,19 +1183,22 @@
         "stage": "collaboration",
         "title": "Prepare withdrawal-risk-regression review handoff",
         "goal": "Prepare PR or issue-ready collaboration output for withdrawal-risk-regression",
-        "executorType": "human",
+        "executorType": "collaboration-agent",
         "roleProfile": {
-          "profileId": "collaboration-human-gate",
-          "specialistRole": "human",
+          "profileId": "collaboration-specialist",
+          "specialistRole": "collaboration-agent",
           "commandPolicy": "collaboration-only",
           "canReadRepository": true,
           "canEditFiles": false,
           "canRunCommands": false,
           "canWriteArtifacts": true,
           "canOpenCollaboration": true,
-          "requiredAdapterSupports": [],
+          "requiredAdapterSupports": [
+            "toolCalling",
+            "jsonMode"
+          ],
           "expectedArtifacts": [
-            "human-approval-record"
+            "collaboration-handoff"
           ]
         },
         "status": "pending",

@@ -1,0 +1,16 @@
+{
+  "taskId": "frontend-smoke--code-implementation",
+  "stage": "code-implementation",
+  "goal": "Apply code changes for frontend-smoke within the declared service boundaries",
+  "summary": "Updated the frontend smoke entrypoint and kept the route scope isolated.",
+  "changedFiles": [
+    {
+      "path": "apps/frontend/src/App.tsx",
+      "changeType": "modified",
+      "summary": "Adjusted the smoke route rendering branch."
+    }
+  ],
+  "validationCommands": [
+    "npm run test:unit"
+  ]
+}

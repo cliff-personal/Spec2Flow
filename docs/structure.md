@@ -2,7 +2,7 @@
 
 - Status: active
 - Source of truth: `package.json`, `AGENTS.md`, `llms.txt`
-- Verified with: `npm run build`, `npm run test:unit`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
 
 ## Goal
 
@@ -26,7 +26,6 @@ Spec2Flow/
 ├─ vitest.config.ts
 ├─ README.md
 ├─ docs/
-│  ├─ mvp.md
 │  ├─ index.md
 │  ├─ structure.md
 │  ├─ copilot.md
@@ -45,12 +44,21 @@ Spec2Flow/
 │  │  ├─ automated-execution.md
 │  │  ├─ defect-feedback.md
 │  │  └─ collaboration.md
-│  ├─ roadmap.md
+│  ├─ plans/
+│  │  ├─ index.md
+│  │  ├─ completed/
+│  │  │  └─ index.md
+│  │  └─ historical/
+│  │     ├─ index.md
+│  │     ├─ mvp.md
+│  │     ├─ roadmap.md
+│  │     ├─ implementation-plan.md
+│  │     ├─ full-implementation-plan.md
+│  │     ├─ typescript-migration-plan.md
+│  │     └─ cli-refactor-plan.md
 │  ├─ architecture.md
 │  ├─ collaboration.md
-│  ├─ implementation-plan.md
-│  ├─ full-implementation-plan.md
-│  ├─ typescript-migration-plan.md
+│  ├─ runtime-config-reference.md
 │  ├─ usage-guide.md
 │  ├─ synapse-integration-automation-design.md
 │  ├─ examples/
@@ -127,7 +135,9 @@ Recommended reading order:
 - `docs/Harness_engineering.md` for AI-facing repository optimization guidance
 - `docs/adr/index.md` for stable architecture decisions
 - `docs/playbooks/index.md` for stage-scoped execution guidance
+- `docs/plans/index.md` for plan placement and archive rules
 - `docs/architecture.md` for runtime boundaries
+- `docs/runtime-config-reference.md` for runtime field semantics and override rules
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration
 
@@ -136,6 +146,13 @@ Small accepted decisions that should remain stable across refactors. These files
 
 ### `docs/playbooks/`
 Short operational guides for each route stage. These files are the preferred AI-facing context once a task has already been claimed and the stage is known.
+
+### `docs/plans/`
+Planning and migration material that should not crowd the active docs root.
+
+- `docs/plans/index.md`: placement rules and archive policy for plan docs
+- `docs/plans/completed/`: short-lived holding area for plans that were just completed
+- `docs/plans/historical/`: superseded or completed plans kept only for archaeology
 
 ### `schemas/`
 Structured definitions for:
@@ -187,6 +204,19 @@ Phase 1 TypeScript domain types for the workflow model, execution state, task cl
 
 ### `packages/cli/src/shared/`
 Shared infrastructure utilities for filesystem IO, schema loading, and common output helpers.
+
+## Documentation Layout Rules
+
+- Keep `docs/` root for active source-of-truth docs, indexes, ADRs, playbooks, and examples.
+- Put new plan, migration, and rollout documents under `docs/plans/`, not in the docs root.
+- Move completed plans out of the root as soon as stable docs, code, and commands reflect the result.
+- Archive superseded plans under `docs/plans/historical/` instead of leaving them in primary navigation.
+- When two docs overlap, one must defer to the other and link outward rather than repeating behavior.
+- New top-level docs should answer one dominant question and be wired into `README.md`, `llms.txt`, or `docs/index.md` only if they are active navigation targets.
+
+These placement rules are not advisory only. `npm run validate:docs` fails when plan-like docs appear directly under `docs/` root or when root-level docs are marked `completed` or `historical`.
+
+`npm run validate:docs` also fails when active or canonical docs link directly to specific archived plan files or cite them as source of truth. Historical references must flow through the plan index pages instead.
 
 ## Solo Maintainer Recommendation
 

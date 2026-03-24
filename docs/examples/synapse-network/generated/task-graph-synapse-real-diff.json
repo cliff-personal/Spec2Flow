@@ -3554,7 +3554,7 @@
         "stage": "collaboration",
         "title": "Prepare withdrawal-risk-regression review handoff",
         "goal": "Prepare PR or issue-ready collaboration output for withdrawal-risk-regression",
-        "executorType": "human",
+        "executorType": "collaboration-agent",
         "status": "pending",
         "riskLevel": "high",
         "dependsOn": [

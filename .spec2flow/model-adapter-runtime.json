@@ -1,0 +1,34 @@
+{
+  "adapterRuntime": {
+    "name": "spec2flow-self-copilot-cli-adapter",
+    "provider": "github-copilot-cli",
+    "model": "gpt-5.4",
+    "command": "node",
+    "args": [
+      "docs/examples/synapse-network/example-command-adapter.mjs",
+      "--claim",
+      "${claimPath}"
+    ],
+    "cwd": "/Users/cliff/workspace/Spec2Flow",
+    "env": {
+      "SPEC2FLOW_COPILOT_MODEL": "${adapterModel}",
+      "SPEC2FLOW_COPILOT_CWD": "/Users/cliff/workspace/Spec2Flow",
+      "SPEC2FLOW_COPILOT_SESSION_KEY": "${specialistSessionKey}",
+      "SPEC2FLOW_COPILOT_SESSION_DIR": ".spec2flow/runtime/copilot-sessions",
+      "SPEC2FLOW_STATE": "${statePath}",
+      "SPEC2FLOW_TASK_GRAPH": "${taskGraphPath}",
+      "SPEC2FLOW_TASK_ID": "${taskId}",
+      "SPEC2FLOW_RUN_ID": "${runId}",
+      "SPEC2FLOW_ALLOW_FILE_WRITES": "true",
+      "SPEC2FLOW_ALLOW_TEST_RUNS": "true",
+      "SPEC2FLOW_ALLOW_GIT_WRITE": "false",
+      "SPEC2FLOW_ALLOW_PR_CREATE": "false"
+    },
+    "timeoutMs": 600000,
+    "outputMode": "stdout",
+    "stageRuntimeRefs": {
+      "environment-preparation": "./model-adapter-runtime.deterministic.json",
+      "automated-execution": "./model-adapter-runtime.deterministic.json"
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/implementation-summary.schema.json",
+  "title": "Spec2Flow Implementation Summary",
+  "description": "Structured output for the code-implementation stage.",
+  "type": "object",
+  "required": ["taskId", "stage", "goal", "summary", "changedFiles"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "const": "code-implementation"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changedFiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "changeType"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "changeType": {
+            "type": "string",
+            "enum": ["added", "modified", "deleted", "renamed"]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "validationCommands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "diffRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "repositoryGaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repositoryGap"
+      }
+    }
+  },
+  "$defs": {
+    "repositoryGap": {
+      "type": "object",
+      "required": ["code", "message", "recoverable"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

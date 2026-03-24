@@ -111,4 +111,45 @@ describe('task-graph-service route selection', () => {
     expect(taskGraph.taskGraph.tasks.map((task) => task.id)).toContain('frontend-smoke--requirements-analysis');
     expect(taskGraph.taskGraph.tasks.map((task) => task.id)).not.toContain('provider-registration-flow--requirements-analysis');
   });
+
+  it('keeps collaboration executor fixed to collaboration-agent even when human approval is required', () => {
+    const taskGraph = buildTaskGraph(
+      createProjectPayload(),
+      createTopologyPayload(),
+      {
+        riskPolicy: {
+          rules: [
+            {
+              name: 'provider-high-risk',
+              level: 'high',
+              match: {
+                workflowNames: ['provider-registration-flow']
+              },
+              requires: {
+                humanApproval: true,
+                reviewAgents: 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        project: 'project.yaml',
+        topology: 'topology.yaml',
+        risk: 'risk.yaml',
+        requirement: 'requirements/provider-registration.md'
+      },
+      {
+        requirementText: 'Add KYC validation to the provider registration workflow handled by gateway and provider services.'
+      }
+    );
+
+    const collaborationTask = taskGraph.taskGraph.tasks.find((task) => task.id === 'provider-registration-flow--collaboration');
+    expect(collaborationTask?.executorType).toBe('collaboration-agent');
+    expect(collaborationTask?.roleProfile.specialistRole).toBe('collaboration-agent');
+    expect(collaborationTask?.reviewPolicy).toMatchObject({
+      requireHumanApproval: true,
+      required: true
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { executeTaskRun } from '../adapters/adapter-runner.js';
+import { resolveAdapterRuntimeForStage } from '../adapters/adapter-runtime-resolver.js';
 import type { AdapterRun, AdapterRuntimeDocument, TaskClaimPayload, TaskResult } from '../types/index.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -36,11 +37,21 @@ export function runTaskWithAdapter(options: CliOptions, dependencies: RunTaskWit
     throw new Error('unreachable');
   }
 
-  const adapterRuntimePayload = dependencies.readStructuredFile(adapterRuntimePath) as AdapterRuntimeDocument;
-  dependencies.validateAdapterRuntimePayload(adapterRuntimePayload, adapterRuntimePath);
-  dependencies.ensureAdapterPreflight(options, adapterRuntimePayload);
-
   const claimPayload = dependencies.readStructuredFile(claimPath) as TaskClaimPayload;
+  const claim = claimPayload.taskClaim;
+  if (!claim) {
+    dependencies.fail('run-task-with-adapter requires a non-null task claim');
+    throw new Error('unreachable');
+  }
+
+  const rootAdapterRuntimePayload = dependencies.readStructuredFile(adapterRuntimePath) as AdapterRuntimeDocument;
+  dependencies.validateAdapterRuntimePayload(rootAdapterRuntimePayload, adapterRuntimePath);
+  const resolvedRuntime = resolveAdapterRuntimeForStage(adapterRuntimePath, rootAdapterRuntimePayload, claim.stage, {
+    readStructuredFile: dependencies.readStructuredFile,
+    validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload
+  });
+  dependencies.ensureAdapterPreflight(options, resolvedRuntime.runtimePayload);
+
   const result = executeTaskRun(statePath, taskGraphPath, claimPayload, options, {
     validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
     sanitizeStageName: dependencies.sanitizeStageName,

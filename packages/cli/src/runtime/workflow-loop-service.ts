@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { collectAdapterRuntimeVariants } from '../adapters/adapter-runtime-resolver.js';
 import type { AdapterRuntimeDocument } from '../types/adapter-runtime.js';
 import type { TaskClaimPayload } from '../types/task-claim.js';
 import type { TaskExecutionResult } from '../types/adapter-run.js';
@@ -46,7 +47,12 @@ export function runWorkflowLoopWithExecutor(options: CliOptions, dependencies: W
   const adapterRuntimePayload = adapterRuntimePath ? readStructuredFile(adapterRuntimePath) as AdapterRuntimeDocument : null;
   if (adapterRuntimePayload && adapterRuntimePath) {
     validateAdapterRuntimePayload(adapterRuntimePayload, adapterRuntimePath);
-    ensureAdapterPreflight(options, adapterRuntimePayload);
+    for (const runtimeVariant of collectAdapterRuntimeVariants(adapterRuntimePath, adapterRuntimePayload, {
+      readStructuredFile,
+      validateAdapterRuntimePayload
+    })) {
+      ensureAdapterPreflight(options, runtimeVariant.runtimePayload);
+    }
   }
 
   const outputBase = typeof options['output-base'] === 'string'

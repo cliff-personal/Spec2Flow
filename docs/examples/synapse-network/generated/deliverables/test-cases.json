@@ -1,0 +1,24 @@
+{
+  "taskId": "frontend-smoke--test-design",
+  "stage": "test-design",
+  "goal": "Define executable frontend smoke test cases",
+  "cases": [
+    {
+      "id": "frontend-smoke-case-1",
+      "title": "Open the frontend smoke route",
+      "priority": "high",
+      "automationCandidate": true,
+      "steps": [
+        "Start the frontend application.",
+        "Open the smoke route in the browser."
+      ],
+      "expectedResults": [
+        "The smoke route renders successfully.",
+        "No blocking UI error appears."
+      ],
+      "targetFiles": [
+        "apps/frontend/src/App.tsx"
+      ]
+    }
+  ]
+}

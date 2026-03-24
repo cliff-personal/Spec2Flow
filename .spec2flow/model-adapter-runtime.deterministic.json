@@ -1,0 +1,15 @@
+{
+  "adapterRuntime": {
+    "name": "spec2flow-deterministic-runner",
+    "provider": "spec2flow-deterministic",
+    "command": "node",
+    "args": [
+      "packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
+      "run-deterministic-task",
+      "--claim",
+      "${claimPath}"
+    ],
+    "cwd": "/Users/cliff/workspace/Spec2Flow",
+    "outputMode": "stdout"
+  }
+}

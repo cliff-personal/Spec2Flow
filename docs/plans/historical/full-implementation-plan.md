@@ -1,5 +1,13 @@
 # Full Implementation Plan
 
+- Status: historical
+- Source of truth: `docs/architecture.md`, `docs/usage-guide.md`, `docs/playbooks/index.md`
+- Verified with: archived for reference only
+
+## Archive Note
+
+This long-form implementation plan is preserved for history only. The active source of truth has moved into narrower docs, ADRs, and playbooks.
+
 ## Goal
 
 Define the complete implementation path for Spec2Flow from documentation bootstrap to a production-ready open workflow framework built around Copilot, Playwright, GitHub Actions, and GitHub Issues.

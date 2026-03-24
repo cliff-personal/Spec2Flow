@@ -37,7 +37,11 @@ export interface TaskClaimDependencies {
 
 export function flattenProjectDocRefs(projectPayload: ProjectPayload | null | undefined): string[] {
   const docs = projectPayload?.spec2flow?.docs ?? {};
-  return [...new Set(Object.values(docs).flatMap((value) => value ?? []).filter(Boolean))] as string[];
+  return [...new Set([
+    'AGENTS.md',
+    '.github/copilot-instructions.md',
+    ...Object.values(docs).flatMap((value) => value ?? []).filter(Boolean)
+  ])] as string[];
 }
 
 export function findNextReadyTask(taskGraphPayload: TaskGraphDocument, executionStatePayload: ExecutionStateDocument): Task | null {

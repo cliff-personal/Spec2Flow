@@ -11,7 +11,7 @@
     ],
     "env": {
       "SPEC2FLOW_COPILOT_MODEL": "${adapterModel}",
-      "SPEC2FLOW_COPILOT_SESSION_KEY": "${routeExecutorSessionKey}",
+      "SPEC2FLOW_COPILOT_SESSION_KEY": "${specialistSessionKey}",
       "SPEC2FLOW_COPILOT_SESSION_DIR": ".spec2flow/runtime/copilot-sessions",
       "SPEC2FLOW_STATE": "${statePath}",
       "SPEC2FLOW_TASK_GRAPH": "${taskGraphPath}",

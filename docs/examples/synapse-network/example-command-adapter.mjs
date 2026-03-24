@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+
+import { resolveCopilotSession } from './copilot-session-store.mjs';
 
 function ensureDirForFile(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -120,49 +121,6 @@ function getSessionStoreDir() {
   return path.resolve(process.cwd(), getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_DIR', '.spec2flow/runtime/copilot-sessions'));
 }
 
-function getSessionRecordPath(sessionKey) {
-  return path.join(getSessionStoreDir(), `${Buffer.from(sessionKey).toString('base64url')}.json`);
-}
-
-function resolveCopilotSession() {
-  const explicitSessionId = getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_ID', '');
-  if (explicitSessionId) {
-    return {
-      sessionId: explicitSessionId,
-      sessionKey: '',
-      source: 'explicit'
-    };
-  }
-
-  const sessionKey = getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_KEY', '');
-  if (!sessionKey) {
-    return null;
-  }
-
-  const sessionRecordPath = getSessionRecordPath(sessionKey);
-  const existingRecord = readJsonIfExists(sessionRecordPath);
-  const sessionId = existingRecord?.sessionId ?? randomUUID();
-  const now = new Date().toISOString();
-
-  ensureDirForFile(sessionRecordPath);
-  fs.writeFileSync(
-    sessionRecordPath,
-    `${JSON.stringify({
-      sessionKey,
-      sessionId,
-      createdAt: existingRecord?.createdAt ?? now,
-      updatedAt: now
-    }, null, 2)}\n`,
-    'utf8'
-  );
-
-  return {
-    sessionId,
-    sessionKey,
-    source: existingRecord ? 'stored' : 'generated'
-  };
-}
-
 function buildArtifactPath(claim) {
   const routeName = getRouteNameFromTaskId(claim.taskId);
   const stageName = sanitizeStageName(claim.stage);
@@ -181,7 +139,8 @@ function getContextReferences(claimPayload, claimPath) {
     repositoryContext.requirementRef,
     repositoryContext.projectAdapterRef,
     repositoryContext.topologyRef,
-    repositoryContext.riskPolicyRef
+    repositoryContext.riskPolicyRef,
+    ...(repositoryContext.docs ?? [])
   ].filter(Boolean);
 }
 
@@ -302,7 +261,9 @@ function buildCollaborationPlan(artifactsDir, toggles) {
   if (!toggles.allowGitWrite) {
     return createStagePlan(artifactsDir, {
       allowShell: true,
+      allowWrite: toggles.allowFileWrites,
       instructions: [
+        ...(toggles.allowFileWrites ? [`Write the collaboration handoff artifact under ${artifactsDir} before returning the final handoff summary.`] : []),
         'Do not commit or push because git write operations are disabled; prepare a PR-ready summary instead.'
       ]
     });
@@ -314,7 +275,9 @@ function buildCollaborationPlan(artifactsDir, toggles) {
 
   return createStagePlan(artifactsDir, {
     allowShell: true,
+    allowWrite: toggles.allowFileWrites,
     instructions: [
+      ...(toggles.allowFileWrites ? [`Write the collaboration handoff artifact under ${artifactsDir} before returning the final handoff summary.`] : []),
       'Prepare the final collaboration output from the implemented changes and validation results.',
       'Create a commit for the claimed scope only.',
       prInstruction
@@ -441,7 +404,12 @@ function buildCopilotPrompt(claimPayload, claimPath) {
 function callCopilotCli(claimPayload, claimPath) {
   const adapterName = getOptionalEnv('SPEC2FLOW_COPILOT_ADAPTER_NAME', 'github-copilot-cli-adapter');
   const model = getOptionalEnv('SPEC2FLOW_COPILOT_MODEL', '');
-  const session = resolveCopilotSession();
+  const session = resolveCopilotSession({
+    explicitSessionId: getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_ID', ''),
+    sessionKey: getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_KEY', ''),
+    sessionStoreDir: getSessionStoreDir(),
+    persistMode: getOptionalEnv('SPEC2FLOW_COPILOT_SESSION_PERSIST_MODE', 'auto')
+  });
   const claim = claimPayload.taskClaim;
   const stagePlan = getStageExecutionPlan(claim);
   const toggles = getExecutionToggles();
@@ -578,6 +546,8 @@ function buildAdapterRun(claimPayload, runResult) {
         `task:${claim.taskId}`,
         ...(runResult.session?.sessionId ? [`session-id:${runResult.session.sessionId}`] : []),
         ...(runResult.session?.sessionKey ? [`session-key:${runResult.session.sessionKey}`] : []),
+        ...(runResult.session?.persistence === 'ephemeral' ? ['session-persistence:ephemeral'] : []),
+        ...(runResult.session?.legacyRecordRemoved ? ['session-cleanup:removed-legacy-record'] : []),
         ...(Array.isArray(taskResult.notes) ? taskResult.notes : [])
       ],
       activity,

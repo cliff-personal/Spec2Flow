@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   appendUniqueItems,
   buildTaskResultReceipt,
@@ -9,11 +10,19 @@ import {
   setTaskTerminalTimestamp,
   validateExecutionStatePayload
 } from './execution-state-service.js';
-import { fail, writeJson } from '../shared/fs-utils.js';
+import { fail, readStructuredFileFrom, writeJson } from '../shared/fs-utils.js';
 import type { ArtifactRef, ErrorItem, ExecutionStateDocument, ExecutionStatus, TaskState } from '../types/execution-state.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
+import { validateSchemaBackedArtifacts } from './stage-deliverable-validation.js';
 import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
 import type { Task, TaskExecutorType, TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
+
+type FailureClass =
+  | 'requirement-misunderstanding'
+  | 'implementation-defect'
+  | 'missing-or-weak-test-coverage'
+  | 'execution-environment-failure'
+  | 'release-or-review-readiness-issue';
 
 export interface ApplyTaskResultPayload {
   taskId: string;
@@ -28,6 +37,15 @@ export interface ApplyTaskResultPayload {
 
 function normalizeArtifactSearchValue(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function inferArtifactBaseDir(statePath: string): string {
+  const resolvedStatePath = path.resolve(statePath);
+  const stateDir = path.dirname(resolvedStatePath);
+
+  return path.basename(stateDir) === '.spec2flow'
+    ? path.dirname(stateDir)
+    : stateDir;
 }
 
 function buildArtifactContractSummary(expectedArtifacts: string[], artifacts: ArtifactRef[]): ArtifactContractSummary {
@@ -95,6 +113,169 @@ function setTaskStateStatus(
   setTaskTerminalTimestamp(taskState, status, now);
 }
 
+function shouldRouteToDefect(taskStatus: TaskStatus, artifactContract: ArtifactContractSummary): boolean {
+  return taskStatus === 'failed' || taskStatus === 'blocked' || artifactContract.status === 'missing';
+}
+
+function getFailureClassForStage(stage: TaskStage): FailureClass | null {
+  switch (stage) {
+    case 'requirements-analysis':
+      return 'requirement-misunderstanding';
+    case 'code-implementation':
+      return 'implementation-defect';
+    case 'test-design':
+      return 'missing-or-weak-test-coverage';
+    case 'automated-execution':
+      return 'execution-environment-failure';
+    case 'collaboration':
+      return 'release-or-review-readiness-issue';
+    default:
+      return null;
+  }
+}
+
+function getStagesToSkipBeforeDefect(stage: TaskStage): TaskStage[] {
+  switch (stage) {
+    case 'requirements-analysis':
+      return ['code-implementation', 'test-design', 'automated-execution'];
+    case 'code-implementation':
+      return ['test-design', 'automated-execution'];
+    case 'test-design':
+      return ['automated-execution'];
+    default:
+      return [];
+  }
+}
+
+function skipRouteTasks(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskId: string,
+  stagesToSkip: TaskStage[],
+  failureClass: FailureClass,
+  now: string
+): void {
+  for (const stage of stagesToSkip) {
+    const routeTaskId = getRouteTaskId(taskId, stage);
+    if (!routeTaskId) {
+      continue;
+    }
+
+    const routeTask = taskGraphTaskIndex.get(routeTaskId);
+    const routeTaskState = taskStateIndex.get(routeTaskId);
+
+    if (!routeTask || !routeTaskState) {
+      continue;
+    }
+
+    if (!['pending', 'ready'].includes(routeTaskState.status)) {
+      continue;
+    }
+
+    setTaskStateStatus(routeTaskState, 'skipped', now, routeTask.executorType);
+    addTaskNotes(routeTaskState, [
+      `route-auto-skip:${stage}`,
+      `route-class:${failureClass}`,
+      `route-origin:${taskId}`
+    ]);
+  }
+}
+
+function routeStageOutcomeToDefect(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskId: string,
+  stage: TaskStage,
+  taskStatus: TaskStatus,
+  artifactContract: ArtifactContractSummary,
+  now: string
+): void {
+  const defectTaskId = getRouteTaskId(taskId, 'defect-feedback');
+  const collaborationTaskId = getRouteTaskId(taskId, 'collaboration');
+  const failureClass = getFailureClassForStage(stage);
+
+  if (!defectTaskId || !collaborationTaskId || !failureClass || !shouldRouteToDefect(taskStatus, artifactContract)) {
+    return;
+  }
+
+  const defectTask = taskGraphTaskIndex.get(defectTaskId);
+  const defectTaskState = taskStateIndex.get(defectTaskId);
+  const collaborationTaskState = taskStateIndex.get(collaborationTaskId);
+
+  if (!defectTask || !defectTaskState || !collaborationTaskState) {
+    return;
+  }
+
+  skipRouteTasks(taskGraphTaskIndex, taskStateIndex, taskId, getStagesToSkipBeforeDefect(stage), failureClass, now);
+  addTaskNotes(defectTaskState, [
+    `route-trigger:${stage}`,
+    `route-class:${failureClass}`,
+    `route-reason:${taskStatus === 'failed' || taskStatus === 'blocked' ? taskStatus : 'artifact-contract-missing'}`
+  ]);
+
+  if (collaborationTaskState.status === 'ready') {
+    collaborationTaskState.status = 'pending';
+  }
+
+  if (stage === 'automated-execution') {
+    return;
+  }
+
+  if (defectTaskState.status === 'pending') {
+    defectTaskState.status = 'ready';
+  }
+}
+
+function readCollaborationHandoffPayload(artifacts: ArtifactRef[], artifactBaseDir: string): Record<string, unknown> | null {
+  const collaborationArtifact = artifacts.find((artifact) => {
+    const searchableValues = [artifact.id, artifact.path].map((value) => normalizeArtifactSearchValue(String(value)));
+    return searchableValues.some((value) => value.includes('collaboration-handoff'));
+  });
+
+  if (!collaborationArtifact) {
+    return null;
+  }
+
+  try {
+    return readStructuredFileFrom(artifactBaseDir, collaborationArtifact.path) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function enforceCollaborationApprovalGate(
+  taskGraphTask: Task,
+  taskState: TaskState,
+  artifacts: ArtifactRef[],
+  artifactContract: ArtifactContractSummary,
+  now: string,
+  artifactBaseDir: string
+): void {
+  if (taskGraphTask.stage !== 'collaboration' || taskGraphTask.reviewPolicy?.requireHumanApproval !== true) {
+    return;
+  }
+
+  const handoffPayload = readCollaborationHandoffPayload(artifacts, artifactBaseDir);
+  const readiness = typeof handoffPayload?.readiness === 'string' ? handoffPayload.readiness : null;
+  const approvalRequired = handoffPayload?.approvalRequired === true;
+  const shouldBlockForApproval =
+    artifactContract.status === 'missing'
+    || readiness === 'awaiting-approval'
+    || readiness === 'blocked'
+    || (approvalRequired && readiness !== 'ready');
+
+  if (!shouldBlockForApproval) {
+    return;
+  }
+
+  setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
+  addTaskNotes(taskState, [
+    'approval-gate:human-approval-required',
+    `route-class:${getFailureClassForStage('collaboration')}`,
+    `route-reason:${artifactContract.status === 'missing' ? 'artifact-contract-missing' : readiness ?? 'awaiting-approval'}`
+  ]);
+}
+
 function routeAutomatedExecutionOutcome(
   taskGraphTaskIndex: Map<string, Task>,
   taskStateIndex: Map<string, TaskState>,
@@ -103,32 +284,21 @@ function routeAutomatedExecutionOutcome(
   artifactContract: ArtifactContractSummary,
   now: string
 ): void {
-  const defectTaskId = getRouteTaskId(taskId, 'defect-feedback');
-  const collaborationTaskId = getRouteTaskId(taskId, 'collaboration');
+  if (shouldRouteToDefect(taskStatus, artifactContract)) {
+    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, taskId, 'automated-execution', taskStatus, artifactContract, now);
+    return;
+  }
 
-  if (!defectTaskId || !collaborationTaskId) {
+  const defectTaskId = getRouteTaskId(taskId, 'defect-feedback');
+
+  if (!defectTaskId) {
     return;
   }
 
   const defectTask = taskGraphTaskIndex.get(defectTaskId);
-  const collaborationTask = taskGraphTaskIndex.get(collaborationTaskId);
   const defectTaskState = taskStateIndex.get(defectTaskId);
-  const collaborationTaskState = taskStateIndex.get(collaborationTaskId);
 
-  if (!defectTask || !collaborationTask || !defectTaskState || !collaborationTaskState) {
-    return;
-  }
-
-  const shouldRouteToDefect = taskStatus === 'failed' || taskStatus === 'blocked' || artifactContract.status === 'missing';
-
-  if (shouldRouteToDefect) {
-    addTaskNotes(defectTaskState, [
-      `route-trigger:automated-execution`,
-      `route-reason:${taskStatus === 'failed' || taskStatus === 'blocked' ? taskStatus : 'artifact-contract-missing'}`
-    ]);
-    if (collaborationTaskState.status === 'ready') {
-      collaborationTaskState.status = 'pending';
-    }
+  if (!defectTask || !defectTaskState) {
     return;
   }
 
@@ -153,6 +323,7 @@ export function applyTaskResult(
   const taskState = taskStateIndex.get(payload.taskId);
   const taskGraphTask = taskGraphTaskIndex.get(payload.taskId);
 
+  const artifactBaseDir = inferArtifactBaseDir(statePath);
   if (!taskState || !taskGraphTask) {
     fail(`unknown task id: ${payload.taskId}`);
   }
@@ -169,6 +340,7 @@ export function applyTaskResult(
   if (payload.executor !== undefined) {
     taskState.executor = payload.executor;
   }
+  validateSchemaBackedArtifacts(payload.artifacts, { baseDir: artifactBaseDir });
   const artifactContract = buildArtifactContractSummary(taskGraphTask.roleProfile.expectedArtifacts, payload.artifacts);
   setTaskTerminalTimestamp(taskState, payload.taskStatus, now);
 
@@ -196,9 +368,15 @@ export function applyTaskResult(
     }
   }
 
+  if (['requirements-analysis', 'code-implementation', 'test-design'].includes(taskGraphTask.stage)) {
+    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, payload.taskId, taskGraphTask.stage, payload.taskStatus, artifactContract, now);
+  }
+
   if (taskGraphTask.stage === 'automated-execution') {
     routeAutomatedExecutionOutcome(taskGraphTaskIndex, taskStateIndex, payload.taskId, payload.taskStatus, artifactContract, now);
   }
+
+  enforceCollaborationApprovalGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
 
   promoteReadyTasks(taskGraphPayload, executionStatePayload);
   executionStatePayload.executionState.status = payload.workflowStatus ?? inferExecutionStateStatus(executionStatePayload.executionState.tasks);
@@ -212,7 +390,7 @@ export function applyTaskResult(
 
   const receipt = buildTaskResultReceipt(
     payload.taskId,
-    payload.taskStatus,
+    taskState.status,
     statePath,
     payload.notes,
     payload.artifacts,

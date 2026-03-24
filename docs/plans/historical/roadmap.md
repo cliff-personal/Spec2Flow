@@ -1,5 +1,13 @@
 # Spec2Flow v0.1 Development Plan
 
+- Status: historical
+- Source of truth: `README.md`, `docs/architecture.md`, `docs/usage-guide.md`
+- Verified with: archived for reference only
+
+## Archive Note
+
+This roadmap is retained only as historical planning context. Active adoption and runtime guidance now lives in the root docs, playbooks, and ADRs.
+
 ## Goal
 
 Deliver a usable first milestone that demonstrates the full loop:

@@ -2,7 +2,7 @@
 
 - Status: active
 - Source of truth: `README.md`, `AGENTS.md`, `docs/structure.md`, `llms.txt`
-- Verified with: `npm run build`, `npm run test:unit`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
 
 ## Purpose
 
@@ -18,6 +18,11 @@ Use it to answer two questions quickly:
 1. [README.md](/Users/cliff/workspace/Spec2Flow/README.md)
 2. [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
 3. [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
+
+Docs governance quick path:
+
+- active docs layout and source-of-truth rules: [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
+- plan placement and archive rules: [docs/plans/index.md](/Users/cliff/workspace/Spec2Flow/docs/plans/index.md)
 
 ## By Question
 
@@ -43,9 +48,15 @@ Use it to answer two questions quickly:
 - [TypeScript CLI instructions](/Users/cliff/workspace/Spec2Flow/.github/instructions/typescript-cli.instructions.md)
 - [schema instructions](/Users/cliff/workspace/Spec2Flow/.github/instructions/schemas.instructions.md)
 
+### Where do active docs rules and archived plan rules live?
+
+- active docs governance: [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
+- archived plan and plan-placement rules: [docs/plans/index.md](/Users/cliff/workspace/Spec2Flow/docs/plans/index.md)
+
 ### How does the runtime work?
 
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
+- [docs/runtime-config-reference.md](/Users/cliff/workspace/Spec2Flow/docs/runtime-config-reference.md)
 - [packages/cli/src/runtime/](/Users/cliff/workspace/Spec2Flow/packages/cli/src/runtime)
 - [packages/cli/src/planning/](/Users/cliff/workspace/Spec2Flow/packages/cli/src/planning)
 - [packages/cli/src/adapters/](/Users/cliff/workspace/Spec2Flow/packages/cli/src/adapters)
@@ -53,9 +64,15 @@ Use it to answer two questions quickly:
 ### How do I adopt or run the workflow?
 
 - [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
+- [docs/runtime-config-reference.md](/Users/cliff/workspace/Spec2Flow/docs/runtime-config-reference.md)
 - [docs/playbooks/index.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/index.md)
 - [docs/collaboration.md](/Users/cliff/workspace/Spec2Flow/docs/collaboration.md)
 - [docs/examples/synapse-network/README.md](/Users/cliff/workspace/Spec2Flow/docs/examples/synapse-network/README.md)
+
+### Where did the older plans go?
+
+- [docs/plans/index.md](/Users/cliff/workspace/Spec2Flow/docs/plans/index.md)
+- [docs/plans/historical/index.md](/Users/cliff/workspace/Spec2Flow/docs/plans/historical/index.md)
 
 ### What should an agent do in each workflow stage?
 
@@ -103,10 +120,12 @@ Use it to answer two questions quickly:
 ### Repository layout
 
 - primary: [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
+- supporting: [docs/plans/index.md](/Users/cliff/workspace/Spec2Flow/docs/plans/index.md)
 
 ### Workflow adoption and commands
 
 - primary: [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
+- supporting: [docs/runtime-config-reference.md](/Users/cliff/workspace/Spec2Flow/docs/runtime-config-reference.md)
 
 ### Stage-scoped execution guidance
 

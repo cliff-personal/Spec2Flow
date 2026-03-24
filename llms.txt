@@ -25,6 +25,7 @@ Spec2Flow is the orchestrator, not the coding agent itself.
 - [docs/adr/index.md](docs/adr/index.md): Stable architectural decisions and their enforcing surfaces.
 - [docs/Harness_engineering.md](docs/Harness_engineering.md): How this repository should evolve to be easier for AI agents to navigate and verify.
 - [docs/playbooks/index.md](docs/playbooks/index.md): Stage-scoped execution guidance for claimed route tasks.
+- [docs/plans/index.md](docs/plans/index.md): Planning-doc layout rules and archive boundaries.
 
 ## Copilot And Customization
 
@@ -67,6 +68,7 @@ Spec2Flow is the orchestrator, not the coding agent itself.
 - `npm run build`
 - `npm run typecheck`
 - `npm run test:unit`
+- `npm run validate:docs`
 - `npm run validate:synapse-example`
 - `npm run generate:synapse-task-graph`
 - `npm run generate:synapse-execution-state`

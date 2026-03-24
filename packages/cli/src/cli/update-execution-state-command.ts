@@ -10,6 +10,7 @@ import {
   setTaskTerminalTimestamp,
   validateExecutionStatePayload
 } from '../runtime/execution-state-service.js';
+import { validateSchemaBackedArtifacts } from '../runtime/stage-deliverable-validation.js';
 import type { ExecutionStateDocument, ExecutionStatus, TaskGraphDocument, TaskStage, TaskStatus } from '../types/index.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -111,6 +112,8 @@ export function runUpdateExecutionState(options: CliOptions, dependencies: Updat
 
   const artifactsToAdd = parseArtifactOption(typeof options['add-artifacts'] === 'string' ? options['add-artifacts'] : undefined, taskId);
   const errorsToAdd = parseErrorOption(typeof options['add-errors'] === 'string' ? options['add-errors'] : undefined, taskId);
+
+  validateSchemaBackedArtifacts(artifactsToAdd);
 
   if (artifactsToAdd.length > 0) {
     executionStatePayload.executionState.artifacts = [

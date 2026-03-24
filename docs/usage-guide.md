@@ -78,6 +78,22 @@ For early adoption or integration testing, `simulate-model-run` can stand in for
 
 Once that works, the next step is to add a `model-adapter-runtime.json` file and point `run-task-with-adapter` or `run-workflow-loop --adapter-runtime ...` at a real external adapter command.
 
+For controller-safe stages, Spec2Flow now also has a deterministic path. `run-deterministic-task` can execute a claimed `environment-preparation` or `automated-execution` task directly, run the declared verification commands, and write schema-backed report artifacts without going through an external provider.
+
+The repository's self-dogfood runtime for that path lives at `.spec2flow/model-adapter-runtime.deterministic.json`.
+
+If one workflow needs both deterministic and provider-backed stages, keep one top-level runtime file and use `adapterRuntime.stageRuntimeRefs` to delegate specific stages. The repository's `.spec2flow/model-adapter-runtime.json` now does exactly that: it keeps Copilot CLI as the default runtime while routing `environment-preparation` and `automated-execution` to `.spec2flow/model-adapter-runtime.deterministic.json`.
+
+Runtime configuration details now live in [docs/runtime-config-reference.md](runtime-config-reference.md).
+
+Use that reference for:
+
+- top-level `adapterRuntime` field meanings
+- bundled Copilot runtime defaults
+- session reuse and persistence overrides
+- environment variable semantics
+- controller-injected internal wiring versus real user-facing override points
+
 For requirement-driven execution, the most direct entrypoint is:
 
 ```bash
@@ -121,16 +137,19 @@ Spec2Flow still keeps workflow state in `execution-state.json`, not inside any p
 
 The bundled Copilot adapter can optionally reuse Copilot CLI sessions with `--resume` when the runtime supplies a stable session key.
 
-The recommended default is to scope sessions by `runId + routeName + executorType`, not to force the whole workflow into one global session. That keeps useful continuity for one responsibility, such as requirements analysis or implementation on one route, without letting unrelated tasks pollute each other.
+The bundled runtime now defaults to `specialistSessionKey`, which scopes sessions by specialist agent name such as `requirements-agent`, `implementation-agent`, or `defect-agent`. That keeps useful continuity for one responsibility without creating a new session every time a new workflow run starts.
 
-In practice, prefer these session scopes:
+The bundled adapter uses cleanup-safe session persistence by default. No extra runtime setting is required:
 
-- `route + executorType`: best default for specialist continuity
-- `route` only: acceptable when one route is handled by one agent style end to end
-- `taskId`: safest when isolation matters more than reuse
-- one global run session: only for very small workflows, otherwise context drift accumulates too quickly
+- stable single-role keys such as `requirements-agent` are persisted and reused
+- dynamic multi-part keys such as `runId + route + executorType` are treated as ephemeral and leave no session record behind after execution
+- old dynamic session files can be consolidated with `npm run migrate:copilot-sessions`
 
-After that, `run-workflow-loop` can act as the first autonomous controller loop for local rehearsals, integration tests, and eventually provider-backed execution.
+Leave the default unchanged unless you have a concrete isolation requirement. Override the session key only when the default specialist-scoped reuse is not the behavior you want.
+
+If you do need an override, the available session scopes and env semantics are documented in [docs/runtime-config-reference.md](runtime-config-reference.md).
+
+After that, `run-workflow-loop` can act as the first autonomous controller loop for local rehearsals, integration tests, and eventually provider-backed execution. For deterministic stages, the same loop can now point at a runtime that dispatches into `run-deterministic-task` instead of an external provider adapter.
 
 In practical terms, one feature request becomes one workflow run identified by `runId`, and that run contains many `taskId` values.
 

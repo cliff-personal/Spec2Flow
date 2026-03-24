@@ -125,6 +125,31 @@ function writeFixtureState(taskGraphPath: string, statePath: string, taskGraphPa
   writeJson(statePath, executionStatePayload);
 }
 
+function buildRequirementSummaryArtifact(taskId: string): Record<string, unknown> {
+  return {
+    taskId,
+    stage: 'requirements-analysis',
+    goal: 'Summarize the route requirements',
+    summary: 'The route needs a requirements handoff before code changes.',
+    sources: ['docs/architecture.md']
+  };
+}
+
+function buildImplementationSummaryArtifact(taskId: string): Record<string, unknown> {
+  return {
+    taskId,
+    stage: 'code-implementation',
+    goal: 'Apply the approved change',
+    summary: 'Updated the target frontend file for the smoke route.',
+    changedFiles: [
+      {
+        path: 'apps/frontend/src/App.tsx',
+        changeType: 'modified'
+      }
+    ]
+  };
+}
+
 function createExecuteTaskRun(tempDir: string): (statePath: string, taskGraphPath: string, claimPayload: TaskClaimPayload, options: Record<string, string | boolean | undefined>) => TaskExecutionResult {
   return (statePath, taskGraphPath, claimPayload, options) => {
     const taskId = claimPayload.taskClaim?.taskId;
@@ -137,7 +162,10 @@ function createExecuteTaskRun(tempDir: string): (statePath: string, taskGraphPat
     const taskGraphPayload = readStructuredFile(taskGraphPath) as TaskGraphDocument;
     const artifactId = stage === 'requirements-analysis' ? 'requirements-summary' : 'implementation-summary';
     const artifactPath = path.join(tempDir, `${taskId}-${artifactId}.json`);
-    fs.writeFileSync(artifactPath, `${JSON.stringify({ taskId, artifactId })}\n`, 'utf8');
+    const artifactPayload = stage === 'requirements-analysis'
+      ? buildRequirementSummaryArtifact(taskId)
+      : buildImplementationSummaryArtifact(taskId);
+    fs.writeFileSync(artifactPath, `${JSON.stringify(artifactPayload, null, 2)}\n`, 'utf8');
 
     const artifact: ArtifactRef = {
       id: artifactId,
@@ -322,5 +350,72 @@ describe('workflow-loop-service', () => {
     expect(summary.workflowLoop.stepsExecuted).toBe(1);
     expect(summary.workflowLoop.receipts[0]?.executionMode).toBe('external-adapter');
     expect(fs.existsSync(path.join(outputBase, 'adapter-run-step-1.json'))).toBe(true);
+  });
+
+  it('preflights unique stage runtime variants when the runtime config is stage-aware', () => {
+    const tempDir = createTempDir();
+    const taskGraphPath = path.join(tempDir, 'task-graph.json');
+    const statePath = path.join(tempDir, 'execution-state.json');
+    const adapterRuntimePath = path.join(tempDir, 'adapter-runtime.json');
+    const deterministicRuntimePath = path.join(tempDir, 'deterministic-runtime.json');
+    const adapterRuntimePayload: AdapterRuntimeDocument = {
+      adapterRuntime: {
+        name: 'fixture-adapter',
+        provider: 'github-copilot-cli',
+        command: 'fixture-command',
+        outputMode: 'stdout',
+        stageRuntimeRefs: {
+          'environment-preparation': './deterministic-runtime.json',
+          'automated-execution': './deterministic-runtime.json'
+        }
+      }
+    };
+    const deterministicRuntimePayload: AdapterRuntimeDocument = {
+      adapterRuntime: {
+        name: 'deterministic-adapter',
+        provider: 'spec2flow-deterministic',
+        command: 'deterministic-command',
+        outputMode: 'stdout'
+      }
+    };
+    const validatedPaths: string[] = [];
+    const preflightProviders: string[] = [];
+
+    writeFixtureState(taskGraphPath, statePath, buildTaskGraphFixture(taskGraphPath));
+    writeJson(adapterRuntimePath, adapterRuntimePayload);
+    writeJson(deterministicRuntimePath, deterministicRuntimePayload);
+
+    runWorkflowLoopWithExecutor({
+      state: statePath,
+      'task-graph': taskGraphPath,
+      'adapter-runtime': adapterRuntimePath,
+      'max-steps': '1',
+      'output-base': path.join(tempDir, 'outputs')
+    }, {
+      fail: createFail(),
+      readStructuredFile,
+      writeJson,
+      claimNextTaskPayload: (nextStatePath, nextTaskGraphPath, options) => claimNextTaskPayload(nextStatePath, nextTaskGraphPath, options, {
+        readStructuredFile,
+        loadOptionalStructuredFile,
+        writeJson
+      }),
+      executeTaskRun: createExecuteTaskRun(tempDir),
+      validateAdapterRuntimePayload: (_payload, runtimePath) => {
+        validatedPaths.push(runtimePath);
+      },
+      ensureAdapterPreflight: (_options, payload) => {
+        preflightProviders.push(payload.adapterRuntime.provider ?? 'unknown');
+      }
+    });
+
+    expect(validatedPaths).toEqual([
+      adapterRuntimePath,
+      deterministicRuntimePath
+    ]);
+    expect(preflightProviders).toEqual([
+      'github-copilot-cli',
+      'spec2flow-deterministic'
+    ]);
   });
 });

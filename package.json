@@ -9,6 +9,7 @@
   "scripts": {
     "prepare": "npm run build",
     "build": "tsc -p tsconfig.build.json",
+    "migrate:copilot-sessions": "node scripts/migrate-copilot-sessions.mjs --report .spec2flow/runtime/copilot-session-migration-report.json",
     "spec2flow": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
     "spec2flow:dist": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

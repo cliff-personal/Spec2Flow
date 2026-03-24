@@ -1,0 +1,70 @@
+riskPolicy:
+  defaultLevel: execute-to-pr
+
+  automationLevels:
+    - name: l0-assist
+      description: only analyze and summarize
+      maxAutonomy: analysis-only
+
+    - name: l1-controlled
+      description: implement changes and run validation, but stop before repository collaboration side effects
+      maxAutonomy: execute-to-pr
+
+  rules:
+    - name: docs-low-risk
+      level: low
+      match:
+        paths:
+          - docs/**
+          - README.md
+          - AGENTS.md
+          - llms.txt
+          - .github/**/*.md
+      requires:
+        humanApproval: false
+        reviewAgents: 1
+        mustRunCommands:
+          - npm run validate:docs
+      blockAutoMerge: false
+
+    - name: cli-medium-risk
+      level: medium
+      match:
+        paths:
+          - packages/cli/src/**
+          - package.json
+          - vitest.config.ts
+      requires:
+        humanApproval: false
+        reviewAgents: 1
+        mustRunCommands:
+          - npm run build
+          - npm run test:unit
+      blockAutoMerge: true
+
+    - name: schema-medium-risk
+      level: medium
+      match:
+        paths:
+          - schemas/**
+      requires:
+        humanApproval: false
+        reviewAgents: 1
+        mustRunCommands:
+          - npm run build
+      blockAutoMerge: true
+
+    - name: repo-governance-high-risk
+      level: high
+      match:
+        workflowNames:
+          - cli-runtime
+          - schema-contracts
+      requires:
+        humanApproval: true
+        reviewAgents: 1
+        mustRunCommands:
+          - npm run build
+          - npm run test:unit
+          - npm run validate:docs
+      blockAutoMerge: true

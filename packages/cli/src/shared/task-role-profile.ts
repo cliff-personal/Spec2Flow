@@ -14,7 +14,7 @@ const supportedStageExecutors: Record<TaskStage, TaskExecutorType[]> = {
   'test-design': ['test-design-agent'],
   'automated-execution': ['execution-agent'],
   'defect-feedback': ['defect-agent'],
-  'collaboration': ['collaboration-agent', 'human']
+  'collaboration': ['collaboration-agent']
 };
 
 function assertStageExecutorPair(stage: TaskStage, executorType: TaskExecutorType): void {
@@ -107,21 +107,6 @@ export function buildTaskRoleProfile(stage: TaskStage, executorType: TaskExecuto
         expectedArtifacts: ['defect-summary', 'bug-draft']
       };
     case 'collaboration':
-      if (executorType === 'human') {
-        return {
-          profileId: 'collaboration-human-gate',
-          specialistRole: executorType,
-          commandPolicy: 'collaboration-only',
-          canReadRepository: true,
-          canEditFiles: false,
-          canRunCommands: false,
-          canWriteArtifacts: true,
-          canOpenCollaboration: true,
-          requiredAdapterSupports: [],
-          expectedArtifacts: ['human-approval-record']
-        };
-      }
-
       return {
         profileId: 'collaboration-specialist',
         specialistRole: executorType,

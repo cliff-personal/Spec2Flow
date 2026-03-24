@@ -16,8 +16,7 @@ export type TaskExecutorType =
   | 'test-design-agent'
   | 'execution-agent'
   | 'defect-agent'
-  | 'collaboration-agent'
-  | 'human';
+  | 'collaboration-agent';
 
 export type AdapterSupportName =
   | 'toolCalling'

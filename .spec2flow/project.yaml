@@ -1,0 +1,65 @@
+spec2flow:
+  project:
+    name: spec2flow
+    type: monorepo
+    defaultBranch: main
+    owner: cliff-personal
+
+  docs:
+    requirements:
+      - README.md
+      - docs/index.md
+      - docs/usage-guide.md
+    architecture:
+      - AGENTS.md
+      - .github/copilot-instructions.md
+      - .github/instructions/typescript-cli.instructions.md
+      - .github/instructions/schemas.instructions.md
+      - .github/instructions/docs.instructions.md
+      - docs/architecture.md
+      - docs/structure.md
+    operations:
+      - docs/playbooks
+      - docs/collaboration.md
+    api:
+      - schemas
+      - packages/cli/src/cli
+
+  services:
+    cli:
+      path: packages/cli
+      type: backend
+      start: npm run build
+      test: npm run test:unit
+    docs:
+      path: docs
+      type: other
+      start: npm run validate:docs
+      test: npm run validate:docs
+      dependsOn:
+        - cli
+    schemas:
+      path: schemas
+      type: other
+      start: npm run build
+      test: npm run build
+      dependsOn:
+        - cli
+
+  infrastructure:
+    bootstrap: npm run build
+
+  tests:
+    build: npm run build
+    unit: npm run test:unit
+    docs: npm run validate:docs
+
+  artifacts:
+    baseDir: .spec2flow/generated
+    executionDir: .spec2flow/generated/execution
+    bugsDir: .spec2flow/generated/bugs
+
+  generatedBy:
+    tool: spec2flow-self-dogfood
+    version: 0.1.0
+    generatedAt: 2026-03-24T00:00:00Z

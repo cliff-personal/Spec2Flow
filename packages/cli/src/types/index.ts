@@ -33,7 +33,7 @@ export type {
   TaskClaimRuntimeContext
 } from './task-claim.js';
 export type { TaskResult, TaskResultDocument } from './task-result.js';
-export type { AdapterOutputMode, AdapterRuntime, AdapterRuntimeDocument } from './adapter-runtime.js';
+export type { AdapterOutputMode, AdapterRuntime, AdapterRuntimeDocument, AdapterRuntimeStageRuntimeRefs } from './adapter-runtime.js';
 export type {
   AdapterRunActivity,
   AdapterRun,
@@ -46,3 +46,14 @@ export type {
   WorkflowLoopSummary,
   WorkflowLoopSummaryDocument
 } from './workflow-loop-summary.js';
+export type {
+  CollaborationHandoff,
+  DefectSummary,
+  DeliverableGapItem,
+  DeliverablePriority,
+  ExecutionReport,
+  ImplementationSummary,
+  RequirementSummary,
+  TestCases,
+  TestPlan
+} from './stage-deliverables.js';
