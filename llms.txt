@@ -14,13 +14,15 @@ Spec2Flow is the orchestrator, not the coding agent itself.
 
 ## Start Here
 
-- [README.md](README.md): Product overview, goals, commands, and primary docs.
+- [llms.txt](llms.txt): Read this file first for the shortest machine-readable repository map and reading order.
 - [AGENTS.md](AGENTS.md): Repository architecture map, navigation, and core boundaries.
 - [docs/index.md](docs/index.md): AI-facing reading order and source-of-truth map.
+- [README.md](README.md): Product overview, goals, commands, and primary docs.
 
 ## Architecture And Boundaries
 
 - [docs/architecture.md](docs/architecture.md): Runtime model, orchestration boundaries, and specialist-agent overlay.
+- [docs/agent-orchestration-platform-design.md](docs/agent-orchestration-platform-design.md): Target design for PostgreSQL-backed scheduling, auto-repair, and a web control plane.
 - [docs/structure.md](docs/structure.md): Current repository map and reading order.
 - [docs/adr/index.md](docs/adr/index.md): Stable architectural decisions and their enforcing surfaces.
 - [docs/Harness_engineering.md](docs/Harness_engineering.md): How this repository should evolve to be easier for AI agents to navigate and verify.
@@ -83,7 +85,8 @@ Spec2Flow is the orchestrator, not the coding agent itself.
 
 ## Reading Strategy For AI Agents
 
-1. Read [AGENTS.md](AGENTS.md) for the architecture boundary and navigation map.
-2. Read [docs/index.md](docs/index.md) to choose the minimal relevant context.
-3. Read the specific source-of-truth doc for the task domain.
-4. Validate behavior against schemas, runtime code, and stable commands.
+1. Read this file first to choose the minimal relevant context.
+2. Read [AGENTS.md](AGENTS.md) for the architecture boundary and navigation map.
+3. Read [docs/index.md](docs/index.md) to choose the minimal relevant context by question.
+4. Read the specific source-of-truth doc for the task domain.
+5. Validate behavior against schemas, runtime code, and stable commands.

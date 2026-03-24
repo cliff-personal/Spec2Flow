@@ -1,12 +1,12 @@
 export type CliOptions = Record<string, string | boolean | undefined>;
 
-export type CommandHandler = (options: CliOptions) => void;
+export type CommandHandler = (options: CliOptions) => void | Promise<void>;
 
-export function dispatchCommand(
+export async function dispatchCommand(
   command: string | undefined,
   options: CliOptions,
   handlers: Record<string, CommandHandler>
-): boolean {
+): Promise<boolean> {
   if (!command) {
     return false;
   }
@@ -16,6 +16,6 @@ export function dispatchCommand(
     return false;
   }
 
-  handler(options);
+  await handler(options);
   return true;
 }

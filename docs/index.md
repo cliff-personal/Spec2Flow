@@ -15,9 +15,10 @@ Use it to answer two questions quickly:
 
 ## Read First
 
-1. [README.md](/Users/cliff/workspace/Spec2Flow/README.md)
-2. [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
-3. [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
+1. [llms.txt](/Users/cliff/workspace/Spec2Flow/llms.txt)
+2. [README.md](/Users/cliff/workspace/Spec2Flow/README.md)
+3. [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
+4. [docs/structure.md](/Users/cliff/workspace/Spec2Flow/docs/structure.md)
 
 Docs governance quick path:
 
@@ -34,6 +35,7 @@ Docs governance quick path:
 
 - [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
+- [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
 - [docs/adr/index.md](/Users/cliff/workspace/Spec2Flow/docs/adr/index.md)
 
 ### How should Copilot behave in this repository?
@@ -56,10 +58,17 @@ Docs governance quick path:
 ### How does the runtime work?
 
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
+- [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
 - [docs/runtime-config-reference.md](/Users/cliff/workspace/Spec2Flow/docs/runtime-config-reference.md)
 - [packages/cli/src/runtime/](/Users/cliff/workspace/Spec2Flow/packages/cli/src/runtime)
 - [packages/cli/src/planning/](/Users/cliff/workspace/Spec2Flow/packages/cli/src/planning)
 - [packages/cli/src/adapters/](/Users/cliff/workspace/Spec2Flow/packages/cli/src/adapters)
+
+### How should Spec2Flow evolve into an agent orchestration platform?
+
+- [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
+- [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
+- [docs/synapse-integration-automation-design.md](/Users/cliff/workspace/Spec2Flow/docs/synapse-integration-automation-design.md)
 
 ### How do I adopt or run the workflow?
 
@@ -101,6 +110,11 @@ Docs governance quick path:
 ### Architecture and boundaries
 
 - primary: [AGENTS.md](/Users/cliff/workspace/Spec2Flow/AGENTS.md)
+- supporting: [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
+
+### Platform evolution design
+
+- primary: [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
 - supporting: [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
 
 ### Copilot operating policy

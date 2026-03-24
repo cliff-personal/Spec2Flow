@@ -1,7 +1,12 @@
 import { buildDocsValidationReport } from '../docs/docs-validation-service.js';
+import { createPlatformPool, resolvePlatformDatabaseConfig, withPlatformTransaction } from '../platform/platform-database.js';
+import { getDefaultPlatformMigrationsDir, migratePlatformDatabase } from '../platform/platform-migration-service.js';
+import { createPlatformRunInitializationPlan, persistPlatformRunPlan } from '../platform/platform-repository.js';
 import { runClaimNextTask } from './claim-next-task-command.js';
 import { runGenerateTaskGraph } from './generate-task-graph-command.js';
+import { runInitPlatformRun, type PlatformRunInitDocument } from './init-platform-run-command.js';
 import { runInitExecutionState } from './init-execution-state-command.js';
+import { runMigratePlatformDb, type PlatformMigrationReportDocument } from './migrate-platform-db-command.js';
 import { runPreflightCopilotCli } from './preflight-copilot-cli-command.js';
 import { runTaskWithAdapter, type AdapterTaskRunDocument } from './run-task-with-adapter-command.js';
 import { runDeterministicTaskCommand } from './run-deterministic-task-command.js';
@@ -22,7 +27,7 @@ export interface DistCommandHandlerDependencies {
   fail: (message: string) => void;
   getRouteNameFromTaskId: (taskId: string | null | undefined) => string;
   parseCsvOption: (value: string | undefined) => string[];
-  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument) => void;
+  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument) => void;
   readStructuredFile: (filePath: string) => any;
   rootDir: string;
   sanitizeStageName: (stage: string) => string;
@@ -31,7 +36,7 @@ export interface DistCommandHandlerDependencies {
   writeJson: (filePath: string, payload: unknown) => void;
 }
 
-export function buildDistCommandHandlers(dependencies: DistCommandHandlerDependencies): Record<string, (options: CliOptions) => void> {
+export function buildDistCommandHandlers(dependencies: DistCommandHandlerDependencies): Record<string, (options: CliOptions) => void | Promise<void>> {
   return {
     'preflight-copilot-cli': (options) =>
       runPreflightCopilotCli(options as PreflightCliOptions, {
@@ -63,6 +68,29 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         fail: dependencies.fail,
         printJson: dependencies.printJson,
         readStructuredFile: dependencies.readStructuredFile,
+        writeJson: dependencies.writeJson
+      }),
+    'migrate-platform-db': (options) =>
+      runMigratePlatformDb(options, {
+        createPlatformPool,
+        fail: dependencies.fail,
+        getDefaultPlatformMigrationsDir,
+        migratePlatformDatabase,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }),
+    'init-platform-run': (options) =>
+      runInitPlatformRun(options, {
+        createPlatformPool,
+        createPlatformRunInitializationPlan,
+        fail: dependencies.fail,
+        persistPlatformRunPlan,
+        printJson: dependencies.printJson,
+        readStructuredFile: (filePath) => dependencies.readStructuredFile(filePath) as TaskGraphDocument,
+        resolvePlatformDatabaseConfig,
+        withPlatformTransaction,
         writeJson: dependencies.writeJson
       }),
     'init-execution-state': (options) =>

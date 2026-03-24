@@ -213,6 +213,7 @@ Example commands:
 npm install
 npm run build
 npm run test:unit
+npm run migrate:platform-db -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform
 npm run validate:docs
 npm run validate:synapse-example
 npm run generate:synapse-task-graph
@@ -224,6 +225,7 @@ npm run simulate:synapse-model-run
 npm run run:synapse-task-with-adapter
 npm run run:synapse-copilot-cli-loop
 npm run run:synapse-workflow-loop
+npm run init:platform-run -- --database-url postgresql://localhost:5432/spec2flow --database-schema spec2flow_platform --task-graph docs/examples/synapse-network/generated/task-graph.json --repository-id spec2flow --repository-name Spec2Flow --repo-root .
 npm run generate:synapse-task-graph:frontend-change
 npm run generate:synapse-task-graph:withdrawal-change
 ```

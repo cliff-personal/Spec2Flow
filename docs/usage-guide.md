@@ -154,6 +154,43 @@ After that, `run-workflow-loop` can act as the first autonomous controller loop 
 
 In practical terms, one feature request becomes one workflow run identified by `runId`, and that run contains many `taskId` values.
 
+## Platform Persistence Bootstrap
+
+Spec2Flow now also includes the first PostgreSQL-backed platform persistence slice for Phase 1 work.
+
+The new commands are:
+
+- `migrate-platform-db`: apply the platform schema migrations
+- `init-platform-run`: persist one repository, one run, its tasks, initial events, and task-graph artifact metadata into PostgreSQL
+
+Example bootstrap flow:
+
+```bash
+npm run migrate:platform-db -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform
+
+npm run init:platform-run -- \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --task-graph docs/examples/synapse-network/generated/task-graph.json \
+  --repository-id spec2flow \
+  --repository-name Spec2Flow \
+  --repo-root .
+```
+
+This persistence layer does not replace `task-graph.json` or `execution-state.json` yet.
+It establishes the first shared runtime truth for:
+
+- `repositories`
+- `runs`
+- `tasks`
+- `task_attempts`
+- `artifacts`
+- `events`
+- `review_gates`
+- `publications`
+
 ## Recommended Integration Layout
 
 Another repository does not need to copy the entire Spec2Flow repository structure.

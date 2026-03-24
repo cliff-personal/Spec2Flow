@@ -87,11 +87,17 @@ Keep `AGENTS.md` short and architecture-oriented. Operational rules belong in `.
 
 ## Navigation
 
+Repository intake order for AI agents:
+- `llms.txt`: read first to get the shortest machine-readable system map
+- `AGENTS.md`: read second for architecture boundaries and repository rules
+- `docs/index.md`: read third for question-based source-of-truth routing
+
 Start here when you need the system map:
-- `README.md`: product overview and goals
 - `llms.txt`: machine-readable repository map for AI agents and external tooling
+- `README.md`: product overview and goals
 - `docs/index.md`: shortest docs map by question and source of truth
 - `docs/architecture.md`: runtime model and orchestration boundaries
+- `docs/agent-orchestration-platform-design.md`: target design for agent scheduling, web control plane, and PostgreSQL-backed runs
 - `docs/copilot.md`: Copilot customization and maintenance policy
 - `docs/plans/index.md`: planning-doc layout rules and archival boundaries
 - `docs/synapse-integration-automation-design.md`: complex-system integration and multi-agent design

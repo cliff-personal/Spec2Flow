@@ -57,6 +57,7 @@ Spec2Flow/
 │  │     ├─ typescript-migration-plan.md
 │  │     └─ cli-refactor-plan.md
 │  ├─ architecture.md
+│  ├─ agent-orchestration-platform-design.md
 │  ├─ collaboration.md
 │  ├─ runtime-config-reference.md
 │  ├─ usage-guide.md
@@ -127,9 +128,9 @@ This file should describe the current repository map first. Future package split
 Versioned record system for product intent, architecture, usage, and examples.
 
 Recommended reading order:
+- `llms.txt` for machine-readable repository discovery
 - `README.md` for product overview
 - `AGENTS.md` for repository rules and doc governance
-- `llms.txt` for machine-readable repository discovery
 - `docs/index.md` for the shortest AI-facing docs map
 - `docs/copilot.md` for Copilot customization and maintenance policy
 - `docs/Harness_engineering.md` for AI-facing repository optimization guidance
@@ -137,6 +138,7 @@ Recommended reading order:
 - `docs/playbooks/index.md` for stage-scoped execution guidance
 - `docs/plans/index.md` for plan placement and archive rules
 - `docs/architecture.md` for runtime boundaries
+- `docs/agent-orchestration-platform-design.md` for the target platform upgrade path
 - `docs/runtime-config-reference.md` for runtime field semantics and override rules
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration

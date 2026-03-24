@@ -57,3 +57,10 @@ export type {
   TestCases,
   TestPlan
 } from './stage-deliverables.js';
+export type {
+  PlatformArtifactRecord,
+  PlatformEventRecord,
+  PlatformRepositoryRecord,
+  PlatformRunRecord,
+  PlatformTaskRecord
+} from './platform-persistence.js';

@@ -9,6 +9,8 @@
   "scripts": {
     "prepare": "npm run build",
     "build": "tsc -p tsconfig.build.json",
+    "migrate:platform-db": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js migrate-platform-db",
+    "init:platform-run": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js init-platform-run",
     "migrate:copilot-sessions": "node scripts/migrate-copilot-sessions.mjs --report .spec2flow/runtime/copilot-session-migration-report.json",
     "spec2flow": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
     "spec2flow:dist": "node packages/cli/dist/cli/spec2flow-dist-entrypoint.js",
@@ -42,11 +44,13 @@
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "js-yaml": "^4.1.0",
-    "minimatch": "^10.0.3"
+    "minimatch": "^10.0.3",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

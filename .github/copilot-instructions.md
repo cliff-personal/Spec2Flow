@@ -3,6 +3,11 @@
 - Architectural principles live in `AGENTS.md`.
 - Detailed rationale and maintenance policy live in `docs/copilot.md`.
 
+## Repository Intake
+- Read `llms.txt` first to get the shortest repository map and reading order.
+- Read `AGENTS.md` next for architectural boundaries.
+- Read `docs/index.md` next to route into the minimal source-of-truth doc set.
+
 ## Change Scope
 - Prefer focused changes over broad rewrites.
 - Keep one Spec2Flow task claim focused on one subtask only.
