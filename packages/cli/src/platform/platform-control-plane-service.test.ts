@@ -1,6 +1,10 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  getPlatformControlPlaneTaskArtifactCatalog,
   getPlatformControlPlaneRunDetail,
   listPlatformRuns
 } from './platform-control-plane-service.js';
@@ -38,6 +42,10 @@ class SequentialExecutor implements SqlExecutor {
       rowCount: step.result.rowCount
     };
   }
+}
+
+function createTempDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-control-plane-service-'));
 }
 
 describe('platform-control-plane-service', () => {
@@ -210,5 +218,178 @@ describe('platform-control-plane-service', () => {
         ])
       })
     }));
+  });
+
+  it('loads an execution artifact catalog for one task', async () => {
+    const tempDir = createTempDir();
+    const artifactPath = path.join('spec2flow', 'outputs', 'execution', 'frontend-smoke', 'execution-artifact-catalog.json');
+    fs.mkdirSync(path.join(tempDir, 'spec2flow', 'outputs', 'execution', 'frontend-smoke'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, artifactPath), JSON.stringify({
+      generatedAt: '2026-03-25T01:00:00.000Z',
+      taskId: 'frontend-smoke--automated-execution',
+      stage: 'automated-execution',
+      summary: 'catalog',
+      store: {
+        mode: 'remote-catalog',
+        provider: 'generic-http',
+        publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
+        keyPrefix: 'frontend-smoke/',
+        uploadConfigured: true,
+        uploadMethod: 'PUT'
+      },
+      artifacts: [
+        {
+          id: 'execution-report',
+          path: 'spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+          kind: 'report',
+          category: 'other',
+          upload: {
+            status: 'uploaded',
+            httpStatus: 201
+          },
+          storage: {
+            mode: 'remote-catalog',
+            provider: 'generic-http',
+            objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+            remoteUrl: 'https://artifacts.example.com/spec2flow/frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json'
+          }
+        }
+      ]
+    }, null, 2));
+
+    const executor = new SequentialExecutor([
+      {
+        match: 'FROM "spec2flow_platform".runs',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            repository_id: 'spec2flow',
+            workflow_name: 'platform-flow',
+            request_text: 'Run execution',
+            status: 'running',
+            current_stage: 'automated-execution',
+            risk_level: 'medium',
+            request_payload: {},
+            metadata: {},
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:05:00.000Z',
+            started_at: '2026-03-24T12:00:10.000Z',
+            completed_at: null
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".tasks',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--automated-execution',
+            stage: 'automated-execution',
+            title: 'Execute frontend-smoke validation',
+            goal: 'Run validation',
+            executor_type: 'execution-agent',
+            status: 'completed',
+            risk_level: 'medium',
+            depends_on: [],
+            target_files: [],
+            verify_commands: [],
+            inputs: {},
+            role_profile: {
+              profileId: 'automated-execution-specialist',
+              specialistRole: 'execution-agent',
+              commandPolicy: 'verification-only',
+              canReadRepository: true,
+              canEditFiles: false,
+              canRunCommands: true,
+              canWriteArtifacts: true,
+              canOpenCollaboration: false,
+              requiredAdapterSupports: [],
+              expectedArtifacts: ['execution-report']
+            },
+            review_policy: null,
+            artifacts_dir: null,
+            attempts: 1,
+            retry_count: 0,
+            max_retries: 3,
+            auto_repair_count: 0,
+            max_auto_repair_attempts: 0,
+            current_lease_id: null,
+            leased_by_worker_id: null,
+            lease_expires_at: null,
+            last_heartbeat_at: null,
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:05:00.000Z',
+            started_at: '2026-03-24T12:00:20.000Z',
+            completed_at: '2026-03-24T12:05:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".events',
+        result: { rows: [], rowCount: 0 }
+      },
+      {
+        match: 'FROM "spec2flow_platform".artifacts',
+        result: {
+          rows: [{
+            artifact_id: 'artifact-1',
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--automated-execution',
+            kind: 'report',
+            path: artifactPath,
+            schema_type: null,
+            metadata: {
+              originalArtifactId: 'execution-artifact-catalog'
+            },
+            created_at: '2026-03-25T01:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".repair_attempts',
+        result: { rows: [], rowCount: 0 }
+      },
+      {
+        match: 'FROM "spec2flow_platform".publications',
+        result: { rows: [], rowCount: 0 }
+      },
+      {
+        match: 'SELECT repositories.root_path',
+        result: {
+          rows: [{
+            root_path: tempDir
+          }],
+          rowCount: 1
+        }
+      }
+    ]);
+
+    const result = await getPlatformControlPlaneTaskArtifactCatalog(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      taskId: 'frontend-smoke--automated-execution',
+      eventLimit: 20
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      runId: 'run-1',
+      taskId: 'frontend-smoke--automated-execution',
+      artifactId: 'artifact-1',
+      catalog: expect.objectContaining({
+        stage: 'automated-execution',
+        artifacts: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'execution-report',
+            upload: expect.objectContaining({
+              status: 'uploaded'
+            })
+          })
+        ])
+      })
+    }));
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 });

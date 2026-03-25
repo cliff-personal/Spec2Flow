@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type {
+  PlatformControlPlaneTaskArtifactCatalog,
   PlatformControlPlaneRunActionDocument,
   PlatformControlPlaneRunActionResult,
   PlatformControlPlaneTaskActionDocument,
@@ -39,6 +40,11 @@ export interface StartPlatformControlPlaneServerOptions {
     runId: string;
     eventLimit: number;
   }) => Promise<PlatformObservabilityReadModel | null>;
+  getPlatformControlPlaneTaskArtifactCatalog: (options: {
+    runId: string;
+    taskId: string;
+    eventLimit: number;
+  }) => Promise<PlatformControlPlaneTaskArtifactCatalog | null>;
   submitPlatformRun: (options: PlatformControlPlaneRunSubmissionRequest) => Promise<PlatformControlPlaneRunSubmissionResult>;
   retryPlatformTask: (options: {
     runId: string;
@@ -78,6 +84,7 @@ export interface StartedPlatformControlPlaneServer {
 
 const RUN_DETAIL_ROUTE = /^\/api\/runs\/([^/]+)$/u;
 const RUN_TASKS_ROUTE = /^\/api\/runs\/([^/]+)\/tasks$/u;
+const RUN_TASK_ARTIFACT_CATALOG_ROUTE = /^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/artifact-catalog$/u;
 const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
 const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume)$/u;
 const TASK_ACTION_ROUTE = /^\/api\/tasks\/([^/]+)\/actions\/(retry|approve|reject)$/u;
@@ -400,6 +407,35 @@ async function handleRunObservabilityRequest(
   return true;
 }
 
+async function handleRunTaskArtifactCatalogRequest(
+  response: ServerResponse,
+  pathname: string,
+  eventLimit: number,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = RUN_TASK_ARTIFACT_CATALOG_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const runIdParam = match[1];
+  const taskIdParam = match[2];
+  if (!runIdParam || !taskIdParam) {
+    return false;
+  }
+
+  const runId = decodeURIComponent(runIdParam);
+  const taskId = decodeURIComponent(taskIdParam);
+  const artifactCatalog = await options.getPlatformControlPlaneTaskArtifactCatalog({ runId, taskId, eventLimit });
+  if (!artifactCatalog) {
+    writeError(response, 404, 'artifact-catalog-not-found', `No execution artifact catalog for task ${taskId} in run ${runId}`);
+    return true;
+  }
+
+  writeJson(response, 200, { artifactCatalog });
+  return true;
+}
+
 async function handleRunActionRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -520,6 +556,10 @@ async function handleGetRequest(
   }
 
   if (await handleRunTasksRequest(response, pathname, eventLimit, options)) {
+    return true;
+  }
+
+  if (await handleRunTaskArtifactCatalogRequest(response, pathname, eventLimit, options)) {
     return true;
   }
 

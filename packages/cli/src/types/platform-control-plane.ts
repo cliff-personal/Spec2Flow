@@ -25,6 +25,52 @@ export interface PlatformControlPlaneTaskList {
   tasks: PlatformTaskRecord[];
 }
 
+export interface PlatformControlPlaneArtifactCatalogStore {
+  mode: 'local' | 'remote-catalog';
+  provider?: string;
+  publicBaseUrl?: string;
+  keyPrefix?: string;
+  uploadConfigured?: boolean;
+  uploadMethod?: 'PUT' | 'POST';
+}
+
+export interface PlatformControlPlaneArtifactCatalogArtifact {
+  id: string;
+  path: string;
+  kind: string;
+  category: string;
+  contentType?: string;
+  storage?: {
+    mode: 'local' | 'remote-catalog';
+    provider?: string;
+    objectKey?: string;
+    remoteUrl?: string;
+  };
+  upload?: {
+    status: 'pending' | 'uploaded' | 'skipped' | 'failed';
+    uploadedAt?: string;
+    httpStatus?: number;
+    error?: string;
+  };
+}
+
+export interface PlatformControlPlaneArtifactCatalog {
+  generatedAt?: string;
+  taskId: string;
+  stage: 'automated-execution';
+  summary: string;
+  store: PlatformControlPlaneArtifactCatalogStore;
+  artifacts: PlatformControlPlaneArtifactCatalogArtifact[];
+}
+
+export interface PlatformControlPlaneTaskArtifactCatalog {
+  runId: string;
+  taskId: string;
+  artifactId: string;
+  path: string;
+  catalog: PlatformControlPlaneArtifactCatalog;
+}
+
 export interface PlatformControlPlaneTaskActionResult {
   action: 'retry' | 'approve' | 'reject';
   runId: string;
@@ -108,6 +154,10 @@ export interface PlatformControlPlaneRunActionDocument {
 
 export interface PlatformControlPlaneRunSubmissionDocument {
   runSubmission: PlatformControlPlaneRunSubmissionResult;
+}
+
+export interface PlatformControlPlaneTaskArtifactCatalogDocument {
+  artifactCatalog: PlatformControlPlaneTaskArtifactCatalog;
 }
 
 export interface PlatformControlPlaneErrorDocument {

@@ -87,9 +87,14 @@ export type {
   PlatformTaskObservabilitySummary
 } from './platform-observability.js';
 export type {
+  PlatformControlPlaneArtifactCatalog,
+  PlatformControlPlaneArtifactCatalogArtifact,
+  PlatformControlPlaneArtifactCatalogStore,
   PlatformControlPlaneRunActionDocument,
   PlatformControlPlaneRunActionResult,
   PlatformControlPlaneTaskActionDocument,
+  PlatformControlPlaneTaskArtifactCatalog,
+  PlatformControlPlaneTaskArtifactCatalogDocument,
   PlatformControlPlaneTaskActionResult,
   PlatformControlPlaneErrorDocument,
   PlatformControlPlaneRunDetail,

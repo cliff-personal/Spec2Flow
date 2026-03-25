@@ -187,6 +187,7 @@ The PostgreSQL commands are:
 - `expire-platform-leases`: requeue or block stale leased work after timeout
 - `get-platform-run-state`: read one DB-backed run snapshot with tasks, events, and artifacts
 - `serve-platform-control-plane`: start the first HTTP backend for the future web control plane
+- `GET /api/runs/:runId/tasks/:taskId/artifact-catalog`: read one task-scoped execution artifact catalog from the control plane
 - `run-platform-worker-task`: materialize one leased DB-backed task into a worker claim, execute it, and persist the result back to PostgreSQL
 - `run-platform-requirements-worker`: stage-locked wrapper for `requirements-analysis`
 - `run-platform-implementation-worker`: stage-locked wrapper for `code-implementation`
@@ -384,6 +385,28 @@ reporting:
     - type:defect
     - area:execution
 ```
+
+Route-scoped execution can also declare an artifact store for deterministic execution evidence:
+
+```yaml
+topology:
+  workflowRoutes:
+    - name: frontend-smoke
+      entryServices: [frontend]
+      verifyCommands:
+        - ./scripts/run-smoke.sh
+      artifactStore:
+        mode: remote-catalog
+        provider: generic-http
+        publicBaseUrl: https://artifacts.example.com/spec2flow/
+        keyPrefix: frontend-smoke/
+        upload:
+          endpointTemplate: https://uploads.example.com/spec2flow/{objectKey}
+          method: PUT
+          authTokenEnv: SPEC2FLOW_ARTIFACT_TOKEN
+```
+
+`publicBaseUrl` defines retrieval links that end up in the task's `execution-artifact-catalog`. `upload.endpointTemplate` turns `remote-catalog` from metadata-only into a real upload lifecycle, and the control plane can now read that catalog back through `GET /api/runs/:runId/tasks/:taskId/artifact-catalog`.
 
 ## External Project Onboarding Steps
 

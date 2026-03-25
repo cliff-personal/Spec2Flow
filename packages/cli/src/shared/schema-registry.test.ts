@@ -186,7 +186,9 @@ describe('schema-registry', () => {
         mode: 'remote-catalog',
         provider: 'generic-http',
         publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
-        keyPrefix: 'frontend-smoke/'
+        keyPrefix: 'frontend-smoke/',
+        uploadConfigured: true,
+        uploadMethod: 'PUT'
       },
       artifacts: [
         {
@@ -199,6 +201,10 @@ describe('schema-registry', () => {
             provider: 'generic-http',
             objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json',
             remoteUrl: 'https://artifacts.example.com/spec2flow/frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json'
+          },
+          upload: {
+            status: 'uploaded',
+            httpStatus: 201
           }
         }
       ]

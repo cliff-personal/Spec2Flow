@@ -172,7 +172,21 @@
         },
         "publicBaseUrl": { "type": "string", "minLength": 1 },
         "keyPrefix": { "type": "string", "minLength": 1 },
-        "catalogPath": { "type": "string", "minLength": 1 }
+        "catalogPath": { "type": "string", "minLength": 1 },
+        "upload": {
+          "type": "object",
+          "required": ["endpointTemplate"],
+          "additionalProperties": false,
+          "properties": {
+            "endpointTemplate": { "type": "string", "minLength": 1 },
+            "method": { "type": "string", "enum": ["PUT", "POST"], "default": "PUT" },
+            "headers": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            },
+            "authTokenEnv": { "type": "string", "minLength": 1 }
+          }
+        }
       }
     }
   }

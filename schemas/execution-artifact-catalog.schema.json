@@ -26,7 +26,9 @@
         "mode": { "type": "string", "enum": ["local", "remote-catalog"] },
         "provider": { "type": "string", "enum": ["generic-http", "s3", "gcs", "azure-blob"] },
         "publicBaseUrl": { "type": "string", "minLength": 1 },
-        "keyPrefix": { "type": "string", "minLength": 1 }
+        "keyPrefix": { "type": "string", "minLength": 1 },
+        "uploadConfigured": { "type": "boolean" },
+        "uploadMethod": { "type": "string", "enum": ["PUT", "POST"] }
       }
     },
     "storageReference": {
@@ -38,6 +40,17 @@
         "provider": { "type": "string", "enum": ["generic-http", "s3", "gcs", "azure-blob"] },
         "objectKey": { "type": "string", "minLength": 1 },
         "remoteUrl": { "type": "string", "minLength": 1 }
+      }
+    },
+    "uploadState": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["pending", "uploaded", "skipped", "failed"] },
+        "uploadedAt": { "type": "string", "format": "date-time" },
+        "httpStatus": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "error": { "type": "string", "minLength": 1 }
       }
     },
     "catalogArtifact": {
@@ -65,7 +78,8 @@
           ]
         },
         "contentType": { "type": "string", "minLength": 1 },
-        "storage": { "$ref": "#/$defs/storageReference" }
+        "storage": { "$ref": "#/$defs/storageReference" },
+        "upload": { "$ref": "#/$defs/uploadState" }
       }
     }
   }

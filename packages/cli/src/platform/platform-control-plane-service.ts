@@ -1,7 +1,10 @@
 import { buildPlatformObservabilityReadModel } from './platform-observability-service.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT, getPlatformRunState } from './platform-scheduler-service.js';
+import { readStructuredFileFrom } from '../shared/fs-utils.js';
+import { getSchemaValidators } from '../shared/schema-registry.js';
 import type {
+  PlatformControlPlaneTaskArtifactCatalog,
   PlatformControlPlaneRunDetail,
   PlatformControlPlaneRunListItem,
   PlatformObservabilityReadModel,
@@ -24,6 +27,10 @@ interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   updated_at: Date | string | null;
   started_at: Date | string | null;
   completed_at: Date | string | null;
+}
+
+interface PlatformControlPlaneRunRepositoryRow extends Record<string, unknown> {
+  root_path: string;
 }
 
 export interface ListPlatformRunsOptions {
@@ -73,6 +80,27 @@ async function loadRunSnapshot(
   });
 
   return snapshot.run ? snapshot : null;
+}
+
+async function loadRepositoryRootPath(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string
+): Promise<string | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformControlPlaneRunRepositoryRow>(
+    `
+      SELECT repositories.root_path
+      FROM ${quotedSchema}.runs AS runs
+      INNER JOIN ${quotedSchema}.repositories AS repositories
+        ON repositories.repository_id = runs.repository_id
+      WHERE runs.run_id = $1
+      LIMIT 1
+    `,
+    [runId]
+  );
+
+  return result.rows[0]?.root_path ?? null;
 }
 
 export async function listPlatformRuns(
@@ -158,4 +186,49 @@ export async function getPlatformControlPlaneRunObservability(
 ): Promise<PlatformObservabilityReadModel | null> {
   const snapshot = await loadRunSnapshot(executor, schema, options);
   return snapshot ? buildPlatformObservabilityReadModel(snapshot) : null;
+}
+
+export async function getPlatformControlPlaneTaskArtifactCatalog(
+  executor: SqlExecutor,
+  schema: string,
+  options: GetPlatformControlPlaneRunOptions & { taskId: string }
+): Promise<PlatformControlPlaneTaskArtifactCatalog | null> {
+  const snapshot = await loadRunSnapshot(executor, schema, options);
+  if (!snapshot) {
+    return null;
+  }
+
+  const catalogArtifact = snapshot.artifacts.find((artifact) => {
+    if (artifact.taskId !== options.taskId) {
+      return false;
+    }
+
+    const originalArtifactId = typeof artifact.metadata?.originalArtifactId === 'string'
+      ? artifact.metadata.originalArtifactId
+      : null;
+    return originalArtifactId === 'execution-artifact-catalog' || artifact.path.includes('execution-artifact-catalog');
+  });
+
+  if (!catalogArtifact) {
+    return null;
+  }
+
+  const repositoryRootPath = await loadRepositoryRootPath(executor, schema, options.runId);
+  if (!repositoryRootPath) {
+    return null;
+  }
+
+  const catalog = readStructuredFileFrom(repositoryRootPath, catalogArtifact.path) as PlatformControlPlaneTaskArtifactCatalog['catalog'];
+  const validators = getSchemaValidators();
+  if (!validators.executionArtifactCatalog(catalog)) {
+    throw new Error(`Invalid execution artifact catalog at ${catalogArtifact.path}`);
+  }
+
+  return {
+    runId: options.runId,
+    taskId: options.taskId,
+    artifactId: catalogArtifact.artifactId,
+    path: catalogArtifact.path,
+    catalog
+  };
 }

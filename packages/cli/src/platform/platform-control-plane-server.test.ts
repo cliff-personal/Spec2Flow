@@ -209,6 +209,25 @@ describe('platform-control-plane-server', () => {
         publications: [],
         attentionRequired: []
       }),
+      getPlatformControlPlaneTaskArtifactCatalog: async () => ({
+        runId: 'run-1',
+        taskId: 'task-1',
+        artifactId: 'artifact-1',
+        path: 'spec2flow/outputs/execution/task-1/execution-artifact-catalog.json',
+        catalog: {
+          generatedAt: '2026-03-25T01:00:00.000Z',
+          taskId: 'task-1',
+          stage: 'automated-execution',
+          summary: 'catalog',
+          store: {
+            mode: 'remote-catalog',
+            provider: 'generic-http',
+            uploadConfigured: true,
+            uploadMethod: 'PUT'
+          },
+          artifacts: []
+        }
+      }),
       submitPlatformRun: async () => ({
         platformRun: {
           schema: 'spec2flow_platform',
@@ -330,6 +349,17 @@ describe('platform-control-plane-server', () => {
       tasks: expect.arrayContaining([expect.objectContaining({ taskId: 'task-1' })])
     }));
 
+    const artifactCatalogResponse = await fetch(`${baseUrl}/api/runs/run-1/tasks/task-1/artifact-catalog`);
+    expect(artifactCatalogResponse.status).toBe(200);
+    expect(await artifactCatalogResponse.json()).toEqual(expect.objectContaining({
+      artifactCatalog: expect.objectContaining({
+        taskId: 'task-1',
+        catalog: expect.objectContaining({
+          stage: 'automated-execution'
+        })
+      })
+    }));
+
     const observabilityResponse = await fetch(`${baseUrl}/api/runs/run-1/observability`);
     expect(observabilityResponse.status).toBe(200);
     expect(await observabilityResponse.json()).toEqual(expect.objectContaining({
@@ -382,6 +412,7 @@ describe('platform-control-plane-server', () => {
       getPlatformControlPlaneRunDetail: async () => null,
       getPlatformControlPlaneRunTasks: async () => null,
       getPlatformControlPlaneRunObservability: async () => null,
+      getPlatformControlPlaneTaskArtifactCatalog: async () => null,
       submitPlatformRun: async () => ({
         platformRun: {
           schema: 'spec2flow_platform',
@@ -446,6 +477,7 @@ describe('platform-control-plane-server', () => {
       getPlatformControlPlaneRunDetail: async () => null,
       getPlatformControlPlaneRunTasks: async () => null,
       getPlatformControlPlaneRunObservability: async () => null,
+      getPlatformControlPlaneTaskArtifactCatalog: async () => null,
       submitPlatformRun: async () => {
         throw new Error('unreachable');
       },

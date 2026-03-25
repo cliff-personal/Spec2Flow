@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { PlatformArtifactRecord, PlatformTaskRecord } from '../lib/control-plane-api';
+import { getTaskArtifactCatalog, type PlatformArtifactRecord, type PlatformTaskRecord, type TaskArtifactCatalogArtifact } from '../lib/control-plane-api';
 import { formatTimestamp } from '../lib/control-plane-formatters';
 
 function stringifyMetadata(value: Record<string, unknown> | undefined): string {
@@ -13,6 +13,7 @@ export function ArtifactDetailPanel(
   }>
 ): JSX.Element {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(props.artifacts[0]?.artifactId ?? null);
+  const [artifactCatalogEntry, setArtifactCatalogEntry] = useState<TaskArtifactCatalogArtifact | null>(null);
 
   useEffect(() => {
     if (!selectedArtifactId && props.artifacts[0]) {
@@ -29,6 +30,39 @@ export function ArtifactDetailPanel(
   const taskTitle = selectedArtifact?.taskId
     ? props.tasks.find((task) => task.taskId === selectedArtifact.taskId)?.title ?? selectedArtifact.taskId
     : 'Run-level artifact';
+  const originalArtifactId = typeof selectedArtifact?.metadata?.['originalArtifactId'] === 'string'
+    ? selectedArtifact.metadata['originalArtifactId']
+    : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadArtifactCatalogEntry(): Promise<void> {
+      if (!selectedArtifact?.taskId || !selectedArtifact.runId || !originalArtifactId) {
+        setArtifactCatalogEntry(null);
+        return;
+      }
+
+      try {
+        const catalog = await getTaskArtifactCatalog(selectedArtifact.runId, selectedArtifact.taskId);
+        if (cancelled) {
+          return;
+        }
+
+        setArtifactCatalogEntry(catalog.catalog.artifacts.find((artifact) => artifact.id === originalArtifactId) ?? null);
+      } catch {
+        if (!cancelled) {
+          setArtifactCatalogEntry(null);
+        }
+      }
+    }
+
+    void loadArtifactCatalogEntry();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [originalArtifactId, selectedArtifact?.runId, selectedArtifact?.taskId]);
 
   return (
     <article className="panel panel--tall">
@@ -92,6 +126,26 @@ export function ArtifactDetailPanel(
                   <h4>Metadata</h4>
                   <pre className="detail-code-block">{stringifyMetadata(selectedArtifact.metadata)}</pre>
                 </div>
+
+                {artifactCatalogEntry ? (
+                  <div className="panel-subsection">
+                    <h4>Catalog-backed retrieval</h4>
+                    <dl className="detail-list">
+                      <div>
+                        <dt>Upload status</dt>
+                        <dd>{artifactCatalogEntry.upload?.status ?? 'n/a'}</dd>
+                      </div>
+                      <div>
+                        <dt>Remote URL</dt>
+                        <dd>{artifactCatalogEntry.storage?.remoteUrl ?? 'n/a'}</dd>
+                      </div>
+                      <div>
+                        <dt>Object key</dt>
+                        <dd>{artifactCatalogEntry.storage?.objectKey ?? 'n/a'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                ) : null}
               </>
             ) : null}
           </div>

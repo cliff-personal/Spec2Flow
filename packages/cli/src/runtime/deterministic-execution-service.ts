@@ -803,10 +803,11 @@ export async function runDeterministicTaskAsync(
       contentType: 'application/json',
       payload: evidenceIndex.payload
     });
+    await artifactStore.flushUploads();
     const artifactCatalogPath = artifactStore.getConfig().catalogPath ?? path.join(artifactsDir, 'execution-artifact-catalog.json');
     const artifactCatalogPayload = buildExecutionArtifactCatalog({
       taskId: claim.taskId,
-      summary: 'Execution artifact catalog with local and remote storage descriptors.',
+      summary: 'Execution artifact catalog with local paths, remote storage descriptors, and upload lifecycle status.',
       artifacts: artifactStore.listArtifacts(),
       storeConfig: artifactStore.getConfig()
     });
@@ -817,6 +818,9 @@ export async function runDeterministicTaskAsync(
       category: 'artifact-index',
       contentType: 'application/json',
       payload: artifactCatalogPayload
+    });
+    await artifactStore.flushUploads({
+      artifactIds: ['execution-artifact-catalog']
     });
 
     const hasFailures = commandResults.some((result) => result.status === 'failed');

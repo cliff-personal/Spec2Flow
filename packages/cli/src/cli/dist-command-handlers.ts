@@ -40,6 +40,7 @@ import { runValidateOnboarding, type ValidateOnboardingResultDocument } from './
 import {
   getPlatformControlPlaneRunDetail,
   getPlatformControlPlaneRunObservability,
+  getPlatformControlPlaneTaskArtifactCatalog,
   getPlatformControlPlaneRunTasks,
   listPlatformRuns
 } from '../platform/platform-control-plane-service.js';
@@ -185,6 +186,7 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         fail: dependencies.fail,
         getPlatformControlPlaneRunDetail,
         getPlatformControlPlaneRunObservability,
+        getPlatformControlPlaneTaskArtifactCatalog,
         getPlatformControlPlaneRunTasks,
         listPlatformRuns,
         pausePlatformControlPlaneRun,

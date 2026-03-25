@@ -57,6 +57,48 @@ export interface PlatformArtifactRecord {
   createdAt?: string | null;
 }
 
+export interface TaskArtifactCatalogArtifact {
+  id: string;
+  path: string;
+  kind: string;
+  category: string;
+  contentType?: string;
+  storage?: {
+    mode: 'local' | 'remote-catalog';
+    provider?: string;
+    objectKey?: string;
+    remoteUrl?: string;
+  };
+  upload?: {
+    status: 'pending' | 'uploaded' | 'skipped' | 'failed';
+    uploadedAt?: string;
+    httpStatus?: number;
+    error?: string;
+  };
+}
+
+export interface TaskArtifactCatalog {
+  runId: string;
+  taskId: string;
+  artifactId: string;
+  path: string;
+  catalog: {
+    generatedAt?: string;
+    taskId: string;
+    stage: 'automated-execution';
+    summary: string;
+    store: {
+      mode: 'local' | 'remote-catalog';
+      provider?: string;
+      publicBaseUrl?: string;
+      keyPrefix?: string;
+      uploadConfigured?: boolean;
+      uploadMethod?: 'PUT' | 'POST';
+    };
+    artifacts: TaskArtifactCatalogArtifact[];
+  };
+}
+
 export interface PlatformObservabilityTimelineEntry {
   eventId: string;
   createdAt: string | null;
@@ -260,6 +302,13 @@ export async function getRunObservability(runId: string): Promise<PlatformObserv
     `/api/runs/${encodeURIComponent(runId)}/observability`
   );
   return payload.platformObservability;
+}
+
+export async function getTaskArtifactCatalog(runId: string, taskId: string): Promise<TaskArtifactCatalog> {
+  const payload = await requestJson<{ artifactCatalog: TaskArtifactCatalog }>(
+    `/api/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/artifact-catalog`
+  );
+  return payload.artifactCatalog;
 }
 
 export async function submitRun(payload: RunSubmissionPayload): Promise<RunSubmissionResult> {

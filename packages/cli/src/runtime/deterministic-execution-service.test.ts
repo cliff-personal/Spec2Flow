@@ -104,6 +104,40 @@ async function startFixtureServer(): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
+async function startUploadServer(): Promise<{ baseUrl: string; uploads: Array<{ url: string; body: string }> }> {
+  const uploads: Array<{ url: string; body: string }> = [];
+  const server = createServer((request, response) => {
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+    });
+    request.on('end', () => {
+      uploads.push({
+        url: request.url ?? '',
+        body
+      });
+      response.statusCode = 201;
+      response.end('stored');
+    });
+  });
+  servers.push(server);
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve());
+  });
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('expected upload fixture server address');
+  }
+
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    uploads
+  };
+}
+
 describe('deterministic-execution-service', () => {
   it('runs environment preparation commands and writes a schema-backed report', () => {
     const tempDir = createTempDir();
@@ -184,6 +218,7 @@ describe('deterministic-execution-service', () => {
   it('runs the async execution path with service orchestration, browser checks, and evidence indexing', async () => {
     const tempDir = createTempDir();
     const baseUrl = await startFixtureServer();
+    const uploadServer = await startUploadServer();
     const claim = createClaim(tempDir, 'automated-execution', 'node -e "process.stdout.write(\'ok\')"');
 
     if (!claim.taskClaim) {
@@ -228,7 +263,11 @@ describe('deterministic-execution-service', () => {
         mode: 'remote-catalog',
         provider: 'generic-http',
         publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
-        keyPrefix: 'frontend-smoke/'
+        keyPrefix: 'frontend-smoke/',
+        upload: {
+          endpointTemplate: `${uploadServer.baseUrl}/upload/{objectKey}`,
+          method: 'PUT'
+        }
       },
       browserChecks: [
         {
@@ -255,8 +294,30 @@ describe('deterministic-execution-service', () => {
     ]));
 
     const evidenceIndexPath = result.adapterRun.artifacts.find((artifact) => artifact.id === 'execution-evidence-index')?.path;
+    const artifactCatalogPath = result.adapterRun.artifacts.find((artifact) => artifact.id === 'execution-artifact-catalog')?.path;
     expect(evidenceIndexPath).toBeTruthy();
     expect(fs.existsSync(evidenceIndexPath ?? 'missing')).toBe(true);
+    expect(artifactCatalogPath).toBeTruthy();
+    const artifactCatalogPayload = JSON.parse(fs.readFileSync(artifactCatalogPath ?? 'missing', 'utf8')) as {
+      store: { uploadConfigured?: boolean; uploadMethod?: string };
+      artifacts: Array<{ id: string; upload?: { status: string }; storage?: { remoteUrl?: string } }>;
+    };
+    expect(artifactCatalogPayload.store).toMatchObject({
+      uploadConfigured: true,
+      uploadMethod: 'PUT'
+    });
+    expect(artifactCatalogPayload.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'execution-report',
+        upload: expect.objectContaining({
+          status: 'uploaded'
+        }),
+        storage: expect.objectContaining({
+          remoteUrl: expect.stringContaining('https://artifacts.example.com/spec2flow/frontend-smoke/')
+        })
+      })
+    ]));
+    expect(uploadServer.uploads.some((upload) => upload.url.includes('/upload/frontend-smoke/'))).toBe(true);
   });
 
   it('blocks long-running execution when the lifecycle timeout is exceeded and still emits lifecycle evidence', async () => {

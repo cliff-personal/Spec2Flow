@@ -1,7 +1,7 @@
 # Automated Execution Playbook
 
 - Status: active
-- Source of truth: `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/shared/task-role-profile.ts`, `packages/cli/src/runtime/task-result-service.ts`
+- Source of truth: `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/shared/task-role-profile.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/deterministic-execution-service.ts`, `packages/cli/src/runtime/execution-artifact-store-service.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run run:synapse-copilot-cli-loop`
 - Last verified: 2026-03-25
 
@@ -35,6 +35,7 @@ When route metadata declares service or browser coverage, the deterministic exec
 - service teardown reports for services started by Spec2Flow
 - browser HTML snapshots
 - optional Playwright screenshot, trace, or video evidence when the repository runtime supports it
+- `execution-artifact-catalog` with remote storage descriptors and upload lifecycle status when `artifactStore` is declared
 
 ## Allowed Actions
 
@@ -64,6 +65,7 @@ Execution hardening rules:
 - services that were already healthy before execution are observed but not torn down by Spec2Flow
 - services started by deterministic execution are torn down according to `executionPolicy.teardownPolicy`
 - long-running commands are stopped by the execution lifecycle guard when `executionPolicy.maxDurationSeconds` is exceeded
+- `artifactStore.mode: remote-catalog` can now push artifacts to a generic HTTP object store and expose retrieval metadata through the control plane
 
 ## Validation Path
 
