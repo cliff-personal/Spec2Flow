@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import process from 'node:process';
 import { executeTaskRunAsync, type AdapterRunnerDependencies, type CliOptions as AdapterCliOptions } from '../adapters/adapter-runner.js';
 import {
   buildTaskClaim,
@@ -29,6 +30,7 @@ import type {
   PlatformTaskRecord,
   PlatformWorkerIdentity,
   TaskClaimPayload,
+  TaskClaimWorkspaceContext,
   TaskGraphDocument,
   TaskResultDocument,
   TaskStage,
@@ -227,12 +229,15 @@ function getTaskGraphArtifact(snapshot: PlatformRunStateSnapshot): PlatformRunSt
   return snapshot.artifacts.find((artifact) => artifact.schemaType === 'task-graph') ?? null;
 }
 
-function resolvePlatformWorkerOutputBaseDir(options: PlatformWorkerClaimOptions): string {
+function resolvePlatformWorkerOutputBaseDir(options: PlatformWorkerClaimOptions, workspaceContext: TaskClaimWorkspaceContext | null): string {
   if (options.outputBaseDir) {
     return path.resolve(options.outputBaseDir);
   }
 
+  const baseDir = workspaceContext?.worktreePath ?? workspaceContext?.workspaceRootPath ?? process.cwd();
+
   return path.resolve(
+    baseDir,
     '.spec2flow',
     'runtime',
     'platform-workers',
@@ -274,6 +279,46 @@ function readTaskGraphDocument(taskGraphPath: string): TaskGraphDocument {
   return readStructuredFile(taskGraphPath) as TaskGraphDocument;
 }
 
+function extractWorkspaceContext(snapshot: PlatformRunStateSnapshot): TaskClaimWorkspaceContext | null {
+  const requestPayload = snapshot.run?.requestPayload ?? {};
+  const project = typeof requestPayload.project === 'object' && requestPayload.project !== null
+    ? requestPayload.project as Record<string, unknown>
+    : null;
+  const workspace = typeof requestPayload.workspace === 'object' && requestPayload.workspace !== null
+    ? requestPayload.workspace as Record<string, unknown>
+    : null;
+
+  if (!project && !workspace) {
+    return null;
+  }
+
+  const asStringArray = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+  const getString = (value: unknown): string | null => typeof value === 'string' && value.trim().length > 0 ? value : null;
+  const workspacePolicy = typeof workspace?.workspacePolicy === 'object' && workspace.workspacePolicy !== null
+    ? workspace.workspacePolicy as Record<string, unknown>
+    : null;
+
+  return {
+    projectId: getString(project?.projectId),
+    projectName: getString(project?.projectName),
+    repositoryRootPath: getString(project?.repositoryRootPath),
+    workspaceRootPath: getString(project?.workspaceRootPath) ?? getString(workspace?.workspaceRootPath),
+    worktreePath: getString(workspace?.worktreePath),
+    branchName: getString(workspace?.branchName),
+    baseBranch: getString(workspace?.baseBranch),
+    allowedReadGlobs: asStringArray(workspacePolicy?.allowedReadGlobs ?? []),
+    allowedWriteGlobs: asStringArray(workspacePolicy?.allowedWriteGlobs ?? []),
+    forbiddenWriteGlobs: asStringArray(workspacePolicy?.forbiddenWriteGlobs ?? [])
+  };
+}
+
+function resolveWorkerExecutionCwd(claimPayload: TaskClaimPayload): string {
+  return claimPayload.taskClaim?.runtimeContext.workspace?.worktreePath
+    ?? claimPayload.taskClaim?.runtimeContext.workspace?.workspaceRootPath
+    ?? process.cwd();
+}
+
 export async function materializePlatformWorkerClaim(
   executor: SqlExecutor,
   schema: string,
@@ -299,7 +344,8 @@ export async function materializePlatformWorkerClaim(
     throw new Error(`task graph does not define task ${options.taskId}`);
   }
 
-  const outputBaseDir = resolvePlatformWorkerOutputBaseDir(options);
+  const workspaceContext = extractWorkspaceContext(snapshot);
+  const outputBaseDir = resolvePlatformWorkerOutputBaseDir(options, workspaceContext);
   const executionStatePath = path.join(outputBaseDir, 'execution-state.json');
   const claimPath = path.join(outputBaseDir, 'task-claim.json');
   const executionStatePayload = buildExecutionStateFromPlatformSnapshot(snapshot, taskGraphPayload, taskGraphArtifact.path, options);
@@ -318,6 +364,9 @@ export async function materializePlatformWorkerClaim(
       state: executionStatePath,
       taskGraph: taskGraphArtifact.path,
       adapterCapability: options.adapterCapabilityPath ?? null
+    },
+    {
+      workspaceContext
     }
   );
   writeJson(claimPath, claimPayload);
@@ -350,7 +399,7 @@ async function runDeterministicMaterializedTask(
 ): Promise<PlatformWorkerExecutionResult> {
   const adapterRunDocument = await runDeterministicTaskAsync(
     materialization.claimPayload,
-    process.cwd(),
+    resolveWorkerExecutionCwd(materialization.claimPayload),
     options.signal ? { signal: options.signal } : {}
   );
   const executionStatePayload = readStructuredFile(materialization.executionStatePath) as ExecutionStateDocument;

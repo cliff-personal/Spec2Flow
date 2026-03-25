@@ -428,6 +428,13 @@ function buildUnsupportedStageResult(claim: NonNullable<TaskClaimPayload['taskCl
   };
 }
 
+function resolveExecutionCwd(claim: NonNullable<TaskClaimPayload['taskClaim']>, cwd: string | undefined): string {
+  return cwd
+    ?? claim.runtimeContext.workspace?.worktreePath
+    ?? claim.runtimeContext.workspace?.workspaceRootPath
+    ?? process.cwd();
+}
+
 function buildNoCommandsResult(claim: NonNullable<TaskClaimPayload['taskClaim']>): AdapterRunDocument {
   return {
     adapterRun: {
@@ -580,7 +587,7 @@ function buildDeterministicResult(
   };
 }
 
-export function runDeterministicTask(claimPayload: TaskClaimPayload, cwd = process.cwd()): AdapterRunDocument {
+export function runDeterministicTask(claimPayload: TaskClaimPayload, cwd?: string): AdapterRunDocument {
   const claim = claimPayload.taskClaim;
 
   if (!claim) {
@@ -591,6 +598,7 @@ export function runDeterministicTask(claimPayload: TaskClaimPayload, cwd = proce
     return buildUnsupportedStageResult(claim);
   }
 
+  const executionCwd = resolveExecutionCwd(claim, cwd);
   const commands = claim.repositoryContext.verifyCommands ?? [];
   if (commands.length === 0) {
     return buildNoCommandsResult(claim);
@@ -598,15 +606,15 @@ export function runDeterministicTask(claimPayload: TaskClaimPayload, cwd = proce
 
   const artifactsDir = getArtifactsDir(claimPayload);
   const commandResults = commands.map((command, index) =>
-    runShellCommand(command, cwd, path.join(artifactsDir, `${sanitizeFileToken(claim.taskId)}-verification-evidence-${index + 1}.log`))
+    runShellCommand(command, executionCwd, path.join(artifactsDir, `${sanitizeFileToken(claim.taskId)}-verification-evidence-${index + 1}.log`))
   );
 
-  return buildDeterministicResult(claimPayload, cwd, commandResults);
+  return buildDeterministicResult(claimPayload, executionCwd, commandResults);
 }
 
 export async function runDeterministicTaskAsync(
   claimPayload: TaskClaimPayload,
-  cwd = process.cwd(),
+  cwd?: string,
   options: DeterministicExecutionOptions = {}
 ): Promise<AdapterRunDocument> {
   const claim = claimPayload.taskClaim;
@@ -619,6 +627,7 @@ export async function runDeterministicTaskAsync(
     return buildUnsupportedStageResult(claim);
   }
 
+  const executionCwd = resolveExecutionCwd(claim, cwd);
   const commands = claim.repositoryContext.verifyCommands ?? [];
   if (commands.length === 0) {
     return buildNoCommandsResult(claim);
@@ -626,7 +635,7 @@ export async function runDeterministicTaskAsync(
 
   const artifactsDir = getArtifactsDir(claimPayload);
   const executionInputs = getExecutionInputs(claimPayload);
-  const artifactStore = createExecutionArtifactStore(cwd, executionInputs.artifactStore);
+  const artifactStore = createExecutionArtifactStore(executionCwd, executionInputs.artifactStore);
   const lifecycleGuard = createExecutionLifecycleGuard(executionInputs.executionPolicy, options.signal);
   let serviceSummaries: DeterministicServiceSummary[] = [];
   let serviceArtifacts: DeterministicServiceEvidenceArtifact[] = [];
@@ -643,7 +652,7 @@ export async function runDeterministicTaskAsync(
   try {
     if (claim.stage === 'automated-execution' && executionInputs.entryServices.length > 0) {
       const orchestrationResult = await runServiceOrchestration({
-        cwd,
+        cwd: executionCwd,
         artifactsDir,
         entryServices: executionInputs.entryServices,
         ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
@@ -660,7 +669,7 @@ export async function runDeterministicTaskAsync(
     for (const [index, command] of commands.entries()) {
       const commandResult = await runShellCommandAsync(
         command,
-        cwd,
+        executionCwd,
         path.join(artifactsDir, `${sanitizeFileToken(claim.taskId)}-verification-evidence-${index + 1}.log`),
         {
           signal: lifecycleGuard.signal
@@ -678,7 +687,7 @@ export async function runDeterministicTaskAsync(
 
     if (claim.stage === 'automated-execution' && executionInputs.browserChecks.length > 0) {
       const browserResult = await runBrowserAutomation({
-        cwd,
+        cwd: executionCwd,
         artifactsDir,
         browserChecks: executionInputs.browserChecks,
         ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
@@ -701,7 +710,7 @@ export async function runDeterministicTaskAsync(
           exitCode: null,
           logPath: browserSummaryLogPath
         });
-        writeCommandLog(cwd, browserSummaryLogPath, JSON.stringify(browserSummaries, null, 2), '');
+        writeCommandLog(executionCwd, browserSummaryLogPath, JSON.stringify(browserSummaries, null, 2), '');
         artifactStore.registerArtifact({
           id: `verification-evidence-${commandResults.length}`,
           path: browserSummaryLogPath,
@@ -721,7 +730,7 @@ export async function runDeterministicTaskAsync(
       exitCode: null,
       logPath: path.join(artifactsDir, 'execution-lifecycle-abort.log')
     });
-    writeCommandLog(cwd, path.join(artifactsDir, 'execution-lifecycle-abort.log'), '', error.message);
+    writeCommandLog(executionCwd, path.join(artifactsDir, 'execution-lifecycle-abort.log'), '', error.message);
     artifactStore.registerArtifact({
       id: `verification-evidence-${commandResults.length}`,
       path: path.join(artifactsDir, 'execution-lifecycle-abort.log'),
@@ -742,7 +751,7 @@ export async function runDeterministicTaskAsync(
       })
     ) {
       const teardownResult = await teardownManagedServices({
-        cwd,
+        cwd: executionCwd,
         artifactsDir,
         managedServices,
         teardownTimeoutSeconds: executionInputs.executionPolicy.teardownTimeoutSeconds,
@@ -782,11 +791,11 @@ export async function runDeterministicTaskAsync(
       payload: reportPayload
     });
 
-    const evidenceIndex = buildExecutionEvidenceIndexArtifact(
-      claimPayload,
-      cwd,
-      reportPath,
-      artifactsDir,
+      const evidenceIndex = buildExecutionEvidenceIndexArtifact(
+        claimPayload,
+        executionCwd,
+        reportPath,
+        artifactsDir,
       commandResults,
       serviceArtifacts,
       serviceSummaries,
@@ -908,5 +917,5 @@ export async function runDeterministicTaskAsync(
     };
   }
 
-  return buildDeterministicResult(claimPayload, cwd, commandResults);
+  return buildDeterministicResult(claimPayload, executionCwd, commandResults);
 }

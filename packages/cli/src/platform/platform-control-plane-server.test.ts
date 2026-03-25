@@ -240,9 +240,12 @@ describe('platform-control-plane-server', () => {
       submitPlatformRun: async () => ({
         platformRun: {
           schema: 'spec2flow_platform',
+          projectId: 'spec2flow-local',
+          projectName: 'Spec2Flow',
           repositoryId: 'spec2flow',
           repositoryName: 'Spec2Flow',
           repositoryRootPath: '/workspace/Spec2Flow',
+          workspaceRootPath: '/workspace/Spec2Flow',
           runId: 'run-2',
           workflowName: 'platform-flow',
           taskCount: 2,
@@ -250,7 +253,12 @@ describe('platform-control-plane-server', () => {
           artifactCount: 0,
           status: 'pending',
           currentStage: 'requirements-analysis',
-          riskLevel: 'medium'
+          riskLevel: 'medium',
+          branchName: 'spec2flow/run-2',
+          baseBranch: 'main',
+          worktreeMode: 'managed',
+          worktreePath: '/workspace/Spec2Flow/.spec2flow/worktrees/run-2',
+          provisioningStatus: 'provisioned'
         },
         taskGraph: {
           graphId: 'graph-2',
@@ -433,9 +441,12 @@ describe('platform-control-plane-server', () => {
       submitPlatformRun: async () => ({
         platformRun: {
           schema: 'spec2flow_platform',
+          projectId: 'spec2flow-local',
+          projectName: 'Spec2Flow',
           repositoryId: 'spec2flow',
           repositoryName: 'Spec2Flow',
           repositoryRootPath: '/workspace/Spec2Flow',
+          workspaceRootPath: '/workspace/Spec2Flow',
           runId: 'run-2',
           workflowName: 'platform-flow',
           taskCount: 1,
@@ -443,7 +454,12 @@ describe('platform-control-plane-server', () => {
           artifactCount: 0,
           status: 'pending',
           currentStage: 'requirements-analysis',
-          riskLevel: 'medium'
+          riskLevel: 'medium',
+          branchName: 'spec2flow/run-2',
+          baseBranch: 'main',
+          worktreeMode: 'managed',
+          worktreePath: '/workspace/Spec2Flow/.spec2flow/worktrees/run-2',
+          provisioningStatus: 'provisioned'
         },
         taskGraph: {
           graphId: 'graph-2',

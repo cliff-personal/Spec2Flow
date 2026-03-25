@@ -92,9 +92,20 @@ export interface PlatformControlPlaneRunActionResult {
 
 export interface PlatformControlPlaneRunSubmissionRequest {
   repositoryRootPath: string;
+  projectId?: string;
+  projectName?: string;
   projectPath?: string;
   topologyPath?: string;
   riskPath?: string;
+  workspaceRootPath?: string;
+  branchPrefix?: string;
+  worktreeRootPath?: string;
+  worktreeMode?: 'managed' | 'none';
+  workspacePolicy?: {
+    allowedReadGlobs?: string[];
+    allowedWriteGlobs?: string[];
+    forbiddenWriteGlobs?: string[];
+  };
   requirement?: string;
   requirementPath?: string;
   changedFiles?: string[];
@@ -107,9 +118,12 @@ export interface PlatformControlPlaneRunSubmissionRequest {
 export interface PlatformControlPlaneRunSubmissionResult {
   platformRun: {
     schema: string;
+    projectId: string;
+    projectName: string;
     repositoryId: string;
     repositoryName: string;
     repositoryRootPath: string;
+    workspaceRootPath: string;
     runId: string;
     workflowName: string;
     taskCount: number;
@@ -118,6 +132,11 @@ export interface PlatformControlPlaneRunSubmissionResult {
     status: PlatformRunRecord['status'];
     currentStage: PlatformRunRecord['currentStage'];
     riskLevel: PlatformRunRecord['riskLevel'];
+    branchName?: string | null;
+    baseBranch?: string | null;
+    worktreeMode: 'managed' | 'none';
+    worktreePath: string;
+    provisioningStatus: 'provisioned' | 'skipped';
   };
   taskGraph: {
     graphId: string;

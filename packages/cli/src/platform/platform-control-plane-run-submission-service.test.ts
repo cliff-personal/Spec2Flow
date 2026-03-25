@@ -29,6 +29,8 @@ function buildPlanFixture(): PlatformRunInitializationPlan {
       requestPayload: {},
       metadata: {}
     },
+    project: null,
+    runWorkspace: null,
     tasks: [],
     events: [],
     artifacts: []
@@ -50,7 +52,22 @@ describe('platform-control-plane-run-submission-service', () => {
         tasks: []
       }
     }));
-    const createPlatformRunInitializationPlan = vi.fn(() => buildPlanFixture());
+    const createPlatformRunInitializationPlan = vi.fn((_taskGraph, options?: { taskGraphRef?: string }) => {
+      const plan = buildPlanFixture();
+      return {
+        ...plan,
+        artifacts: options?.taskGraphRef
+          ? [{
+              artifactId: 'task-graph-artifact',
+              runId: plan.run.runId,
+              kind: 'report' as const,
+              path: options.taskGraphRef,
+              schemaType: 'task-graph',
+              metadata: {}
+            }]
+          : []
+      };
+    });
     const dependencies: SubmitPlatformControlPlaneRunDependencies = {
       buildTaskGraph,
       buildValidatorResult: vi.fn(() => ({
@@ -69,11 +86,29 @@ describe('platform-control-plane-run-submission-service', () => {
       })) as SubmitPlatformControlPlaneRunDependencies['buildValidatorResult'],
       createPlatformRunInitializationPlan,
       persistPlatformRunPlan,
+      provisionPlatformRunWorkspace: vi.fn(() => ({
+        runId: 'web3-sentiment-index-1',
+        projectId: 'synapse-network',
+        repositoryId: 'synapse-network',
+        worktreeMode: 'managed' as const,
+        provisioningStatus: 'provisioned' as const,
+        branchName: 'spec2flow/web3-sentiment-index-1',
+        baseBranch: 'main',
+        workspaceRootPath: '/workspace/Synapse-Network',
+        worktreePath: '/workspace/Synapse-Network/.spec2flow/worktrees/web3-sentiment-index-1',
+        workspacePolicy: {
+          allowedReadGlobs: ['**/*'],
+          allowedWriteGlobs: ['**/*'],
+          forbiddenWriteGlobs: []
+        },
+        metadata: {}
+      })),
       readRequirementFile: vi.fn(() => 'Implement the API doc task'),
       readStructuredFileFrom: vi.fn((repositoryRoot: string, filePath: string) => ({
         repositoryRoot,
         filePath
-      })) as SubmitPlatformControlPlaneRunDependencies['readStructuredFileFrom']
+      })) as SubmitPlatformControlPlaneRunDependencies['readStructuredFileFrom'],
+      writeJson: vi.fn()
     };
 
     const result = await submitPlatformControlPlaneRun(
@@ -106,21 +141,33 @@ describe('platform-control-plane-run-submission-service', () => {
       expect.anything(),
       expect.objectContaining({ repositoryRoot: '/workspace/Synapse-Network' })
     );
+    expect(dependencies.writeJson).toHaveBeenCalledWith(
+      '/workspace/Synapse-Network/.spec2flow/worktrees/web3-sentiment-index-1/.spec2flow/runtime/platform-runs/web3-sentiment-index-1/task-graph.json',
+      expect.anything()
+    );
     expect(persistPlatformRunPlan).toHaveBeenCalled();
     expect(result).toEqual({
       platformRun: {
         schema: 'spec2flow_platform',
+        projectId: 'synapse-network',
+        projectName: 'Synapse-Network',
         repositoryId: 'synapse-network',
         repositoryName: 'Synapse-Network',
         repositoryRootPath: '/workspace/Synapse-Network',
+        workspaceRootPath: '/workspace/Synapse-Network',
         runId: 'web3-sentiment-index-1',
         workflowName: 'web3-sentiment-index',
         taskCount: 0,
-        eventCount: 0,
-        artifactCount: 0,
+        eventCount: 4,
+        artifactCount: 1,
         status: 'pending',
-        currentStage: 'requirements-analysis',
-        riskLevel: 'high'
+        currentStage: null,
+        riskLevel: null,
+        branchName: 'spec2flow/web3-sentiment-index-1',
+        baseBranch: 'main',
+        worktreeMode: 'managed',
+        worktreePath: '/workspace/Synapse-Network/.spec2flow/worktrees/web3-sentiment-index-1',
+        provisioningStatus: 'provisioned'
       },
       taskGraph: {
         graphId: 'graph-1',
@@ -165,8 +212,12 @@ describe('platform-control-plane-run-submission-service', () => {
         })) as SubmitPlatformControlPlaneRunDependencies['buildValidatorResult'],
         createPlatformRunInitializationPlan: vi.fn(),
         persistPlatformRunPlan: vi.fn(async () => undefined),
+        provisionPlatformRunWorkspace: vi.fn(() => {
+          throw new Error('unreachable');
+        }),
         readRequirementFile: vi.fn(() => ''),
-        readStructuredFileFrom: vi.fn(() => ({})) as SubmitPlatformControlPlaneRunDependencies['readStructuredFileFrom']
+        readStructuredFileFrom: vi.fn(() => ({})) as SubmitPlatformControlPlaneRunDependencies['readStructuredFileFrom'],
+        writeJson: vi.fn()
       }
     )).rejects.toEqual(expect.objectContaining<Partial<PlatformControlPlaneRunSubmissionError>>({
       code: 'onboarding-validation-failed',

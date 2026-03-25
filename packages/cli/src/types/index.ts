@@ -30,7 +30,8 @@ export type {
   TaskClaim,
   TaskClaimPayload,
   TaskClaimRepositoryContext,
-  TaskClaimRuntimeContext
+  TaskClaimRuntimeContext,
+  TaskClaimWorkspaceContext
 } from './task-claim.js';
 export type { TaskResult, TaskResultDocument } from './task-result.js';
 export type { AdapterOutputMode, AdapterRuntime, AdapterRuntimeDocument, AdapterRuntimeStageRuntimeRefs } from './adapter-runtime.js';
@@ -62,14 +63,19 @@ export type {
   PlatformArtifactRecord,
   PlatformEventRecord,
   PlatformPublicationRecord,
+  PlatformProjectRecord,
   PlatformRepairAttemptRecord,
   PlatformRepositoryRecord,
   PlatformRunRecord,
   PlatformRunStateSnapshot,
   PlatformRunStatus,
+  PlatformRunWorkspaceMode,
+  PlatformRunWorkspaceProvisioningStatus,
+  PlatformRunWorkspaceRecord,
   PlatformTaskLeaseRecord,
   PlatformTaskRecord,
   PlatformTaskStatus,
+  PlatformWorkspacePolicy,
   PlatformWorkerIdentity
 } from './platform-persistence.js';
 export type {

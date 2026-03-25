@@ -55,6 +55,19 @@ export interface TaskClaimRepositoryContext {
   taskInputs: Record<string, unknown>;
 }
 
+export interface TaskClaimWorkspaceContext {
+  projectId?: string | null;
+  projectName?: string | null;
+  repositoryRootPath?: string | null;
+  workspaceRootPath?: string | null;
+  worktreePath?: string | null;
+  branchName?: string | null;
+  baseBranch?: string | null;
+  allowedReadGlobs: string[];
+  allowedWriteGlobs: string[];
+  forbiddenWriteGlobs: string[];
+}
+
 export interface TaskClaimRuntimeContext {
   executionStateRef: string;
   taskGraphRef: string;
@@ -67,6 +80,7 @@ export interface TaskClaimRuntimeContext {
   taskErrors: ErrorItem[];
   artifactsDir?: string | null;
   dependsOn: string[];
+  workspace?: TaskClaimWorkspaceContext | null;
 }
 
 export interface TaskClaim {

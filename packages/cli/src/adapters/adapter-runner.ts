@@ -938,6 +938,16 @@ function inferRepositoryRoot(
     return path.resolve(runtimeCwd);
   }
 
+  const worktreePath = claim.runtimeContext.workspace?.worktreePath?.trim();
+  if (worktreePath) {
+    return path.resolve(worktreePath);
+  }
+
+  const workspaceRootPath = claim.runtimeContext.workspace?.workspaceRootPath?.trim();
+  if (workspaceRootPath) {
+    return path.resolve(workspaceRootPath);
+  }
+
   const projectAdapterRef = claim.repositoryContext.projectAdapterRef?.trim();
   if (projectAdapterRef) {
     const resolvedProjectAdapterRef = resolveFromCwd(projectAdapterRef);
@@ -1608,6 +1618,10 @@ export function runExternalAdapter(
   taskGraphPath: string,
   options: Record<string, any> = {}
 ): AdapterRunDocument {
+  const claim = claimPayload.taskClaim;
+  if (!claim) {
+    fail('task claim is required to run an external adapter');
+  }
   const adapterRuntime = adapterRuntimePayload.adapterRuntime;
   const templateContext = buildAdapterTemplateContext(claimPayload, statePath, taskGraphPath, {
     ...options,
@@ -1621,7 +1635,9 @@ export function runExternalAdapter(
       Object.entries(adapterRuntime.env ?? {}).map(([key, value]) => [key, expandTemplateValue(value, templateContext)])
     )
   };
-  const cwd = adapterRuntime.cwd ? resolveFromCwd(expandTemplateValue(adapterRuntime.cwd, templateContext)) : process.cwd();
+  const cwd = adapterRuntime.cwd
+    ? resolveFromCwd(expandTemplateValue(adapterRuntime.cwd, templateContext))
+    : inferRepositoryRoot(claim, adapterRuntimePayload);
   const timeout = typeof adapterRuntime.timeoutMs === 'number' && adapterRuntime.timeoutMs > 0
     ? adapterRuntime.timeoutMs
     : undefined;
@@ -1665,6 +1681,10 @@ export async function runExternalAdapterAsync(
   taskGraphPath: string,
   options: Record<string, any> = {}
 ): Promise<AdapterRunDocument> {
+  const claim = claimPayload.taskClaim;
+  if (!claim) {
+    fail('task claim is required to run an external adapter');
+  }
   const adapterRuntime = adapterRuntimePayload.adapterRuntime;
   const templateContext = buildAdapterTemplateContext(claimPayload, statePath, taskGraphPath, {
     ...options,
@@ -1678,7 +1698,9 @@ export async function runExternalAdapterAsync(
       Object.entries(adapterRuntime.env ?? {}).map(([key, value]) => [key, expandTemplateValue(value, templateContext)])
     )
   };
-  const cwd = adapterRuntime.cwd ? resolveFromCwd(expandTemplateValue(adapterRuntime.cwd, templateContext)) : process.cwd();
+  const cwd = adapterRuntime.cwd
+    ? resolveFromCwd(expandTemplateValue(adapterRuntime.cwd, templateContext))
+    : inferRepositoryRoot(claim, adapterRuntimePayload);
   const timeout = typeof adapterRuntime.timeoutMs === 'number' && adapterRuntime.timeoutMs > 0
     ? adapterRuntime.timeoutMs
     : undefined;

@@ -5,8 +5,10 @@ import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
   PlatformPublicationRecord,
+  PlatformProjectRecord,
   PlatformRepositoryRecord,
   PlatformRunRecord,
+  PlatformRunWorkspaceRecord,
   PlatformTaskRecord
 } from '../types/platform-persistence.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
@@ -14,7 +16,9 @@ import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
 
 export interface PlatformRunInitializationPlan {
   repository: PlatformRepositoryRecord;
+  project?: PlatformProjectRecord | null;
   run: PlatformRunRecord;
+  runWorkspace?: PlatformRunWorkspaceRecord | null;
   tasks: PlatformTaskRecord[];
   events: PlatformEventRecord[];
   artifacts: PlatformArtifactRecord[];
@@ -28,6 +32,11 @@ export interface CreatePlatformRunPlanOptions {
   runId?: string;
   requestText?: string;
   taskGraphRef?: string;
+}
+
+export interface AttachPlatformProjectContextOptions {
+  project: PlatformProjectRecord;
+  runWorkspace: PlatformRunWorkspaceRecord;
 }
 
 function toStableIdentifier(value: string): string {
@@ -183,10 +192,55 @@ export function createPlatformRunInitializationPlan(
 
   return {
     repository,
+    project: null,
     run,
+    runWorkspace: null,
     tasks,
     events,
     artifacts
+  };
+}
+
+export function attachPlatformProjectContext(
+  plan: PlatformRunInitializationPlan,
+  options: AttachPlatformProjectContextOptions
+): PlatformRunInitializationPlan {
+  const nextRequestPayload = {
+    ...(plan.run.requestPayload ?? {}),
+    project: {
+      projectId: options.project.projectId,
+      projectName: options.project.name,
+      repositoryRootPath: options.project.repositoryRootPath,
+      workspaceRootPath: options.project.workspaceRootPath,
+      projectPath: options.project.projectPath ?? null,
+      topologyPath: options.project.topologyPath ?? null,
+      riskPath: options.project.riskPath ?? null
+    },
+    workspace: {
+      worktreeMode: options.runWorkspace.worktreeMode,
+      provisioningStatus: options.runWorkspace.provisioningStatus,
+      branchName: options.runWorkspace.branchName ?? null,
+      baseBranch: options.runWorkspace.baseBranch ?? null,
+      worktreePath: options.runWorkspace.worktreePath,
+      workspaceRootPath: options.runWorkspace.workspaceRootPath,
+      workspacePolicy: options.runWorkspace.workspacePolicy
+    }
+  };
+
+  return {
+    ...plan,
+    project: options.project,
+    run: {
+      ...plan.run,
+      requestPayload: nextRequestPayload,
+      metadata: {
+        ...(plan.run.metadata ?? {}),
+        projectId: options.project.projectId,
+        worktreePath: options.runWorkspace.worktreePath,
+        branchName: options.runWorkspace.branchName ?? null
+      }
+    },
+    runWorkspace: options.runWorkspace
   };
 }
 
@@ -255,6 +309,113 @@ export async function insertPlatformRun(
       run.riskLevel ?? null,
       JSON.stringify(run.requestPayload ?? {}),
       JSON.stringify(run.metadata ?? {})
+    ]
+  );
+}
+
+export async function upsertPlatformProject(
+  executor: SqlExecutor,
+  schema: string,
+  project: PlatformProjectRecord
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+
+  await executor.query(
+    `
+      INSERT INTO ${quotedSchema}.projects (
+        project_id,
+        repository_id,
+        name,
+        repository_root_path,
+        workspace_root_path,
+        project_path,
+        topology_path,
+        risk_path,
+        default_branch,
+        branch_prefix,
+        workspace_policy,
+        metadata
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)
+      ON CONFLICT (project_id)
+      DO UPDATE SET
+        repository_id = EXCLUDED.repository_id,
+        name = EXCLUDED.name,
+        repository_root_path = EXCLUDED.repository_root_path,
+        workspace_root_path = EXCLUDED.workspace_root_path,
+        project_path = EXCLUDED.project_path,
+        topology_path = EXCLUDED.topology_path,
+        risk_path = EXCLUDED.risk_path,
+        default_branch = EXCLUDED.default_branch,
+        branch_prefix = EXCLUDED.branch_prefix,
+        workspace_policy = EXCLUDED.workspace_policy,
+        metadata = EXCLUDED.metadata,
+        updated_at = NOW()
+    `,
+    [
+      project.projectId,
+      project.repositoryId,
+      project.name,
+      project.repositoryRootPath,
+      project.workspaceRootPath,
+      project.projectPath ?? null,
+      project.topologyPath ?? null,
+      project.riskPath ?? null,
+      project.defaultBranch ?? null,
+      project.branchPrefix ?? null,
+      JSON.stringify(project.workspacePolicy),
+      JSON.stringify(project.metadata ?? {})
+    ]
+  );
+}
+
+export async function upsertPlatformRunWorkspace(
+  executor: SqlExecutor,
+  schema: string,
+  runWorkspace: PlatformRunWorkspaceRecord
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+
+  await executor.query(
+    `
+      INSERT INTO ${quotedSchema}.run_workspaces (
+        run_id,
+        project_id,
+        repository_id,
+        worktree_mode,
+        provisioning_status,
+        branch_name,
+        base_branch,
+        workspace_root_path,
+        worktree_path,
+        workspace_policy,
+        metadata
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb)
+      ON CONFLICT (run_id)
+      DO UPDATE SET
+        project_id = EXCLUDED.project_id,
+        repository_id = EXCLUDED.repository_id,
+        worktree_mode = EXCLUDED.worktree_mode,
+        provisioning_status = EXCLUDED.provisioning_status,
+        branch_name = EXCLUDED.branch_name,
+        base_branch = EXCLUDED.base_branch,
+        workspace_root_path = EXCLUDED.workspace_root_path,
+        worktree_path = EXCLUDED.worktree_path,
+        workspace_policy = EXCLUDED.workspace_policy,
+        metadata = EXCLUDED.metadata,
+        updated_at = NOW()
+    `,
+    [
+      runWorkspace.runId,
+      runWorkspace.projectId,
+      runWorkspace.repositoryId,
+      runWorkspace.worktreeMode,
+      runWorkspace.provisioningStatus,
+      runWorkspace.branchName ?? null,
+      runWorkspace.baseBranch ?? null,
+      runWorkspace.workspaceRootPath,
+      runWorkspace.worktreePath,
+      JSON.stringify(runWorkspace.workspacePolicy),
+      JSON.stringify(runWorkspace.metadata ?? {})
     ]
   );
 }
@@ -434,7 +595,13 @@ export async function persistPlatformRunPlan(
   plan: PlatformRunInitializationPlan
 ): Promise<void> {
   await upsertPlatformRepository(executor, schema, plan.repository);
+  if (plan.project) {
+    await upsertPlatformProject(executor, schema, plan.project);
+  }
   await insertPlatformRun(executor, schema, plan.run);
+  if (plan.runWorkspace) {
+    await upsertPlatformRunWorkspace(executor, schema, plan.runWorkspace);
+  }
   await insertPlatformTasks(executor, schema, plan.tasks);
   await insertPlatformArtifacts(executor, schema, plan.artifacts);
   await insertPlatformEvents(executor, schema, plan.events);

@@ -287,7 +287,9 @@ Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
 - stale leases can be recovered without editing JSON files by running `expire-platform-leases`
 - `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
 - `serve-platform-control-plane` exposes the first backend HTTP surface for health checks, run submission, run lists, run detail, task detail, observability snapshots, and task-level operator actions for retry and approval
-- `POST /api/runs` accepts `repositoryRootPath` plus optional `projectPath`, `topologyPath`, `riskPath`, `requirement`, `requirementPath`, `changedFiles`, and repository metadata overrides; onboarding files default to `.spec2flow/project.yaml`, `.spec2flow/topology.yaml`, and `.spec2flow/policies/risk.yaml` relative to `repositoryRootPath`
+- `POST /api/runs` accepts `repositoryRootPath` plus optional `projectId`, `projectName`, `workspaceRootPath`, `branchPrefix`, `worktreeRootPath`, `worktreeMode`, `workspacePolicy`, `projectPath`, `topologyPath`, `riskPath`, `requirement`, `requirementPath`, `changedFiles`, and repository metadata overrides; onboarding files default to `.spec2flow/project.yaml`, `.spec2flow/topology.yaml`, and `.spec2flow/policies/risk.yaml` relative to `repositoryRootPath`
+- run submission now provisions a project-scoped workspace binding, writes a run-scoped `task-graph.json` into the run worktree, and persists both `projects` and `run_workspaces` metadata alongside the platform run
+- DB-backed worker claims now carry `workspace` context and default deterministic or adapter execution into the run worktree instead of the controller repo cwd
 - `packages/web` now contains the first frontend shell for that API surface, and `npm run web:dev` expects the backend to be available at `http://127.0.0.1:4310` unless `VITE_CONTROL_PLANE_BASE_URL` overrides it
 
 Phase 3 adds the first DB-backed worker runtime harness:

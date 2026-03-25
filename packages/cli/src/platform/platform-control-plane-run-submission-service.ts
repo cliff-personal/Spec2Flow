@@ -2,13 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { buildValidatorResult } from '../onboarding/validator-service.js';
 import { buildTaskGraph } from '../planning/task-graph-service.js';
-import { createPlatformRunInitializationPlan, persistPlatformRunPlan } from './platform-repository.js';
+import {
+  attachPlatformProjectContext,
+  createPlatformRunInitializationPlan,
+  persistPlatformRunPlan
+} from './platform-repository.js';
+import { provisionPlatformRunWorkspace } from './platform-run-provisioning-service.js';
 import type {
+  PlatformProjectRecord,
   PlatformControlPlaneRunSubmissionRequest,
-  PlatformControlPlaneRunSubmissionResult
+  PlatformControlPlaneRunSubmissionResult,
+  PlatformWorkspacePolicy
 } from '../types/index.js';
 import { type SqlExecutor } from './platform-database.js';
-import { readStructuredFileFrom } from '../shared/fs-utils.js';
+import { readStructuredFileFrom, writeJson } from '../shared/fs-utils.js';
 
 const DEFAULT_PROJECT_PATH = '.spec2flow/project.yaml';
 const DEFAULT_TOPOLOGY_PATH = '.spec2flow/topology.yaml';
@@ -19,8 +26,10 @@ const defaultRunSubmissionDependencies: SubmitPlatformControlPlaneRunDependencie
   buildValidatorResult,
   createPlatformRunInitializationPlan,
   persistPlatformRunPlan,
+  provisionPlatformRunWorkspace,
   readRequirementFile: defaultReadRequirementFile,
-  readStructuredFileFrom
+  readStructuredFileFrom,
+  writeJson
 };
 
 export interface SubmitPlatformControlPlaneRunDependencies {
@@ -28,8 +37,10 @@ export interface SubmitPlatformControlPlaneRunDependencies {
   buildValidatorResult: typeof buildValidatorResult;
   createPlatformRunInitializationPlan: typeof createPlatformRunInitializationPlan;
   persistPlatformRunPlan: typeof persistPlatformRunPlan;
+  provisionPlatformRunWorkspace: typeof provisionPlatformRunWorkspace;
   readRequirementFile: (repositoryRoot: string, filePath: string) => string;
   readStructuredFileFrom: typeof readStructuredFileFrom;
+  writeJson: typeof writeJson;
 }
 
 export interface SubmitPlatformControlPlaneRunOptions extends PlatformControlPlaneRunSubmissionRequest {
@@ -69,6 +80,27 @@ function normalizeChangedFiles(changedFiles: string[] | undefined): string[] {
   return changedFiles
     .map((filePath) => filePath.trim().replaceAll('\\', '/').replace(/^\.\//u, ''))
     .filter((filePath, index, values) => filePath.length > 0 && values.indexOf(filePath) === index);
+}
+
+function normalizeWorkspacePolicy(
+  workspacePolicy: PlatformControlPlaneRunSubmissionRequest['workspacePolicy']
+): PlatformWorkspacePolicy {
+  const normalizeList = (values: string[] | undefined, fallback: string[]): string[] => {
+    const normalized = (values ?? fallback)
+      .map((value) => value.trim())
+      .filter((value, index, entries) => value.length > 0 && entries.indexOf(value) === index);
+    return normalized.length > 0 ? normalized : fallback;
+  };
+
+  return {
+    allowedReadGlobs: normalizeList(workspacePolicy?.allowedReadGlobs, ['**/*']),
+    allowedWriteGlobs: normalizeList(workspacePolicy?.allowedWriteGlobs, ['**/*']),
+    forbiddenWriteGlobs: normalizeList(workspacePolicy?.forbiddenWriteGlobs, [])
+  };
+}
+
+function buildTaskGraphArtifactPath(worktreePath: string, runId: string): string {
+  return path.resolve(worktreePath, '.spec2flow', 'runtime', 'platform-runs', runId, 'task-graph.json');
 }
 
 function buildRequirementText(
@@ -121,6 +153,15 @@ export async function submitPlatformControlPlaneRun(
   const repositoryName = normalizeString(options.repositoryName);
   const defaultBranch = normalizeString(options.defaultBranch);
   const runId = normalizeString(options.runId);
+  const projectId = normalizeString(options.projectId) ?? repositoryId ?? path.basename(repositoryRoot).toLowerCase().replaceAll(/[^a-z0-9]+/g, '-');
+  const projectName = normalizeString(options.projectName) ?? repositoryName ?? path.basename(repositoryRoot);
+  const workspaceRootPath = path.resolve(normalizeString(options.workspaceRootPath) ?? repositoryRoot);
+  const branchPrefix = normalizeString(options.branchPrefix) ?? 'spec2flow/';
+  const worktreeRootPath = normalizeString(options.worktreeRootPath)
+    ? path.resolve(workspaceRootPath, normalizeString(options.worktreeRootPath) as string)
+    : undefined;
+  const worktreeMode = options.worktreeMode ?? 'managed';
+  const workspacePolicy = normalizeWorkspacePolicy(options.workspacePolicy);
 
   let projectPayload: Parameters<typeof buildValidatorResult>[0];
   let topologyPayload: Parameters<typeof buildValidatorResult>[1];
@@ -179,23 +220,80 @@ export async function submitPlatformControlPlaneRun(
     requirementText
   });
 
-  const planOptions = {
+  let plan = dependencies.createPlatformRunInitializationPlan(taskGraph, {
     repositoryRoot,
     ...(repositoryId ? { repositoryId } : {}),
     ...(repositoryName ? { repositoryName } : {}),
     ...(defaultBranch ? { defaultBranch } : {}),
     ...(runId ? { runId } : {})
+  });
+
+  const project: PlatformProjectRecord = {
+    projectId,
+    repositoryId: plan.repository.repositoryId,
+    name: projectName,
+    repositoryRootPath: repositoryRoot,
+    workspaceRootPath,
+    projectPath,
+    topologyPath,
+    riskPath,
+    defaultBranch: defaultBranch ?? plan.repository.defaultBranch ?? 'main',
+    branchPrefix,
+    workspacePolicy,
+    metadata: {
+      createdBy: 'submit-platform-run'
+    }
   };
-  const plan = dependencies.createPlatformRunInitializationPlan(taskGraph, planOptions);
+  let runWorkspace: ReturnType<SubmitPlatformControlPlaneRunDependencies['provisionPlatformRunWorkspace']>;
+  let taskGraphArtifactPath: string;
+  try {
+    runWorkspace = dependencies.provisionPlatformRunWorkspace({
+      runId: plan.run.runId,
+      projectId: project.projectId,
+      repositoryId: plan.repository.repositoryId,
+      repositoryRootPath: repositoryRoot,
+      workspaceRootPath,
+      defaultBranch: project.defaultBranch ?? 'main',
+      branchPrefix,
+      ...(worktreeRootPath ? { worktreeRootPath } : {}),
+      worktreeMode,
+      workspacePolicy
+    });
+    taskGraphArtifactPath = buildTaskGraphArtifactPath(runWorkspace.worktreePath, plan.run.runId);
+    dependencies.writeJson(taskGraphArtifactPath, taskGraph);
+  } catch (error) {
+    throw toSubmissionError(error, {
+      repositoryRootPath: repositoryRoot,
+      projectId: project.projectId,
+      runId: plan.run.runId
+    });
+  }
+
+  plan = createPlatformRunInitializationPlan(taskGraph, {
+    repositoryRoot,
+    repositoryId: plan.repository.repositoryId,
+    repositoryName: plan.repository.name,
+    ...(plan.repository.defaultBranch ? { defaultBranch: plan.repository.defaultBranch } : {}),
+    runId: plan.run.runId,
+    ...(plan.run.requestText ? { requestText: plan.run.requestText } : {}),
+    taskGraphRef: taskGraphArtifactPath
+  });
+  plan = attachPlatformProjectContext(plan, {
+    project,
+    runWorkspace
+  });
 
   await dependencies.persistPlatformRunPlan(executor, schema, plan);
 
   return {
     platformRun: {
       schema,
+      projectId: project.projectId,
+      projectName: project.name,
       repositoryId: plan.repository.repositoryId,
       repositoryName: plan.repository.name,
       repositoryRootPath: plan.repository.rootPath,
+      workspaceRootPath: project.workspaceRootPath,
       runId: plan.run.runId,
       workflowName: plan.run.workflowName,
       taskCount: plan.tasks.length,
@@ -203,7 +301,12 @@ export async function submitPlatformControlPlaneRun(
       artifactCount: plan.artifacts.length,
       status: plan.run.status,
       currentStage: plan.run.currentStage,
-      riskLevel: plan.run.riskLevel
+      riskLevel: plan.run.riskLevel,
+      branchName: runWorkspace.branchName ?? null,
+      baseBranch: runWorkspace.baseBranch ?? null,
+      worktreeMode: runWorkspace.worktreeMode,
+      worktreePath: runWorkspace.worktreePath,
+      provisioningStatus: runWorkspace.provisioningStatus
     },
     taskGraph: {
       graphId: taskGraph.taskGraph.id,

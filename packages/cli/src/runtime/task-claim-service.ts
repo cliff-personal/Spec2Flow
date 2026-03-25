@@ -8,7 +8,7 @@ import {
 import { fail } from '../shared/fs-utils.js';
 import { getMissingRequiredAdapterSupports } from '../shared/task-role-profile.js';
 import type { ExecutionStateDocument } from '../types/execution-state.js';
-import type { ModelAdapterCapability, TaskClaimPayload } from '../types/task-claim.js';
+import type { ModelAdapterCapability, TaskClaimPayload, TaskClaimWorkspaceContext } from '../types/task-claim.js';
 import type { Task, TaskGraphDocument } from '../types/task-graph.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -27,6 +27,10 @@ export interface TaskClaimPaths {
   state: string;
   taskGraph: string;
   adapterCapability: string | null;
+}
+
+export interface BuildTaskClaimOptions {
+  workspaceContext?: TaskClaimWorkspaceContext | null;
 }
 
 export interface TaskClaimDependencies {
@@ -68,7 +72,8 @@ export function buildTaskClaim(
   taskGraphPayload: TaskGraphDocument,
   projectPayload: ProjectPayload | null | undefined,
   adapterCapabilityPayload: AdapterCapabilityDocument | null | undefined,
-  paths: TaskClaimPaths
+  paths: TaskClaimPaths,
+  options: BuildTaskClaimOptions = {}
 ): TaskClaimPayload {
   const taskStateIndex = getExecutionStateTaskIndex(executionStatePayload);
   const taskState = taskStateIndex.get(task.id);
@@ -128,7 +133,10 @@ export function buildTaskClaim(
         taskArtifacts: getTaskArtifacts(executionStatePayload, task.id),
         taskErrors: getTaskErrors(executionStatePayload, task.id),
         artifactsDir: task.artifactsDir ?? null,
-        dependsOn: task.dependsOn ?? []
+        dependsOn: task.dependsOn ?? [],
+        ...(options.workspaceContext
+          ? { workspace: options.workspaceContext }
+          : {})
       },
       instructions: [
         `Execute only the task identified by ${task.id}.`,

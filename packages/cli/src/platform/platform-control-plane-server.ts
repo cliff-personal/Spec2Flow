@@ -248,6 +248,22 @@ function parseChangedFiles(value: unknown): string[] | undefined {
   return value;
 }
 
+function parseOptionalStringArray(value: unknown): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+    throw new PlatformControlPlaneRunSubmissionError(
+      'invalid-request',
+      'Workspace policy arrays must contain only strings',
+      400
+    );
+  }
+
+  return value;
+}
+
 function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissionRequest {
   const record = asObjectRecord(body);
   const repositoryRootPath = parseOptionalString(record?.repositoryRootPath);
@@ -261,8 +277,16 @@ function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissio
   }
 
   const projectPath = parseOptionalString(record?.projectPath);
+  const projectId = parseOptionalString(record?.projectId);
+  const projectName = parseOptionalString(record?.projectName);
   const topologyPath = parseOptionalString(record?.topologyPath);
   const riskPath = parseOptionalString(record?.riskPath);
+  const workspaceRootPath = parseOptionalString(record?.workspaceRootPath);
+  const branchPrefix = parseOptionalString(record?.branchPrefix);
+  const worktreeRootPath = parseOptionalString(record?.worktreeRootPath);
+  const worktreeMode = record?.worktreeMode === 'none' || record?.worktreeMode === 'managed'
+    ? record.worktreeMode
+    : undefined;
   const requirement = parseOptionalString(record?.requirement);
   const requirementPath = parseOptionalString(record?.requirementPath);
   const changedFiles = parseChangedFiles(record?.changedFiles);
@@ -270,12 +294,30 @@ function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissio
   const repositoryName = parseOptionalString(record?.repositoryName);
   const defaultBranch = parseOptionalString(record?.defaultBranch);
   const runId = parseOptionalString(record?.runId);
+  const workspacePolicyRecord = asObjectRecord(record?.workspacePolicy);
+  const allowedReadGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.allowedReadGlobs) : undefined;
+  const allowedWriteGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.allowedWriteGlobs) : undefined;
+  const forbiddenWriteGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.forbiddenWriteGlobs) : undefined;
+  const workspacePolicy = workspacePolicyRecord
+    ? {
+        ...(allowedReadGlobs ? { allowedReadGlobs } : {}),
+        ...(allowedWriteGlobs ? { allowedWriteGlobs } : {}),
+        ...(forbiddenWriteGlobs ? { forbiddenWriteGlobs } : {})
+      }
+    : undefined;
 
   return {
     repositoryRootPath,
+    ...(projectId ? { projectId } : {}),
+    ...(projectName ? { projectName } : {}),
     ...(projectPath ? { projectPath } : {}),
     ...(topologyPath ? { topologyPath } : {}),
     ...(riskPath ? { riskPath } : {}),
+    ...(workspaceRootPath ? { workspaceRootPath } : {}),
+    ...(branchPrefix ? { branchPrefix } : {}),
+    ...(worktreeRootPath ? { worktreeRootPath } : {}),
+    ...(worktreeMode ? { worktreeMode } : {}),
+    ...(workspacePolicy ? { workspacePolicy } : {}),
     ...(requirement ? { requirement } : {}),
     ...(requirementPath ? { requirementPath } : {}),
     ...(changedFiles ? { changedFiles } : {}),

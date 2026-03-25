@@ -8,9 +8,12 @@ describe('serve-platform-control-plane-command', () => {
     const runSubmissionResult: PlatformControlPlaneRunSubmissionResult = {
       platformRun: {
         schema: 'spec2flow_platform',
+        projectId: 'spec2flow-local',
+        projectName: 'Spec2Flow',
         repositoryId: 'spec2flow',
         repositoryName: 'Spec2Flow',
         repositoryRootPath: '/workspace/Spec2Flow',
+        workspaceRootPath: '/workspace/Spec2Flow',
         runId: 'run-1',
         workflowName: 'platform-flow',
         taskCount: 0,
@@ -18,7 +21,12 @@ describe('serve-platform-control-plane-command', () => {
         artifactCount: 0,
         status: 'pending',
         currentStage: 'requirements-analysis',
-        riskLevel: 'medium'
+        riskLevel: 'medium',
+        branchName: 'spec2flow/run-1',
+        baseBranch: 'main',
+        worktreeMode: 'managed',
+        worktreePath: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+        provisioningStatus: 'provisioned'
       },
       taskGraph: {
         graphId: 'graph-1',

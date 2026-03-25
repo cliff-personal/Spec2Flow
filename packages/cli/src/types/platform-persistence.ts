@@ -22,6 +22,46 @@ export interface PlatformRepositoryRecord {
   metadata?: Record<string, unknown>;
 }
 
+export interface PlatformWorkspacePolicy {
+  allowedReadGlobs: string[];
+  allowedWriteGlobs: string[];
+  forbiddenWriteGlobs: string[];
+}
+
+export interface PlatformProjectRecord {
+  projectId: string;
+  repositoryId: string;
+  name: string;
+  repositoryRootPath: string;
+  workspaceRootPath: string;
+  projectPath?: string | null;
+  topologyPath?: string | null;
+  riskPath?: string | null;
+  defaultBranch?: string | null;
+  branchPrefix?: string | null;
+  workspacePolicy: PlatformWorkspacePolicy;
+  metadata?: Record<string, unknown>;
+}
+
+export type PlatformRunWorkspaceMode = 'managed' | 'none';
+export type PlatformRunWorkspaceProvisioningStatus = 'provisioned' | 'skipped';
+
+export interface PlatformRunWorkspaceRecord {
+  runId: string;
+  projectId: string;
+  repositoryId: string;
+  worktreeMode: PlatformRunWorkspaceMode;
+  provisioningStatus: PlatformRunWorkspaceProvisioningStatus;
+  branchName?: string | null;
+  baseBranch?: string | null;
+  workspaceRootPath: string;
+  worktreePath: string;
+  workspacePolicy: PlatformWorkspacePolicy;
+  metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface PlatformRunRecord {
   runId: string;
   repositoryId: string;
