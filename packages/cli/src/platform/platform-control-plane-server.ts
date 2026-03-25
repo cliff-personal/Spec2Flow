@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type {
+  PlatformControlPlaneRunActionDocument,
+  PlatformControlPlaneRunActionResult,
   PlatformControlPlaneTaskActionDocument,
   PlatformControlPlaneTaskActionResult,
   PlatformControlPlaneErrorDocument,
@@ -56,6 +58,16 @@ export interface StartPlatformControlPlaneServerOptions {
     actor?: string;
     note?: string;
   }) => Promise<PlatformControlPlaneTaskActionResult | null>;
+  pausePlatformRun: (options: {
+    runId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneRunActionResult | null>;
+  resumePlatformRun: (options: {
+    runId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneRunActionResult | null>;
 }
 
 export interface StartedPlatformControlPlaneServer {
@@ -172,6 +184,24 @@ function parseTaskActionBody(body: unknown): {
 
   return {
     runId,
+    ...(actor ? { actor } : {}),
+    ...(note ? { note } : {})
+  };
+}
+
+function parseRunActionBody(body: unknown): {
+  actor?: string;
+  note?: string;
+} {
+  const record = asObjectRecord(body);
+  const actor = typeof record?.actor === 'string' && record.actor.trim().length > 0
+    ? record.actor.trim()
+    : null;
+  const note = typeof record?.note === 'string' && record.note.trim().length > 0
+    ? record.note.trim()
+    : null;
+
+  return {
     ...(actor ? { actor } : {}),
     ...(note ? { note } : {})
   };
@@ -370,10 +400,11 @@ async function handleRunObservabilityRequest(
   return true;
 }
 
-async function handleRunActionStub(
+async function handleRunActionRequest(
   request: IncomingMessage,
   response: ServerResponse,
-  pathname: string
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
 ): Promise<boolean> {
   const match = RUN_ACTION_ROUTE.exec(pathname);
   if (!match) {
@@ -387,11 +418,23 @@ async function handleRunActionStub(
   }
 
   const runId = decodeURIComponent(runIdParam);
-  await readJsonBody(request);
-  writeError(response, 501, 'not-implemented', `Run action ${action} is not implemented yet`, {
-    runId,
-    action
-  });
+  const actionRequest = parseRunActionBody(await readJsonBody(request));
+  const actionResult = action === 'pause'
+    ? await options.pausePlatformRun({ runId, ...actionRequest })
+    : await options.resumePlatformRun({ runId, ...actionRequest });
+
+  if (!actionResult) {
+    writeError(response, 404, 'run-not-found', `Unknown run: ${runId}`, {
+      runId,
+      action
+    });
+    return true;
+  }
+
+  const actionDocument: PlatformControlPlaneRunActionDocument = {
+    action: actionResult
+  };
+  writeJson(response, 200, actionDocument);
   return true;
 }
 
@@ -493,7 +536,7 @@ async function handlePostRequest(
     return true;
   }
 
-  if (await handleRunActionStub(request, response, pathname)) {
+  if (await handleRunActionRequest(request, response, pathname, options)) {
     return true;
   }
 

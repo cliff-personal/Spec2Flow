@@ -4,6 +4,20 @@ import path from 'node:path';
 import process from 'node:process';
 import { ensureDirForFile, loadOptionalStructuredFileFrom, resolveFromBaseDir, writeJsonFrom } from '../shared/fs-utils.js';
 import type { AdapterRunDocument, TaskClaimPayload } from '../types/index.js';
+import {
+  describeDetectedServices,
+  runServiceOrchestration,
+  type DeterministicRepositoryGap,
+  type DeterministicServiceEvidenceArtifact,
+  type DeterministicServiceSummary
+} from './service-orchestration-service.js';
+import {
+  runBrowserAutomation,
+  type BrowserCheckConfig,
+  type BrowserAutomationArtifact,
+  type BrowserAutomationSummary
+} from './browser-automation-service.js';
+import { buildExecutionEvidenceIndex, type ExecutionEvidenceIndexArtifactInput } from './execution-evidence-index-service.js';
 
 interface ProjectAdapterSummary {
   spec2flow?: {
@@ -20,6 +34,8 @@ interface CommandRunResult {
   exitCode: number | null;
   logPath: string;
 }
+
+type EvidenceArtifactInput = ExecutionEvidenceIndexArtifactInput;
 
 export interface DeterministicExecutionOptions {
   signal?: AbortSignal;
@@ -172,7 +188,11 @@ function buildEnvironmentPreparationReport(
           confidence: 1
         })),
         ci: [],
-        services: []
+        services: describeDetectedServices(
+          cwd,
+          claim?.repositoryContext.projectAdapterRef ?? undefined,
+          claim?.repositoryContext.topologyRef ?? undefined
+        )
       },
       generated: [
         {
@@ -204,17 +224,28 @@ function buildEnvironmentPreparationReport(
 function buildExecutionReport(
   claimPayload: TaskClaimPayload,
   reportPath: string,
-  commandResults: CommandRunResult[]
+  commandResults: CommandRunResult[],
+  options: {
+    services?: DeterministicServiceSummary[];
+    browserChecks?: BrowserAutomationSummary[];
+    repositoryGaps?: DeterministicRepositoryGap[];
+  } = {}
 ): Record<string, unknown> {
   const claim = claimPayload.taskClaim;
   const hasFailures = commandResults.some((result) => result.status !== 'passed');
+  const hasRepositoryGaps = (options.repositoryGaps ?? []).length > 0;
 
   return {
+    generatedAt: new Date().toISOString(),
     taskId: claim?.taskId,
     stage: 'automated-execution',
     goal: claim?.goal ?? 'Run verification commands',
-    summary: hasFailures ? 'One or more verification commands failed.' : 'All verification commands passed.',
-    outcome: hasFailures ? 'failed' : 'passed',
+    summary: hasFailures
+      ? 'One or more verification commands failed.'
+      : hasRepositoryGaps
+        ? 'Verification commands passed with execution environment or browser automation gaps.'
+        : 'All verification commands passed.',
+    outcome: hasFailures ? 'failed' : hasRepositoryGaps ? 'partial' : 'passed',
     commands: commandResults.map((result, index) => ({
       command: result.command,
       status: result.status,
@@ -225,7 +256,115 @@ function buildExecutionReport(
       id: `verification-evidence-${index + 1}`,
       path: result.logPath,
       kind: 'log'
-    }))
+    })),
+    ...(options.repositoryGaps && options.repositoryGaps.length > 0 ? { repositoryGaps: options.repositoryGaps } : {}),
+    ...(options.services && options.services.length > 0 ? {
+      findings: options.services
+        .filter((service) => service.status !== 'ready' && service.status !== 'started')
+        .map((service) => `Service orchestration reported ${service.status} for ${service.name}.`)
+    } : {}),
+    ...(options.browserChecks && options.browserChecks.length > 0 ? {
+      findings: [
+        ...(
+          options.services
+            ?.filter((service) => service.status !== 'ready' && service.status !== 'started')
+            .map((service) => `Service orchestration reported ${service.status} for ${service.name}.`)
+          ?? []
+        ),
+        ...options.browserChecks
+          .filter((check) => check.status !== 'passed')
+          .map((check) => `Browser check ${check.id} returned ${check.status}.`)
+      ]
+    } : {})
+  };
+}
+
+function getExecutionInputs(claimPayload: TaskClaimPayload): {
+  entryServices: string[];
+  browserChecks: BrowserCheckConfig[];
+} {
+  const claim = claimPayload.taskClaim;
+  const inputs = claim?.repositoryContext.taskInputs ?? {};
+
+  return {
+    entryServices: Array.isArray(inputs.entryServices)
+      ? inputs.entryServices.filter((value): value is string => typeof value === 'string')
+      : [],
+    browserChecks: Array.isArray(inputs.browserChecks)
+      ? inputs.browserChecks.filter((value: unknown): value is BrowserCheckConfig => typeof value === 'object' && value !== null && !Array.isArray(value))
+      : []
+  };
+}
+
+function buildExecutionEvidenceIndexArtifact(
+  claimPayload: TaskClaimPayload,
+  cwd: string,
+  reportPath: string,
+  artifactsDir: string,
+  commandResults: CommandRunResult[],
+  serviceArtifacts: DeterministicServiceEvidenceArtifact[],
+  serviceSummaries: DeterministicServiceSummary[],
+  browserArtifacts: BrowserAutomationArtifact[],
+  browserSummaries: BrowserAutomationSummary[],
+  repositoryGaps: DeterministicRepositoryGap[]
+): {
+  artifact: {
+    id: string;
+    kind: 'report';
+    path: string;
+    taskId: string;
+  };
+  payload: Record<string, unknown>;
+} {
+  const claim = claimPayload.taskClaim;
+  if (!claim) {
+    throw new Error('deterministic execution requires a task claim');
+  }
+
+  const payload = buildExecutionEvidenceIndex({
+    cwd,
+    taskId: claim.taskId,
+    summary: repositoryGaps.length > 0
+      ? 'Execution evidence index with repository gaps.'
+      : 'Execution evidence index with service, command, and browser artifacts.',
+    artifacts: [
+      {
+        id: 'execution-report',
+        path: reportPath,
+        kind: 'report',
+        category: 'other',
+        contentType: 'application/json'
+      },
+      ...serviceArtifacts,
+      ...commandResults.map((result, index) => ({
+        id: `verification-evidence-${index + 1}`,
+        path: result.logPath,
+        kind: 'log' as const,
+        category: 'verification-command' as const,
+        contentType: 'text/plain'
+      })),
+      ...browserArtifacts,
+      {
+        id: 'execution-evidence-index',
+        path: path.join(artifactsDir, 'execution-evidence-index.json'),
+        kind: 'report',
+        category: 'artifact-index',
+        contentType: 'application/json'
+      }
+    ] satisfies EvidenceArtifactInput[],
+    services: serviceSummaries,
+    browserChecks: browserSummaries,
+    repositoryGaps
+  });
+
+  return {
+    artifact: {
+      id: 'execution-evidence-index',
+      kind: 'report',
+      path: path.join(artifactsDir, 'execution-evidence-index.json'),
+      taskId: claim.taskId
+    },
+    payload
   };
 }
 
@@ -439,6 +578,26 @@ export async function runDeterministicTaskAsync(
   }
 
   const artifactsDir = getArtifactsDir(claimPayload);
+  const executionInputs = getExecutionInputs(claimPayload);
+  let serviceSummaries: DeterministicServiceSummary[] = [];
+  let serviceArtifacts: DeterministicServiceEvidenceArtifact[] = [];
+  let browserSummaries: BrowserAutomationSummary[] = [];
+  let browserArtifacts: BrowserAutomationArtifact[] = [];
+  let repositoryGaps: DeterministicRepositoryGap[] = [];
+
+  if (claim.stage === 'automated-execution' && executionInputs.entryServices.length > 0) {
+    const orchestrationResult = await runServiceOrchestration({
+      cwd,
+      artifactsDir,
+      entryServices: executionInputs.entryServices,
+      ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
+      ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {})
+    });
+    serviceSummaries = orchestrationResult.services;
+    serviceArtifacts = orchestrationResult.artifacts;
+    repositoryGaps = [...repositoryGaps, ...orchestrationResult.repositoryGaps];
+  }
+
   const commandResults: CommandRunResult[] = [];
 
   for (const [index, command] of commands.entries()) {
@@ -448,6 +607,135 @@ export async function runDeterministicTaskAsync(
       path.join(artifactsDir, `${sanitizeFileToken(claim.taskId)}-verification-evidence-${index + 1}.log`),
       options
     ));
+  }
+
+  if (claim.stage === 'automated-execution' && executionInputs.browserChecks.length > 0) {
+    const browserResult = await runBrowserAutomation({
+      cwd,
+      artifactsDir,
+      browserChecks: executionInputs.browserChecks,
+      ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
+      ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {})
+    });
+    browserSummaries = browserResult.summaries;
+    browserArtifacts = browserResult.artifacts;
+    repositoryGaps = [...repositoryGaps, ...browserResult.repositoryGaps];
+
+    if (browserResult.requiredFailureCount > 0) {
+      commandResults.push({
+        command: 'browser-automation',
+        status: 'failed',
+        exitCode: null,
+        logPath: path.join(artifactsDir, 'browser', 'browser-automation-summary.log')
+      });
+      writeCommandLog(cwd, path.join(artifactsDir, 'browser', 'browser-automation-summary.log'), JSON.stringify(browserSummaries, null, 2), '');
+    }
+  }
+
+  if (claim.stage === 'automated-execution') {
+    const reportPath = path.join(artifactsDir, 'execution-report.json');
+    const reportPayload = buildExecutionReport(claimPayload, reportPath, commandResults, {
+      services: serviceSummaries,
+      browserChecks: browserSummaries,
+      repositoryGaps
+    });
+    writeJsonFrom(cwd, reportPath, reportPayload);
+
+    const evidenceIndex = buildExecutionEvidenceIndexArtifact(
+      claimPayload,
+      cwd,
+      reportPath,
+      artifactsDir,
+      commandResults,
+      serviceArtifacts,
+      serviceSummaries,
+      browserArtifacts,
+      browserSummaries,
+      repositoryGaps
+    );
+    writeJsonFrom(cwd, evidenceIndex.artifact.path, evidenceIndex.payload);
+
+    const hasFailures = commandResults.some((result) => result.status !== 'passed');
+
+    return {
+      adapterRun: {
+        adapterName: 'spec2flow-deterministic-runner',
+        provider: 'spec2flow-deterministic',
+        taskId: claim.taskId,
+        runId: claim.runId,
+        stage: claim.stage,
+        status: hasFailures ? 'failed' : repositoryGaps.length > 0 ? 'blocked' : 'completed',
+        summary: hasFailures
+          ? 'deterministic verification failed'
+          : repositoryGaps.length > 0
+            ? 'deterministic verification completed with repository gaps'
+            : 'deterministic verification passed',
+        notes: [
+          ...commandResults.map((result) => `${result.command}:${result.status}`),
+          ...serviceSummaries.map((service) => `service:${service.name}:${service.status}`),
+          ...browserSummaries.map((browserCheck) => `browser:${browserCheck.id}:${browserCheck.status}`)
+        ],
+        activity: {
+          commands,
+          editedFiles: [],
+          artifactFiles: [
+            reportPath,
+            evidenceIndex.artifact.path,
+            ...serviceArtifacts.map((artifact) => artifact.path),
+            ...commandResults.map((result) => result.logPath),
+            ...browserArtifacts.map((artifact) => artifact.path)
+          ],
+          collaborationActions: []
+        },
+        artifacts: [
+          {
+            id: 'execution-report',
+            kind: 'report',
+            path: reportPath,
+            taskId: claim.taskId
+          },
+          evidenceIndex.artifact,
+          ...serviceArtifacts.map((artifact) => ({
+            id: artifact.id,
+            kind: artifact.kind,
+            path: artifact.path,
+            taskId: claim.taskId
+          })),
+          ...commandResults.map((result, index) => ({
+            id: `verification-evidence-${index + 1}`,
+            kind: 'log' as const,
+            path: result.logPath,
+            taskId: claim.taskId
+          })),
+          ...browserArtifacts.map((artifact) => ({
+            id: artifact.id,
+            kind: artifact.kind,
+            path: artifact.path,
+            taskId: claim.taskId
+          }))
+        ],
+        errors: [
+          ...(
+            hasFailures
+              ? commandResults
+                .filter((result) => result.status !== 'passed')
+                .map((result) => ({
+                  code: 'deterministic-command-failed',
+                  message: `Verification command failed: ${result.command}`,
+                  taskId: claim.taskId,
+                  recoverable: true
+                }))
+              : []
+          ),
+          ...repositoryGaps.map((gap) => ({
+            code: gap.code,
+            message: gap.message,
+            taskId: claim.taskId,
+            recoverable: gap.recoverable
+          }))
+        ]
+      }
+    };
   }
 
   return buildDeterministicResult(claimPayload, cwd, commandResults);

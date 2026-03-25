@@ -57,11 +57,13 @@ describe('serve-platform-control-plane-command', () => {
       getPlatformControlPlaneRunObservability: vi.fn(async () => null),
       getPlatformControlPlaneRunTasks: vi.fn(async () => null),
       listPlatformRuns: vi.fn(async () => []),
+      pausePlatformControlPlaneRun: vi.fn(async () => null),
       rejectPlatformControlPlaneTask: vi.fn(async () => null),
       resolvePlatformDatabaseConfig: vi.fn(() => ({
         connectionString: 'postgresql://local/spec2flow',
         schema: 'spec2flow_platform'
       })),
+      resumePlatformControlPlaneRun: vi.fn(async () => null),
       retryPlatformControlPlaneTask: vi.fn(async () => null),
       submitPlatformControlPlaneRun: vi.fn(async () => runSubmissionResult),
       startPlatformControlPlaneServer,

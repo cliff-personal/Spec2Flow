@@ -441,8 +441,11 @@ export async function leaseNextPlatformTask(
       WITH candidate AS (
         SELECT t.run_id, t.task_id
         FROM ${quotedSchema}.tasks t
+        INNER JOIN ${quotedSchema}.runs r
+          ON r.run_id = t.run_id
         WHERE t.run_id = $1
           AND t.status = 'ready'
+          AND COALESCE(r.metadata -> 'controlPlane' ->> 'paused', 'false') <> 'true'
         ORDER BY
           CASE WHEN t.stage = 'environment-preparation' THEN 0 ELSE 1 END,
           jsonb_array_length(t.depends_on) ASC,

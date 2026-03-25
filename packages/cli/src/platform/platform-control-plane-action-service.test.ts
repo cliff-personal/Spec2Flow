@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  pausePlatformControlPlaneRun,
   approvePlatformControlPlaneTask,
+  resumePlatformControlPlaneRun,
   retryPlatformControlPlaneTask
 } from './platform-control-plane-action-service.js';
 import type { SqlExecutor } from './platform-database.js';
@@ -188,5 +190,81 @@ describe('platform-control-plane-action-service', () => {
       publicationId: 'publication-1',
       publicationStatus: 'published'
     }));
+  });
+
+  it('pauses and resumes a run through metadata-backed control plane state', async () => {
+    const executor = new SequentialExecutor([
+      {
+        match: 'FROM "spec2flow_platform".runs',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            status: 'running',
+            current_stage: 'automated-execution',
+            metadata: {}
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'UPDATE "spec2flow_platform".runs',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'FROM "spec2flow_platform".runs',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            status: 'running',
+            current_stage: 'automated-execution',
+            metadata: {
+              controlPlane: {
+                paused: true,
+                pausedBy: 'operator-1'
+              }
+            }
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'UPDATE "spec2flow_platform".runs',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      }
+    ]);
+
+    const pauseResult = await pausePlatformControlPlaneRun(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      actor: 'operator-1',
+      note: 'pause for maintenance'
+    });
+    const resumeResult = await resumePlatformControlPlaneRun(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      actor: 'operator-1',
+      note: 'resume after maintenance'
+    });
+
+    expect(pauseResult).toEqual({
+      action: 'pause',
+      runId: 'run-1',
+      runStatus: 'running',
+      currentStage: 'automated-execution',
+      paused: true
+    });
+    expect(resumeResult).toEqual({
+      action: 'resume',
+      runId: 'run-1',
+      runStatus: 'running',
+      currentStage: 'automated-execution',
+      paused: false
+    });
   });
 });

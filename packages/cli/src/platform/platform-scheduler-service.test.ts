@@ -226,6 +226,7 @@ describe('platform-scheduler-service', () => {
       status: 'leased'
     });
     expect(executor.calls[0]?.text).toContain('FOR UPDATE SKIP LOCKED');
+    expect(executor.calls[0]?.text).toContain(`COALESCE(r.metadata -> 'controlPlane' ->> 'paused', 'false') <> 'true'`);
     expect(listInsertedEventTypes(executor)).toEqual(['task.leased']);
   });
 

@@ -28,11 +28,11 @@ This document is the working implementation plan for the platform-shaped version
 | Scheduler with task leasing | Ready tasks can be leased safely to concurrent workers | `lease-next-platform-task`; `heartbeat-platform-task`; `start-platform-task`; `expire-platform-leases`; `packages/cli/src/platform/platform-scheduler-service.ts` | `partial` | Lease ownership, heartbeat, and timeout recovery now exist, but there is still no worker registry or dead-letter queue service |
 | Stage-specialized workers | Requirements, implementation, test, execution, defect, and collaboration run as role-scoped workers | `run-platform-worker-task`; `run-platform-requirements-worker`; `run-platform-implementation-worker`; `run-platform-test-design-worker`; `run-platform-execution-worker`; `run-platform-defect-worker`; `run-platform-collaboration-worker` | `partial` | DB-backed worker harness, execution-time heartbeat auto-renew, and stage entrypoints now exist, but there is still no long-running worker service or worker registry |
 | Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/auto-repair-policy-service.ts`; `packages/cli/src/runtime/task-result-service.ts`; `packages/cli/src/platform/platform-auto-repair-service.ts`; `packages/cli/src/platform/migrations/0003_platform_auto_repair.sql` | `partial` | Auto-repair policy fields, downstream rerun invalidation, repair escalation, repair-attempt records, and retry-budget persistence now exist, but there is still no background orchestration daemon or operator-facing repair console |
-| Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts` | `partial` | No service orchestration, no browser automation evidence pipeline, no richer environment convergence |
+| Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts`; `packages/cli/src/runtime/service-orchestration-service.ts`; `packages/cli/src/runtime/browser-automation-service.ts`; `packages/cli/src/runtime/execution-evidence-index-service.ts` | `partial` | Service orchestration, browser checks, and execution evidence indexing now exist, but teardown policy, full Playwright capture availability, and artifact-store abstraction are still missing |
 | Collaboration publish flow | Commit code, create branch, optionally draft PR | `packages/cli/src/runtime/collaboration-publication-service.ts`; `packages/cli/src/platform/platform-publication-service.ts`; `publications` table | `partial` | Controller-side branch creation, scoped auto-commit, publication records, and PR-draft artifacts now exist, but there is still no remote push, PR API integration, or operator approval UI |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
 | Event stream and observability | Operators can see progress, retries, and artifacts live | `get-platform-observability`; `packages/cli/src/platform/platform-event-taxonomy.ts`; `packages/cli/src/platform/platform-observability-service.ts` | `partial` | Durable events and observability read models now exist, but there is still no streaming transport or external telemetry export |
-| Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | `serve-platform-control-plane`; `packages/cli/src/platform/platform-control-plane-server.ts`; `packages/cli/src/platform/platform-control-plane-service.ts`; `packages/cli/src/platform/platform-control-plane-action-service.ts`; `packages/cli/src/platform/platform-control-plane-run-submission-service.ts`; `packages/web/` | `partial` | Backend run submission, read APIs, task retry or approval actions, and the first frontend shell now exist, but run-level pause/resume, richer task detail, and production-grade DAG rendering are still missing |
+| Web control plane | Submit tasks, inspect DAG, monitor progress, approve or retry | `serve-platform-control-plane`; `packages/cli/src/platform/platform-control-plane-server.ts`; `packages/cli/src/platform/platform-control-plane-service.ts`; `packages/cli/src/platform/platform-control-plane-action-service.ts`; `packages/cli/src/platform/platform-control-plane-run-submission-service.ts`; `packages/web/` | `partial` | Backend run submission, read APIs, task retry or approval actions, and run-level pause or resume now exist, but richer task detail, artifact views, and production-grade DAG rendering are still missing |
 | Artifact metadata and storage model | Artifacts are queryable and attached to runs/tasks | Artifact refs exist in `execution-state.json` | `partial` | No shared artifact catalog, no object-store abstraction, no database indexing |
 | Multi-user operations | Many repos, many runs, many operators | None | `gap` | No authentication layer, repository registry, tenancy model, or permissions surface |
 | CLI compatibility | Existing local workflow remains usable during migration | Current CLI runtime works today | `implemented` | Must preserve during platform rollout |
@@ -325,12 +325,12 @@ Implemented in the current repository state:
 - the backend returns the same DB-backed run snapshot and observability read model already used by the CLI, so the web control plane can reuse controller truth instead of inventing a second projection
 - `POST /api/runs` now validates onboarding inputs, builds a task graph, and persists the resulting platform run through the same planner and PostgreSQL initialization services used by the CLI
 - `POST /api/tasks/:taskId/actions/retry`, `POST /api/tasks/:taskId/actions/approve`, and `POST /api/tasks/:taskId/actions/reject` now execute real PostgreSQL-backed operator actions instead of returning placeholders
+- `POST /api/runs/:runId/actions/pause` and `POST /api/runs/:runId/actions/resume` now execute real metadata-backed run actions, and the scheduler skips paused runs when leasing work
 - `packages/web` now contains the first React-based operator shell for run submission, run list, run detail, observability panels, task action controls, and a DAG preview scaffold
-- `POST /api/runs/:runId/actions/pause` and `POST /api/runs/:runId/actions/resume` still exist as explicit `501 not implemented` stubs, so the remaining run-level operator API surface is visible but not faked
 
 Remaining gaps:
 
-- `partial`: backend service exists for health, run submission, run list, run detail, task list, observability, task retry, and approval actions, and the first frontend shell now exists, but run-level pause/resume is still missing
+- `partial`: backend service exists for health, run submission, run list, run detail, task list, observability, task retry, approval actions, and run-level pause or resume, but the frontend still does not expose those run actions
 - `partial`: frontend app exists as a thin operator shell in `packages/web`, but it still needs route-level task detail, artifact views, and production hardening
 - `partial`: DAG visualization exists as a frontend scaffold, but layout refinement and richer task metadata are still missing
 - `partial`: approval action UI exists in the frontend shell, but it still needs disabled-state rules, audit detail, and richer operator messaging
@@ -338,7 +338,7 @@ Remaining gaps:
 Frontend start gate:
 
 - frontend work can start now for run submission, run list, run detail shell, observability panels, and task-level retry or approval controls because the minimum backend surface already exists
-- frontend work should not wait for run-level pause or resume; those can stay disabled until the paused-state model is real
+- frontend work should keep pause or resume wiring thin until the UI has route-level task detail and artifact context
 - a first frontend slice should stay thin and backend-driven, with no client-side workflow truth beyond request state and cached API responses
 - before building the first UI, choose one frontend stack and lock one operator-oriented information architecture so Phase 7 does not fragment into backend drift plus throwaway screens
 
@@ -355,14 +355,17 @@ Current implemented core:
 - deterministic command execution exists
 - environment-preparation exists
 - log-backed evidence exists
+- service orchestration exists for topology-driven entry services
+- browser checks now capture structured HTML or metadata evidence, with optional Playwright capture when available
+- execution evidence indexing now catalogs service, command, and browser artifacts
 
 Scope:
 
-- add service startup orchestration
-- add browser automation integration
-- add screenshot, trace, and video evidence
+- harden service startup orchestration
+- harden browser automation integration
+- keep screenshot, trace, and video evidence optional behind Playwright availability
 - add environment convergence and teardown policies
-- add richer artifact indexing
+- harden richer artifact indexing
 
 Exit signal:
 
@@ -370,9 +373,9 @@ Exit signal:
 
 Unimplemented markers:
 
-- `gap`: service orchestration
-- `gap`: Playwright-backed execution pipeline
-- `gap`: structured screenshot/trace/video capture
+- `partial`: service orchestration exists, but teardown and long-running service lifecycle policy are still missing
+- `partial`: browser automation exists, but full Playwright-backed screenshot, trace, and video capture depends on repository runtime availability
+- `implemented`: structured execution evidence indexing now exists for service, command, and browser artifacts
 - `gap`: artifact store abstraction
 
 ## Phase 9: Multi-Repo And Operator Model

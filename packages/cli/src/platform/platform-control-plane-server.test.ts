@@ -269,6 +269,20 @@ describe('platform-control-plane-server', () => {
         currentStage: 'collaboration',
         publicationId: 'publication-1',
         publicationStatus: 'blocked'
+      }),
+      pausePlatformRun: async () => ({
+        action: 'pause',
+        runId: 'run-1',
+        runStatus: 'running',
+        currentStage: 'collaboration',
+        paused: true
+      }),
+      resumePlatformRun: async () => ({
+        action: 'resume',
+        runId: 'run-1',
+        runStatus: 'running',
+        currentStage: 'collaboration',
+        paused: false
       })
     });
 
@@ -333,6 +347,30 @@ describe('platform-control-plane-server', () => {
     expect(await retryResponse.json()).toEqual(expect.objectContaining({
       action: expect.objectContaining({ action: 'retry', taskStatus: 'ready' })
     }));
+
+    const pauseResponse = await fetch(`${baseUrl}/api/runs/run-1/actions/pause`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ actor: 'operator-1', note: 'pause for review' })
+    });
+    expect(pauseResponse.status).toBe(200);
+    expect(await pauseResponse.json()).toEqual(expect.objectContaining({
+      action: expect.objectContaining({ action: 'pause', paused: true })
+    }));
+
+    const resumeResponse = await fetch(`${baseUrl}/api/runs/run-1/actions/resume`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ actor: 'operator-1', note: 'resume execution' })
+    });
+    expect(resumeResponse.status).toBe(200);
+    expect(await resumeResponse.json()).toEqual(expect.objectContaining({
+      action: expect.objectContaining({ action: 'resume', paused: false })
+    }));
   });
 
   it('returns a request validation error when task actions omit runId', async () => {
@@ -377,7 +415,9 @@ describe('platform-control-plane-server', () => {
       }),
       retryPlatformTask: async () => null,
       approvePlatformTask: async () => null,
-      rejectPlatformTask: async () => null
+      rejectPlatformTask: async () => null,
+      pausePlatformRun: async () => null,
+      resumePlatformRun: async () => null
     });
 
     const baseUrl = `http://${startedServer.host}:${startedServer.port}`;
@@ -411,7 +451,9 @@ describe('platform-control-plane-server', () => {
       },
       retryPlatformTask: async () => null,
       approvePlatformTask: async () => null,
-      rejectPlatformTask: async () => null
+      rejectPlatformTask: async () => null,
+      pausePlatformRun: async () => null,
+      resumePlatformRun: async () => null
     });
 
     const baseUrl = `http://${startedServer.host}:${startedServer.port}`;

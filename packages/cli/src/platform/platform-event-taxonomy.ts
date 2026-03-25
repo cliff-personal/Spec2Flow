@@ -5,6 +5,8 @@ export const PLATFORM_EVENT_TAXONOMY_VERSION = 'phase-6-v1';
 
 export const PLATFORM_EVENT_TYPES = {
   RUN_CREATED: 'run.created',
+  RUN_PAUSED: 'run.paused',
+  RUN_RESUMED: 'run.resumed',
   PLANNING_COMPLETED: 'planning.completed',
   TASKS_PERSISTED: 'tasks.persisted',
   TASK_LEASED: 'task.leased',
@@ -43,6 +45,20 @@ const platformEventDescriptors: Record<string, PlatformEventTaxonomyDescriptor> 
     category: 'run',
     action: 'created',
     title: 'Run created',
+    severity: 'info'
+  },
+  [PLATFORM_EVENT_TYPES.RUN_PAUSED]: {
+    type: PLATFORM_EVENT_TYPES.RUN_PAUSED,
+    category: 'run',
+    action: 'paused',
+    title: 'Run paused',
+    severity: 'warning'
+  },
+  [PLATFORM_EVENT_TYPES.RUN_RESUMED]: {
+    type: PLATFORM_EVENT_TYPES.RUN_RESUMED,
+    category: 'run',
+    action: 'resumed',
+    title: 'Run resumed',
     severity: 'info'
   },
   [PLATFORM_EVENT_TYPES.PLANNING_COMPLETED]: {

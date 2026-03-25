@@ -36,6 +36,14 @@ export interface PlatformControlPlaneTaskActionResult {
   publicationStatus?: string | null;
 }
 
+export interface PlatformControlPlaneRunActionResult {
+  action: 'pause' | 'resume';
+  runId: string;
+  runStatus: PlatformRunRecord['status'];
+  currentStage: PlatformRunRecord['currentStage'];
+  paused: boolean;
+}
+
 export interface PlatformControlPlaneRunSubmissionRequest {
   repositoryRootPath: string;
   projectPath?: string;
@@ -92,6 +100,10 @@ export interface PlatformControlPlaneRunDetailDocument {
 
 export interface PlatformControlPlaneTaskActionDocument {
   action: PlatformControlPlaneTaskActionResult;
+}
+
+export interface PlatformControlPlaneRunActionDocument {
+  action: PlatformControlPlaneRunActionResult;
 }
 
 export interface PlatformControlPlaneRunSubmissionDocument {

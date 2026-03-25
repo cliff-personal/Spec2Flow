@@ -147,6 +147,37 @@ describe('schema-registry', () => {
       ]
     })).toBe(true);
 
+    expect(validators.executionEvidenceIndex({
+      taskId: 'frontend-smoke--automated-execution',
+      stage: 'automated-execution',
+      summary: 'Execution evidence index with service and browser coverage.',
+      artifacts: [
+        {
+          id: 'execution-report',
+          path: 'spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+          kind: 'report',
+          category: 'artifact-index',
+          contentType: 'application/json'
+        }
+      ],
+      services: [
+        {
+          name: 'frontend',
+          status: 'ready',
+          healthTarget: 'http://127.0.0.1:4173/healthz'
+        }
+      ],
+      browserChecks: [
+        {
+          id: 'smoke-home',
+          url: 'http://127.0.0.1:4173/',
+          status: 'passed',
+          htmlSnapshotPath: 'spec2flow/outputs/execution/frontend-smoke/browser/smoke-home.html'
+        }
+      ],
+      repositoryGaps: []
+    })).toBe(true);
+
     expect(validators.defectSummary({
       taskId: 'frontend-smoke--defect-feedback',
       stage: 'defect-feedback',

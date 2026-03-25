@@ -194,6 +194,10 @@ function getRouteServiceKinds(route: Record<string, any>, project: Record<string
   );
 }
 
+function routeRequiresBrowserAutomation(routeServiceKinds: Set<string>): boolean {
+  return routeServiceKinds.has('frontend') || routeServiceKinds.has('admin-frontend');
+}
+
 function findRouteTargetFiles(route: Record<string, any>, project: Record<string, any>): string[] {
   return dedupe((route.entryServices ?? []).map((serviceName: string) => project.spec2flow.services?.[serviceName]?.path).filter(Boolean));
 }
@@ -348,6 +352,7 @@ function buildRouteTaskBundle(
   const matchedRule = getHighestRiskRule(matchingRules);
   const riskLevel = (matchedRule?.level ?? 'low') as RiskLevel;
   const reviewPolicy = buildReviewPolicy(matchedRule);
+  const routeServiceKinds = getRouteServiceKinds(route, projectPayload, topologyPayload);
   const routeTargetFiles = findRouteTargetFiles(route, projectPayload);
   const routeVerifyCommands = dedupe([
     ...(route.verifyCommands ?? []),
@@ -404,7 +409,11 @@ function buildRouteTaskBundle(
       inputs: {
         matchedRiskRules: matchedRuleNames,
         requirementText,
-        routeSelectionMode
+        routeSelectionMode,
+        routeName: route.name,
+        entryServices: route.entryServices,
+        browserAutomationRequired: routeRequiresBrowserAutomation(routeServiceKinds),
+        browserChecks: route.browserChecks ?? []
       },
       targetFiles: routeTargetFiles,
       artifactsDir,
@@ -443,7 +452,11 @@ function buildRouteTaskBundle(
       inputs: {
         matchedRiskRules: matchedRuleNames,
         requirementText,
-        routeSelectionMode
+        routeSelectionMode,
+        routeName: route.name,
+        entryServices: route.entryServices,
+        browserAutomationRequired: routeRequiresBrowserAutomation(routeServiceKinds),
+        browserChecks: route.browserChecks ?? []
       },
       targetFiles: routeTargetFiles,
       verifyCommands: routeVerifyCommands,

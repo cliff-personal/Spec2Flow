@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/execution-evidence-index.schema.json",
+  "title": "Spec2Flow Execution Evidence Index",
+  "description": "Indexes execution artifacts produced by deterministic service orchestration, command validation, and browser automation.",
+  "type": "object",
+  "required": ["taskId", "stage", "summary", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "const": "automated-execution"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceArtifact"
+      }
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/serviceSummary"
+      }
+    },
+    "browserChecks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/browserCheckSummary"
+      }
+    },
+    "repositoryGaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repositoryGap"
+      }
+    }
+  },
+  "$defs": {
+    "evidenceArtifact": {
+      "type": "object",
+      "required": ["id", "path", "kind", "category"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["log", "trace", "screenshot", "video", "report", "other"]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "service-startup",
+            "service-health",
+            "verification-command",
+            "browser-check",
+            "browser-screenshot",
+            "browser-trace",
+            "browser-video",
+            "artifact-index",
+            "other"
+          ]
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contentType": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "serviceSummary": {
+      "type": "object",
+      "required": ["name", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "started", "failed", "skipped"]
+        },
+        "healthTarget": { "type": "string", "minLength": 1 },
+        "logPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "browserCheckSummary": {
+      "type": "object",
+      "required": ["id", "url", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped"]
+        },
+        "htmlSnapshotPath": { "type": "string", "minLength": 1 },
+        "screenshotPath": { "type": "string", "minLength": 1 },
+        "tracePath": { "type": "string", "minLength": 1 },
+        "videoPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "repositoryGap": {
+      "type": "object",
+      "required": ["code", "message", "recoverable"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

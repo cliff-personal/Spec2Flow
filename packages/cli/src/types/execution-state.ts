@@ -2,7 +2,7 @@ import type { RiskLevel, TaskStage, TaskStatus } from './task-graph.js';
 
 export type ExecutionStatus = 'pending' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled';
 
-export type ArtifactKind = 'log' | 'trace' | 'screenshot' | 'report' | 'bug-draft' | 'diff' | 'other';
+export type ArtifactKind = 'log' | 'trace' | 'screenshot' | 'video' | 'report' | 'bug-draft' | 'diff' | 'other';
 
 export interface ProviderSessionMetadata {
   adapter: string;

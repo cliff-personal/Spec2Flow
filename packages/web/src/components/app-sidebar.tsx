@@ -19,7 +19,7 @@ export function AppSidebar(props: Readonly<{ backendBaseUrl: string; currentRunI
       <div className="sidebar-note">
         <span className="sidebar-note__label">Backend</span>
         <strong>{props.backendBaseUrl}</strong>
-        <p>Pause or resume stays disabled until the backend exposes a real paused-state model.</p>
+        <p>Pause and resume are backend-ready; the frontend intentionally stays thin until task detail and artifact views harden.</p>
       </div>
     </aside>
   );

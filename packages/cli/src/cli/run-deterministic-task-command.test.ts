@@ -3,7 +3,7 @@ import { runDeterministicTaskCommand } from './run-deterministic-task-command.js
 import type { TaskClaimPayload } from '../types/index.js';
 
 describe('run-deterministic-task-command', () => {
-  it('writes deterministic adapter output when requested', () => {
+  it('writes deterministic adapter output when requested', async () => {
     const writeJson = vi.fn();
     const printJson = vi.fn();
     const claimPayload: TaskClaimPayload = {
@@ -48,7 +48,7 @@ describe('run-deterministic-task-command', () => {
       }
     };
 
-    runDeterministicTaskCommand({
+    await runDeterministicTaskCommand({
       claim: 'claim.json',
       output: 'result.json'
     }, {

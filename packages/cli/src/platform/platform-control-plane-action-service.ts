@@ -4,6 +4,7 @@ import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { DEFAULT_PLATFORM_MAX_RETRIES } from './platform-scheduler-service.js';
 import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
 import type {
+  PlatformControlPlaneRunActionResult,
   PlatformControlPlaneTaskActionResult,
   PlatformEventRecord,
   PlatformRunRecord,
@@ -37,9 +38,22 @@ interface PlatformTaskProgressRow extends Record<string, unknown> {
   created_at: DbTimestamp;
 }
 
+interface PlatformRunActionRow extends Record<string, unknown> {
+  run_id: string;
+  status: PlatformRunRecord['status'];
+  current_stage: PlatformRunRecord['currentStage'];
+  metadata: Record<string, unknown>;
+}
+
 export interface PlatformControlPlaneTaskActionOptions {
   runId: string;
   taskId: string;
+  actor?: string;
+  note?: string;
+}
+
+export interface PlatformControlPlaneRunActionOptions {
+  runId: string;
   actor?: string;
   note?: string;
 }
@@ -68,6 +82,23 @@ function buildActionPayload(options: PlatformControlPlaneTaskActionOptions, extr
   };
 }
 
+function buildRunActionPayload(options: PlatformControlPlaneRunActionOptions, extra: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...extra,
+    ...(options.actor ? { actor: options.actor } : {}),
+    ...(options.note ? { note: options.note } : {})
+  };
+}
+
+function isRunPaused(metadata: Record<string, unknown> | null | undefined): boolean {
+  const controlPlane = metadata?.controlPlane;
+  if (typeof controlPlane !== 'object' || controlPlane === null || Array.isArray(controlPlane)) {
+    return false;
+  }
+
+  return (controlPlane as Record<string, unknown>).paused === true;
+}
+
 async function getTaskActionRow(
   executor: SqlExecutor,
   schema: string,
@@ -82,6 +113,25 @@ async function getTaskActionRow(
       LIMIT 1
     `,
     [options.runId, options.taskId]
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getRunActionRow(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string
+): Promise<PlatformRunActionRow | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformRunActionRow>(
+    `
+      SELECT run_id, status, current_stage, metadata
+      FROM ${quotedSchema}.runs
+      WHERE run_id = $1
+      LIMIT 1
+    `,
+    [runId]
   );
 
   return result.rows[0] ?? null;
@@ -209,6 +259,24 @@ async function updateRunProgress(
       WHERE run_id = $1
     `,
     [runId, progress.status, progress.currentStage]
+  );
+}
+
+async function updateRunActionState(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  await executor.query(
+    `
+      UPDATE ${quotedSchema}.runs
+      SET metadata = $2::jsonb,
+          updated_at = NOW()
+      WHERE run_id = $1
+    `,
+    [runId, JSON.stringify(metadata)]
   );
 }
 
@@ -481,4 +549,127 @@ export async function rejectPlatformControlPlaneTask(
   options: PlatformControlPlaneTaskActionOptions
 ): Promise<PlatformControlPlaneTaskActionResult | null> {
   return resolveApprovalAction(executor, schema, options, 'reject');
+}
+
+function buildRunControlPlaneMetadata(
+  previousMetadata: Record<string, unknown>,
+  action: 'pause' | 'resume',
+  options: PlatformControlPlaneRunActionOptions
+): Record<string, unknown> {
+  const previousControlPlane = typeof previousMetadata.controlPlane === 'object'
+    && previousMetadata.controlPlane !== null
+    && !Array.isArray(previousMetadata.controlPlane)
+    ? previousMetadata.controlPlane as Record<string, unknown>
+    : {};
+  const timestamp = new Date().toISOString();
+
+  return {
+    ...previousMetadata,
+    controlPlane: {
+      ...previousControlPlane,
+      paused: action === 'pause',
+      ...(action === 'pause'
+        ? {
+            pausedAt: timestamp,
+            ...(options.actor ? { pausedBy: options.actor } : {}),
+            ...(options.note ? { pauseNote: options.note } : {})
+          }
+        : {
+            resumedAt: timestamp,
+            ...(options.actor ? { resumedBy: options.actor } : {}),
+            ...(options.note ? { resumeNote: options.note } : {})
+          })
+    }
+  };
+}
+
+async function resolveRunAction(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions,
+  action: 'pause' | 'resume'
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  const run = await getRunActionRow(executor, schema, options.runId);
+  if (!run) {
+    return null;
+  }
+
+  if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot be ${action}d from status ${run.status}`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action
+      }
+    );
+  }
+
+  const currentlyPaused = isRunPaused(run.metadata);
+  if (action === 'pause' && currentlyPaused) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} is already paused`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action
+      }
+    );
+  }
+
+  if (action === 'resume' && !currentlyPaused) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} is not paused`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action
+      }
+    );
+  }
+
+  const nextMetadata = buildRunControlPlaneMetadata(run.metadata ?? {}, action, options);
+  await updateRunActionState(executor, schema, options.runId, nextMetadata);
+  await insertPlatformEvents(executor, schema, [
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId: null,
+      eventType: action === 'pause' ? PLATFORM_EVENT_TYPES.RUN_PAUSED : PLATFORM_EVENT_TYPES.RUN_RESUMED,
+      payload: buildRunActionPayload(options, {
+        paused: action === 'pause',
+        previousPaused: currentlyPaused
+      })
+    }
+  ]);
+
+  return {
+    action,
+    runId: options.runId,
+    runStatus: run.status,
+    currentStage: run.current_stage,
+    paused: action === 'pause'
+  };
+}
+
+export async function pausePlatformControlPlaneRun(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  return resolveRunAction(executor, schema, options, 'pause');
+}
+
+export async function resumePlatformControlPlaneRun(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  return resolveRunAction(executor, schema, options, 'resume');
 }

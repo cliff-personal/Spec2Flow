@@ -35,6 +35,14 @@ function createTopologyPayload() {
           name: 'frontend-smoke',
           entryServices: ['frontend'],
           verifyCommands: ['npm run ci:frontend'],
+          browserChecks: [
+            {
+              id: 'frontend-home',
+              service: 'frontend',
+              path: '/',
+              expectText: 'Smoke'
+            }
+          ],
           requirementSignals: {
             phrases: ['frontend smoke'],
             keywords: ['ui', 'frontend']
@@ -157,6 +165,33 @@ describe('task-graph-service route selection', () => {
       maxAutoRepairAttempts: 2,
       maxExecutionRetries: 4,
       blockedRiskLevels: ['critical']
+    });
+  });
+
+  it('adds execution-time service and browser metadata for frontend routes', () => {
+    const taskGraph = buildTaskGraph(
+      createProjectPayload(),
+      createTopologyPayload(),
+      createRiskPayload(),
+      {
+        project: 'project.yaml',
+        topology: 'topology.yaml',
+        risk: 'risk.yaml'
+      }
+    );
+
+    const executionTask = taskGraph.taskGraph.tasks.find((task) => task.id === 'frontend-smoke--automated-execution');
+    expect(executionTask?.inputs).toMatchObject({
+      routeName: 'frontend-smoke',
+      entryServices: ['frontend'],
+      browserAutomationRequired: true,
+      browserChecks: [
+        expect.objectContaining({
+          id: 'frontend-home',
+          service: 'frontend',
+          path: '/'
+        })
+      ]
     });
   });
 });

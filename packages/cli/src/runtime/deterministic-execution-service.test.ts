@@ -1,12 +1,14 @@
 import fs from 'node:fs';
+import { createServer, type Server } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runDeterministicTask } from './deterministic-execution-service.js';
+import { runDeterministicTask, runDeterministicTaskAsync } from './deterministic-execution-service.js';
 import type { TaskClaimPayload } from '../types/index.js';
 
 const tempDirs: string[] = [];
+const servers: Server[] = [];
 
 function createTempDir(): string {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-deterministic-'));
@@ -67,6 +69,13 @@ function createClaim(tempDir: string, stage: 'environment-preparation' | 'automa
 }
 
 afterEach(() => {
+  while (servers.length > 0) {
+    const server = servers.pop();
+    if (server) {
+      server.close();
+    }
+  }
+
   while (tempDirs.length > 0) {
     const tempDir = tempDirs.pop();
     if (tempDir) {
@@ -74,6 +83,26 @@ afterEach(() => {
     }
   }
 });
+
+async function startFixtureServer(): Promise<string> {
+  const server = createServer((_request, response) => {
+    response.statusCode = 200;
+    response.setHeader('content-type', 'text/html; charset=utf-8');
+    response.end('<html><head><title>Spec2Flow Fixture</title></head><body>fixture ready</body></html>');
+  });
+  servers.push(server);
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve());
+  });
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('expected fixture server address');
+  }
+
+  return `http://127.0.0.1:${address.port}`;
+}
 
 describe('deterministic-execution-service', () => {
   it('runs environment preparation commands and writes a schema-backed report', () => {
@@ -150,5 +179,75 @@ describe('deterministic-execution-service', () => {
 
     expect(result.adapterRun.status).toBe('blocked');
     expect(result.adapterRun.errors[0]?.code).toBe('deterministic-unsupported-stage');
+  });
+
+  it('runs the async execution path with service orchestration, browser checks, and evidence indexing', async () => {
+    const tempDir = createTempDir();
+    const baseUrl = await startFixtureServer();
+    const claim = createClaim(tempDir, 'automated-execution', 'node -e "process.stdout.write(\'ok\')"');
+
+    if (!claim.taskClaim) {
+      throw new Error('expected deterministic claim');
+    }
+
+    const projectAdapterPath = path.join(tempDir, 'project.json');
+    const topologyPath = path.join(tempDir, 'topology.json');
+    fs.writeFileSync(projectAdapterPath, JSON.stringify({
+      spec2flow: {
+        services: {
+          frontend: {
+            path: 'apps/frontend',
+            health: `${baseUrl}/healthz`
+          }
+        }
+      }
+    }, null, 2));
+    fs.writeFileSync(topologyPath, JSON.stringify({
+      topology: {
+        services: [
+          {
+            name: 'frontend',
+            healthChecks: [
+              {
+                type: 'http',
+                target: `${baseUrl}/healthz`,
+                timeoutSeconds: 1
+              }
+            ]
+          }
+        ],
+        startupOrder: ['frontend']
+      }
+    }, null, 2));
+
+    claim.taskClaim.repositoryContext.projectAdapterRef = 'project.json';
+    claim.taskClaim.repositoryContext.topologyRef = 'topology.json';
+    claim.taskClaim.repositoryContext.taskInputs = {
+      entryServices: ['frontend'],
+      browserChecks: [
+        {
+          id: 'smoke-home',
+          url: `${baseUrl}/`,
+          expectText: 'fixture ready',
+          expectTitle: 'Spec2Flow Fixture',
+          required: true
+        }
+      ]
+    };
+
+    const result = await runDeterministicTaskAsync(claim, tempDir);
+
+    expect(result.adapterRun.status).toBe('completed');
+    expect(result.adapterRun.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'execution-report' }),
+      expect.objectContaining({ id: 'execution-evidence-index' }),
+      expect.objectContaining({ id: 'browser-check-smoke-home' }),
+      expect.objectContaining({ id: 'browser-html-smoke-home' }),
+      expect.objectContaining({ id: 'service-health-frontend' })
+    ]));
+
+    const evidenceIndexPath = result.adapterRun.artifacts.find((artifact) => artifact.id === 'execution-evidence-index')?.path;
+    expect(evidenceIndexPath).toBeTruthy();
+    expect(fs.existsSync(evidenceIndexPath ?? 'missing')).toBe(true);
   });
 });

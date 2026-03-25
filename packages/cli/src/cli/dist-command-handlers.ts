@@ -45,7 +45,9 @@ import {
 } from '../platform/platform-control-plane-service.js';
 import {
   approvePlatformControlPlaneTask,
+  pausePlatformControlPlaneRun,
   rejectPlatformControlPlaneTask,
+  resumePlatformControlPlaneRun,
   retryPlatformControlPlaneTask
 } from '../platform/platform-control-plane-action-service.js';
 import { submitPlatformControlPlaneRun } from '../platform/platform-control-plane-run-submission-service.js';
@@ -185,8 +187,10 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         getPlatformControlPlaneRunObservability,
         getPlatformControlPlaneRunTasks,
         listPlatformRuns,
+        pausePlatformControlPlaneRun,
         rejectPlatformControlPlaneTask,
         resolvePlatformDatabaseConfig,
+        resumePlatformControlPlaneRun,
         retryPlatformControlPlaneTask,
         submitPlatformControlPlaneRun,
         startPlatformControlPlaneServer,
