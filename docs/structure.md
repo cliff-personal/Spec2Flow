@@ -45,6 +45,8 @@ Spec2Flow/
 │  │  ├─ automated-execution.md
 │  │  ├─ defect-feedback.md
 │  │  └─ collaboration.md
+│  ├─ ui/
+│  │  └─ operator-console.md
 │  ├─ plans/
 │  │  ├─ index.md
 │  │  ├─ completed/
@@ -151,6 +153,7 @@ Recommended reading order:
 - `docs/agent-orchestration-platform-design.md` for the target platform upgrade path
 - `docs/object-store-local-first-design.md` for local-first artifact storage and the MinIO upgrade path
 - `docs/project-workspace-autonomous-delivery-design.md` for the V1 local product shape built around projects, workspaces, worktrees, and review-ready autonomous runs
+- `docs/ui/operator-console.md` for the operator-facing product UI built around projects, runs, tasks, evidence, and review packets
 - `docs/runtime-config-reference.md` for runtime field semantics and override rules
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration

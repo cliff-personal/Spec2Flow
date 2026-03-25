@@ -75,6 +75,7 @@ Docs governance quick path:
 
 - [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
 - [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
+- [docs/ui/operator-console.md](/Users/cliff/workspace/Spec2Flow/docs/ui/operator-console.md)
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
 - [docs/synapse-integration-automation-design.md](/Users/cliff/workspace/Spec2Flow/docs/synapse-integration-automation-design.md)
 
@@ -97,6 +98,12 @@ Docs governance quick path:
 - [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
 - [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
 - [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
+
+### How should the web control plane product UI be designed?
+
+- [docs/ui/operator-console.md](/Users/cliff/workspace/Spec2Flow/docs/ui/operator-console.md)
+- [docs/plans/web-control-plane-frontend-implementation.md](/Users/cliff/workspace/Spec2Flow/docs/plans/web-control-plane-frontend-implementation.md)
+- [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
 
 ### Where did the older plans go?
 
@@ -141,6 +148,11 @@ Docs governance quick path:
 
 - primary: [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
 - supporting: [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
+
+### Web control plane product UI
+
+- primary: [docs/ui/operator-console.md](/Users/cliff/workspace/Spec2Flow/docs/ui/operator-console.md)
+- supporting: [docs/plans/web-control-plane-frontend-implementation.md](/Users/cliff/workspace/Spec2Flow/docs/plans/web-control-plane-frontend-implementation.md)
 
 ### Copilot operating policy
 

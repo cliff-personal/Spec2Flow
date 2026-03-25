@@ -30,6 +30,7 @@ Mandatory repository intake rule for AI agents:
 - [docs/architecture.md](docs/architecture.md): Runtime model, orchestration boundaries, and specialist-agent overlay.
 - [docs/agent-orchestration-platform-design.md](docs/agent-orchestration-platform-design.md): Target design for PostgreSQL-backed scheduling, auto-repair, and a web control plane.
 - [docs/project-workspace-autonomous-delivery-design.md](docs/project-workspace-autonomous-delivery-design.md): V1 product design for project registration, workspace boundaries, run worktrees, and review-ready autonomous delivery.
+- [docs/ui/operator-console.md](docs/ui/operator-console.md): Product UI design for the project-first operator console, run detail, task evidence, and final review packet.
 - [docs/structure.md](docs/structure.md): Current repository map and reading order.
 - [docs/adr/index.md](docs/adr/index.md): Stable architectural decisions and their enforcing surfaces.
 - [docs/Harness_engineering.md](docs/Harness_engineering.md): How this repository should evolve to be easier for AI agents to navigate and verify.
