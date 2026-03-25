@@ -12,7 +12,7 @@ export function HeroPanel(
   return (
     <section className="hero-panel">
       <div className="hero-panel__header">
-        <div>
+        <div className="hero-panel__copy">
           <p className="eyebrow">{props.eyebrow}</p>
           <h2>{props.title}</h2>
           <p>{props.description}</p>
@@ -24,7 +24,7 @@ export function HeroPanel(
         {props.statusItems.map((item) => (
           <div key={item.label}>
             <span className="hero-panel__label">{item.label}</span>
-            <strong>{item.value}</strong>
+            <strong className="hero-panel__value">{item.value}</strong>
           </div>
         ))}
       </div>

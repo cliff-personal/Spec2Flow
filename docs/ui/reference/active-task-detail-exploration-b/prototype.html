@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Spec2Flow | Active Task Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "outline": "#849495",
+                        "inverse-primary": "#006970",
+                        "on-tertiary-fixed": "#231b00",
+                        "secondary-fixed": "#e9ddff",
+                        "on-primary-fixed-variant": "#004f54",
+                        "on-surface-variant": "#b9cacb",
+                        "surface-bright": "#3a393a",
+                        "surface-container": "#201f20",
+                        "error-container": "#93000a",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-background": "#e5e2e3",
+                        "tertiary-fixed": "#ffe179",
+                        "on-secondary-fixed": "#23005c",
+                        "outline-variant": "#3b494b",
+                        "secondary": "#d0bcff",
+                        "tertiary": "#fff5de",
+                        "on-primary-fixed": "#002022",
+                        "tertiary-container": "#fed639",
+                        "on-tertiary": "#3b2f00",
+                        "surface-dim": "#131314",
+                        "tertiary-fixed-dim": "#eac324",
+                        "on-tertiary-container": "#715d00",
+                        "surface-tint": "#00dbe9",
+                        "inverse-on-surface": "#313031",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#7df4ff",
+                        "on-secondary": "#3c0091",
+                        "on-primary": "#00363a",
+                        "on-error-container": "#ffdad6",
+                        "background": "#131314",
+                        "surface-container-highest": "#353436",
+                        "secondary-container": "#571bc1",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "surface-container-low": "#1c1b1c",
+                        "surface": "#131314",
+                        "on-secondary-container": "#c4abff",
+                        "on-surface": "#e5e2e3",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0e0e0f",
+                        "primary-fixed-dim": "#00dbe9",
+                        "on-primary-container": "#006970",
+                        "primary-container": "#00f0ff",
+                        "primary": "#dbfcff",
+                        "inverse-surface": "#e5e2e3",
+                        "surface-container-high": "#2a2a2b",
+                        "surface-variant": "#353436"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        .glass-panel {
+            background: rgba(53, 52, 54, 0.1);
+            backdrop-filter: blur(12px);
+        }
+        .code-added { background: rgba(0, 240, 255, 0.1); border-left: 2px solid #00F0FF; }
+        .code-removed { background: rgba(255, 180, 171, 0.1); border-left: 2px solid #ffb4ab; }
+    </style>
+</head>
+<body class="bg-surface-dim text-on-surface font-body selection:bg-primary-container selection:text-on-primary">
+<!-- SideNavBar (Rail) -->
+<nav class="fixed left-0 top-0 h-full w-20 flex flex-col items-center py-8 z-50 bg-[#131314]/80 backdrop-blur-xl border-r border-[#353436]/30 font-space-grotesk tracking-tight shadow-[0px_0px_20px_rgba(0,240,255,0.08)]">
+<div class="mb-12">
+<span class="text-[#00F0FF] font-black tracking-widest text-xl">S2F</span>
+</div>
+<div class="flex flex-col gap-8 flex-1">
+<button class="group flex flex-col items-center gap-1 text-[#E5E2E3]/40 hover:text-[#00F0FF] hover:bg-[#353436]/50 transition-all duration-300 p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+</button>
+<button class="group flex flex-col items-center gap-1 text-[#00F0FF] drop-shadow-[0_0_8px_rgba(0,240,255,0.8)] scale-110 p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="account_tree" style="font-variation-settings: 'FILL' 1;">account_tree</span>
+</button>
+<button class="group flex flex-col items-center gap-1 text-[#E5E2E3]/40 hover:text-[#00F0FF] hover:bg-[#353436]/50 transition-all duration-300 p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="group flex flex-col items-center gap-1 text-[#E5E2E3]/40 hover:text-[#00F0FF] hover:bg-[#353436]/50 transition-all duration-300 p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</button>
+</div>
+<div class="mt-auto">
+<button class="text-[#E5E2E3]/40 hover:text-[#00F0FF] hover:bg-[#353436]/50 transition-all duration-300 p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full h-16 flex justify-between items-center px-6 z-40 ml-20 bg-[#0E0E0F]/60 backdrop-blur-md font-space-grotesk uppercase tracking-tighter text-xs">
+<div class="flex items-center gap-8">
+<h1 class="text-xl font-bold bg-gradient-to-r from-[#DBFCFF] to-[#00F0FF] bg-clip-text text-transparent normal-case tracking-normal">Spec2Flow</h1>
+<div class="hidden md:flex gap-6">
+<span class="text-[#00F0FF] border-b border-[#00F0FF] pb-1 cursor-default">Tokens: 1.2M</span>
+<span class="text-[#E5E2E3]/60 cursor-default">Agents: 42</span>
+<span class="text-[#E5E2E3]/60 cursor-default flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim animate-pulse"></span>
+                    Build: Stable
+                </span>
+</div>
+</div>
+<div class="flex items-center gap-6 pr-24">
+<div class="bg-surface-container-high/40 rounded-full px-4 py-1.5 flex items-center gap-2 border border-outline-variant/10">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="terminal">terminal</span>
+<span class="text-[10px] text-on-surface-variant font-mono">TASK_ID: XF-902-ACTIVE</span>
+</div>
+<span class="material-symbols-outlined text-[#E5E2E3]/60 hover:text-primary cursor-pointer" data-icon="notifications_active">notifications_active</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-primary/20 flex items-center justify-center">
+<img class="w-7 h-7 rounded-full object-cover" data-alt="close-up portrait of professional software engineer with blue neon light reflection on their face in dark room" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1HxUc80KEscs6eKJ2ashaarQ7HeZadOtvYyWJD3zbCs4_9xPs7ed3eN0BeM69dJfH0DyXb9CW0IzFIjh6OATgReuLBqa5Fbcm6f82pD_vtfKGOFfnsKdDZlobExR-GMgIoSdoxtHzRzb4Trmta4PPHblPIGF8F3i816ZYDOTNvdwo0DGa7J10PRpYMNaXzMqTh7ljPC7vf8cEmIKT8uvls01-ufAZGzFkosPNXE6ibjjvWE0UlNcHJBdixEm7FO1Ca__-gKBinDnQ"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-20 pt-16 h-screen flex overflow-hidden">
+<!-- Left Panel: Token Pulse -->
+<aside class="w-1/4 h-full bg-surface-container-lowest border-r border-outline-variant/10 flex flex-col p-6 overflow-y-auto">
+<div class="flex items-center justify-between mb-8">
+<h2 class="font-headline font-bold text-primary tracking-tight uppercase text-sm">Token Pulse</h2>
+<span class="text-[10px] font-mono text-outline">REAL-TIME</span>
+</div>
+<!-- Consumption Card -->
+<div class="bg-surface-container-low rounded-xl p-4 mb-6 border border-primary/5 shadow-[-10px_0px_20px_rgba(0,240,255,0.03)]">
+<div class="flex justify-between items-end mb-4">
+<div>
+<p class="text-[10px] text-outline uppercase font-label mb-1">Total Consumption</p>
+<p class="text-2xl font-headline font-black text-on-surface">1.242.091</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] text-primary uppercase font-label">+12.4%</p>
+<p class="text-[10px] text-outline font-mono">VS PREV SESSION</p>
+</div>
+</div>
+<!-- Energy Bars -->
+<div class="flex gap-0.5 h-12 items-end">
+<div class="w-full bg-primary/20 h-1/2"></div>
+<div class="w-full bg-primary/30 h-2/3"></div>
+<div class="w-full bg-primary/40 h-3/4"></div>
+<div class="w-full bg-primary/60 h-1/2"></div>
+<div class="w-full bg-primary-container h-full shadow-[0_0_8px_#00F0FF]"></div>
+<div class="w-full bg-primary/80 h-4/5"></div>
+<div class="w-full bg-primary/60 h-2/3"></div>
+<div class="w-full bg-primary/40 h-1/2"></div>
+<div class="w-full bg-primary/20 h-1/3"></div>
+</div>
+</div>
+<!-- Agent Distribution -->
+<div class="space-y-4">
+<h3 class="text-[10px] text-outline uppercase font-label">Agent Distribution</h3>
+<div class="space-y-3">
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-[11px] font-mono">
+<span class="text-on-surface">Architect_01</span>
+<span class="text-primary">45.2%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[45%]"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-[11px] font-mono">
+<span class="text-on-surface">Reviewer_Core</span>
+<span class="text-secondary">28.9%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-[29%]"></div>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between text-[11px] font-mono">
+<span class="text-on-surface">Diff_Engine</span>
+<span class="text-outline">25.9%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-outline-variant w-[26%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- High Frequency Data Viz -->
+<div class="mt-auto pt-8">
+<div class="aspect-video w-full relative overflow-hidden rounded-lg bg-surface-container-high/20 border border-outline-variant/10">
+<img class="absolute inset-0 w-full h-full object-cover opacity-30 grayscale mix-blend-screen" data-alt="abstract data visualization graph with glowing blue and purple lines moving across a dark grid background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfpfTZq0zY-sJEGFfN2uEpu1sOzIM-y-aYE1g_AKiiaRgY5UilLD7Gk-qNnICy7gP7vfjCNoKfKgAUiDUGeUJ-Ru_ZZGwtBqh3noIpXIdeJX4jjvKrNzOWkjNJXDwL2jxGoLp4BV51O_-tCEWDDAP8wqf81BY0YTQ6hVKl_DQEqEYvkwYMGFnPsrnxCBgB9pxm5Ybw7Ydbi80HNuNkOZg-vRX48_8Txv9xmiIi96mcYfsb97WYjuf3ODzUbzSnb4rDp069AVpLmiPm"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+<div class="absolute bottom-2 left-2 flex items-center gap-1.5">
+<span class="w-1 h-1 rounded-full bg-primary-container animate-ping"></span>
+<span class="text-[9px] font-mono text-primary uppercase">Oscillation Active</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Right Panel: Split View -->
+<section class="flex-1 h-full flex flex-col relative">
+<!-- Self-Healing Indicator -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-surface-container-high/80 backdrop-blur-xl px-4 py-2 rounded-full border border-primary/20 flex items-center gap-3 shadow-2xl">
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+<span class="material-symbols-outlined text-xs text-on-surface-variant" data-icon="trending_flat">trending_flat</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+</div>
+<span class="text-[10px] font-headline font-bold uppercase tracking-wider text-on-surface">Self-Healing Loop</span>
+<span class="material-symbols-outlined text-primary text-sm animate-pulse" data-icon="vital_signs" style="font-variation-settings: 'FILL' 1;">vital_signs</span>
+</div>
+<!-- Top Pane: Live Code Diff -->
+<div class="flex-1 flex flex-col min-h-[50%] bg-surface-container">
+<div class="px-6 py-4 flex items-center justify-between border-b border-outline-variant/5">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="difference">difference</span>
+<h3 class="font-headline font-medium text-sm">src/engine/orchestrator.ts</h3>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-[10px] font-mono text-on-surface-variant border border-outline-variant/10">32+</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-[10px] font-mono text-error/60 border border-outline-variant/10">12-</span>
+</div>
+</div>
+<div class="flex-1 overflow-auto p-6 font-mono text-xs leading-relaxed selection:bg-primary/30">
+<div class="opacity-40">24 | async function executeTask(spec: ISpecification) {</div>
+<div class="opacity-40">25 |   const context = await this.contextManager.fetch(spec.id);</div>
+<div class="code-removed px-2 py-1 flex gap-4">
+<span class="w-4 opacity-50">-</span>
+<span>return this.pipeline.process(context, spec.requirements);</span>
+</div>
+<div class="code-added px-2 py-1 flex gap-4 text-primary">
+<span class="w-4 opacity-100">+</span>
+<span>const validation = await this.guardian.preCheck(context);</span>
+</div>
+<div class="code-added px-2 py-1 flex gap-4 text-primary">
+<span class="w-4 opacity-100">+</span>
+<span>if (!validation.isSecure) throw new SecurityBoundaryError(validation.reason);</span>
+</div>
+<div class="code-added px-2 py-1 flex gap-4 text-primary">
+<span class="w-4 opacity-100">+</span>
+<span>return this.pipeline.processWithHealing(context, spec.requirements);</span>
+</div>
+<div class="opacity-40">30 | }</div>
+<div class="opacity-40">31 | </div>
+<div class="opacity-40">32 | export default executeTask;</div>
+</div>
+</div>
+<!-- Bottom Pane: Agent Reasoning Terminal -->
+<div class="h-1/3 bg-surface-container-lowest border-t border-outline-variant/10 flex flex-col">
+<div class="px-6 py-3 flex items-center justify-between bg-surface-container-low/50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-lg" data-icon="psychology">psychology</span>
+<span class="font-headline font-bold text-[10px] uppercase tracking-widest text-secondary">Thought Chain Logs</span>
+</div>
+<div class="flex gap-1">
+<div class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></div>
+</div>
+</div>
+<div class="flex-1 overflow-auto p-6 space-y-3 font-mono text-[11px]">
+<div class="flex gap-3">
+<span class="text-outline shrink-0">[14:02:31]</span>
+<span class="text-secondary">[ANALYZING]</span>
+<span class="text-on-surface-variant">Detected vulnerability in pipe segment B-12. Injecting mitigation layer...</span>
+</div>
+<div class="flex gap-3">
+<span class="text-outline shrink-0">[14:02:32]</span>
+<span class="text-primary-container">[RESOLVING]</span>
+<span class="text-on-surface-variant">Swapping `process()` for `processWithHealing()`. Updating memory references.</span>
+</div>
+<div class="flex gap-3">
+<span class="text-outline shrink-0">[14:02:35]</span>
+<span class="text-on-tertiary-container bg-tertiary-container/10 px-1">[CRITICAL]</span>
+<span class="text-on-surface-variant">Validating against spec: Requirement 4.2 (Zero-Trust) satisfied.</span>
+</div>
+<div class="flex gap-3 opacity-50">
+<span class="text-outline shrink-0">[14:02:36]</span>
+<span class="text-secondary-fixed-dim">_</span>
+<span class="text-on-surface-variant italic">Awaiting final validation from Core Reviewer...</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Side: Evidence-First Review -->
+<aside class="w-80 h-full bg-surface-container-low p-6 flex flex-col gap-6">
+<h2 class="font-headline font-bold text-sm tracking-tight border-b border-outline-variant/10 pb-4">Evidence-First Review</h2>
+<div class="space-y-6">
+<!-- Summary Card -->
+<div class="bg-surface-container-highest/30 rounded-lg p-4 border border-outline-variant/10">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="verified">verified</span>
+</div>
+<div>
+<p class="text-[10px] text-outline uppercase font-label">Confidence</p>
+<p class="text-lg font-headline font-bold">98.4%</p>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                        The agent has identified a structural weakness in the orchestration layer and applied an automated patch with 0ms latency.
+                    </p>
+</div>
+<!-- Verification Points -->
+<div class="space-y-4">
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary text-base" data-icon="check_circle">check_circle</span>
+<div>
+<p class="text-[11px] font-bold">Syntax Validated</p>
+<p class="text-[10px] text-outline">Compliant with TS 5.2 strict</p>
+</div>
+</div>
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary text-base" data-icon="check_circle">check_circle</span>
+<div>
+<p class="text-[11px] font-bold">Logic Soundness</p>
+<p class="text-[10px] text-outline">Passed 42/42 regression tests</p>
+</div>
+</div>
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-error text-base" data-icon="pending">pending</span>
+<div>
+<p class="text-[11px] font-bold">Manual Sign-off</p>
+<p class="text-[10px] text-outline">Required for deployment</p>
+</div>
+</div>
+</div>
+</div>
+<!-- CTA -->
+<div class="mt-auto space-y-3">
+<button class="w-full bg-primary-container text-on-primary py-3 rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all">
+<span>Approve Changes</span>
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+</button>
+<button class="w-full bg-surface-container-highest text-on-surface py-3 rounded-lg font-headline font-bold text-sm flex items-center justify-center gap-2 hover:bg-surface-container-high transition-all">
+<span>Reject &amp; Rollback</span>
+</button>
+</div>
+</aside>
+</main>
+<!-- NavigationDrawer Overlay -->
+<div class="fixed right-0 top-0 h-full z-50 flex flex-col p-6 w-96 bg-[#1C1B1C]/90 backdrop-blur-2xl border-l border-[#00F0FF]/15 shadow-[-20px_0px_40px_rgba(0,240,255,0.05)] transform translate-x-full transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]" id="logs-drawer">
+<div class="mb-8">
+<h3 class="text-[#571BC1] font-bold font-headline">Contextual Intelligence</h3>
+<p class="text-[10px] uppercase text-outline tracking-widest">Deep Dive &amp; Logs</p>
+</div>
+<div class="flex flex-col gap-4 flex-1">
+<div class="bg-[#00F0FF]/10 text-[#00F0FF] rounded-lg p-3 flex items-center gap-3 font-space-grotesk text-sm">
+<span class="material-symbols-outlined" data-icon="difference">difference</span>
+                Code Diffs
+            </div>
+<div class="text-[#E5E2E3]/50 hover:border-[#00F0FF]/40 border border-transparent rounded-lg p-3 flex items-center gap-3 font-space-grotesk text-sm transition-all">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+                Thought Chain
+            </div>
+<div class="text-[#E5E2E3]/50 hover:border-[#00F0FF]/40 border border-transparent rounded-lg p-3 flex items-center gap-3 font-space-grotesk text-sm transition-all">
+<span class="material-symbols-outlined" data-icon="segment">segment</span>
+                Live Stream
+            </div>
+</div>
+</div>
+</body></html>

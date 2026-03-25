@@ -10,8 +10,8 @@ export function ObservabilityPanel(
     <article className="panel panel--tall">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">GET /api/runs/:runId/observability</p>
-          <h3>Observability</h3>
+          <p className="eyebrow">Observability</p>
+          <h3>Read model and attention signals</h3>
         </div>
         <span className="panel__hint">Read model</span>
       </div>
@@ -19,7 +19,9 @@ export function ObservabilityPanel(
       {props.observability ? (
         <div className="metrics-grid">
           <MetricCard label="Tasks" value={props.observability.metrics.tasks.total} hint="Total route tasks" />
+          <MetricCard label="In Progress" value={props.observability.metrics.tasks.inProgress} hint="Currently executing" />
           <MetricCard label="Blocked" value={props.observability.metrics.tasks.blocked} hint="Need operator attention" />
+          <MetricCard label="Repairs" value={props.observability.metrics.repairs.total} hint="Repair loop attempts" />
           <MetricCard label="Publications" value={props.observability.metrics.publications.total} hint="Publish outcomes tracked" />
           <MetricCard label="Recent Events" value={props.observability.metrics.events.recentCount} hint="Latest event window" />
         </div>

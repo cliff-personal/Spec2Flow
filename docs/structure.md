@@ -46,7 +46,12 @@ Spec2Flow/
 │  │  ├─ defect-feedback.md
 │  │  └─ collaboration.md
 │  ├─ ui/
-│  │  └─ operator-console.md
+│  │  ├─ index.md
+│  │  ├─ operator-console.md
+│  │  ├─ visual-language.md
+│  │  ├─ interaction-concepts.md
+│  │  └─ reference/
+│  │     └─ README.md
 │  ├─ plans/
 │  │  ├─ index.md
 │  │  ├─ completed/
@@ -153,7 +158,9 @@ Recommended reading order:
 - `docs/agent-orchestration-platform-design.md` for the target platform upgrade path
 - `docs/object-store-local-first-design.md` for local-first artifact storage and the MinIO upgrade path
 - `docs/project-workspace-autonomous-delivery-design.md` for the V1 local product shape built around projects, workspaces, worktrees, and review-ready autonomous runs
+- `docs/ui/index.md` for the UI docs map and reference-asset routing
 - `docs/ui/operator-console.md` for the operator-facing product UI built around projects, runs, tasks, evidence, and review packets
+- `docs/ui/visual-language.md` for the visual system used to implement the web control plane
 - `docs/runtime-config-reference.md` for runtime field semantics and override rules
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration
@@ -170,6 +177,15 @@ Planning and migration material that should not crowd the active docs root.
 - `docs/plans/index.md`: placement rules and archive policy for plan docs
 - `docs/plans/completed/`: short-lived holding area for plans that were just completed
 - `docs/plans/historical/`: superseded or completed plans kept only for archaeology
+
+### `docs/ui/`
+UI product design, visual-language guidance, and reference explorations for the web control plane.
+
+- `docs/ui/index.md`: shortest map for UI docs and exploration assets
+- `docs/ui/operator-console.md`: canonical product UI behavior and page responsibilities
+- `docs/ui/visual-language.md`: canonical look-and-feel rules for implementation
+- `docs/ui/interaction-concepts.md`: supporting naming and interaction ideas
+- `docs/ui/reference/`: exported mockups, screenshots, and prototype HTML kept as non-canonical reference assets
 
 ### `schemas/`
 Structured definitions for:

@@ -16,7 +16,7 @@ export function formatStage(value: string | null | undefined): string {
 
 export function parseChangedFiles(value: string): string[] {
   return value
-    .split('\n')
+    .split(/[\n,]/u)
     .map((entry) => entry.trim())
     .filter(Boolean);
 }

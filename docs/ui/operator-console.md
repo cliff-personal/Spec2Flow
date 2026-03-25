@@ -9,6 +9,12 @@
 
 Define the operator-facing product UI for Spec2Flow as a local-first autonomous delivery control plane.
 
+Companion docs:
+
+- visual language: [docs/ui/visual-language.md](/Users/cliff/workspace/Spec2Flow/docs/ui/visual-language.md)
+- UI docs map: [docs/ui/index.md](/Users/cliff/workspace/Spec2Flow/docs/ui/index.md)
+- exploration assets: [docs/ui/reference/README.md](/Users/cliff/workspace/Spec2Flow/docs/ui/reference/README.md)
+
 This document answers one product question:
 
 How should the UI look and behave if Spec2Flow is meant to take one project, accept one feature request, split the work, run the six-stage loop automatically, repair bounded defects, and only ask a human to review the final result?

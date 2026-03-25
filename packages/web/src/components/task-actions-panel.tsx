@@ -13,8 +13,8 @@ export function TaskActionsPanel(
     <article className="panel panel--tall">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">Task Actions</p>
-          <h3>Operator Controls</h3>
+          <p className="eyebrow">Operator Controls</p>
+          <h3>Retry, approve, or reject</h3>
         </div>
         <span className="panel__hint">retry / approve / reject</span>
       </div>
@@ -25,6 +25,7 @@ export function TaskActionsPanel(
             <div>
               <strong>{task.title}</strong>
               <span>{task.stage}</span>
+              <span>{task.status}</span>
             </div>
             <div className="task-actions__buttons">
               <button disabled={props.isPending} onClick={() => props.onTaskAction(task.taskId, 'retry')} type="button">Retry</button>

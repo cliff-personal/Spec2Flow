@@ -4,6 +4,9 @@ import { StatusPill } from './status-pill';
 
 export function RunsPanel(
   props: Readonly<{
+    title?: string;
+    eyebrow?: string;
+    emptyMessage?: string;
     runs: RunListItem[];
     selectedRunId: string | null;
     onOpenRun: (runId: string) => void;
@@ -15,8 +18,8 @@ export function RunsPanel(
     <article className="panel" id="runs">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">GET /api/runs</p>
-          <h3>Runs</h3>
+          <p className="eyebrow">{props.eyebrow ?? 'GET /api/runs'}</p>
+          <h3>{props.title ?? 'Runs'}</h3>
         </div>
         <span className="panel__hint">Auto-refresh every 10s</span>
       </div>
@@ -34,6 +37,7 @@ export function RunsPanel(
               <strong>{run.workflowName}</strong>
               <span>{run.projectName ?? run.repositoryName}</span>
               <span>{run.branchName ?? run.repositoryRootPath}</span>
+              <span>{run.currentStage ?? 'stage pending'}</span>
             </div>
             <div>
               <StatusPill value={run.status} />
@@ -41,7 +45,7 @@ export function RunsPanel(
             </div>
           </button>
         ))}
-        {props.isSuccess && props.runs.length === 0 ? <p>No runs yet.</p> : null}
+        {props.isSuccess && props.runs.length === 0 ? <p>{props.emptyMessage ?? 'No runs yet.'}</p> : null}
       </div>
     </article>
   );

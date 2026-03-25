@@ -14,7 +14,7 @@ export function TaskSnapshotPanel(
           <p className="eyebrow">Task Snapshot</p>
           <h3>Route Tasks</h3>
         </div>
-        <span className="panel__hint">Thin shell, backend truth</span>
+        <span className="panel__hint">Stage-grouped operator scan</span>
       </div>
 
       <div className="task-table">

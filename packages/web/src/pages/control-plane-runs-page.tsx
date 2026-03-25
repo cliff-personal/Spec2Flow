@@ -1,17 +1,19 @@
 import { HeroPanel } from '../components/hero-panel';
-import { RunSubmissionPanel } from '../components/run-submission-panel';
 import { RunsPanel } from '../components/runs-panel';
 import { useControlPlaneRunsPage } from '../hooks/use-control-plane-runs-page';
 
 export function ControlPlaneRunsPage(): JSX.Element {
   const runsPage = useControlPlaneRunsPage();
+  const totalRuns = runsPage.runsQuery.data ?? [];
+  const blockedRuns = totalRuns.filter((run) => run.status === 'blocked').length;
+  const completedRuns = totalRuns.filter((run) => run.status === 'completed').length;
 
   return (
-    <>
+    <div className="page-stack">
       <HeroPanel
         eyebrow="Runs"
-        title="Submit runs and inspect the active queue"
-        description="This route is the operator intake surface: create a run, then drill into a specific run page for detail, observability, and task actions."
+        title="Inspect the global autonomous delivery queue"
+        description="The queue view is for cross-project monitoring only. Requirement intake stays project-scoped so runs inherit real workspace policy instead of freelancing against arbitrary paths."
         statusItems={[
           {
             label: 'Runs API',
@@ -19,24 +21,24 @@ export function ControlPlaneRunsPage(): JSX.Element {
           },
           {
             label: 'Queue Size',
-            value: String(runsPage.runsQuery.data?.length ?? 0)
+            value: String(totalRuns.length)
           },
           {
-            label: 'Last action',
-            value: runsPage.actionMessage ?? 'none'
+            label: 'Blocked',
+            value: String(blockedRuns)
+          },
+          {
+            label: 'Completed',
+            value: String(completedRuns)
           }
         ]}
       />
 
-      <section className="grid grid--two" id="submission">
-        <RunSubmissionPanel
-          submissionState={runsPage.submissionState}
-          onFieldChange={runsPage.updateSubmissionField}
-          onSubmit={runsPage.submitDashboardRun}
-          isPending={runsPage.submissionMutation.isPending}
-          errorMessage={runsPage.submissionMutation.isError ? runsPage.submissionMutation.error.message : null}
-        />
+      <section className="grid" id="queue">
         <RunsPanel
+          title="Global Run Queue"
+          eyebrow="GET /api/runs"
+          emptyMessage="No runs have been created yet. Register a project and submit a requirement from Projects."
           runs={runsPage.runsQuery.data ?? []}
           selectedRunId={null}
           onOpenRun={(runId) => runsPage.openRun(`/runs/${runId}`)}
@@ -44,6 +46,6 @@ export function ControlPlaneRunsPage(): JSX.Element {
           isSuccess={runsPage.runsQuery.isSuccess}
         />
       </section>
-    </>
+    </div>
   );
 }

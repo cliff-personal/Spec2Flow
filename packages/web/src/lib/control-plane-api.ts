@@ -29,6 +29,27 @@ export interface RunListItem {
   completedAt: string | null;
 }
 
+export interface ProjectListItem {
+  projectId: string;
+  projectName: string;
+  repositoryId: string;
+  repositoryName: string;
+  repositoryRootPath: string;
+  workspaceRootPath: string;
+  projectPath?: string | null;
+  topologyPath?: string | null;
+  riskPath?: string | null;
+  defaultBranch?: string | null;
+  branchPrefix?: string | null;
+  workspacePolicy: {
+    allowedReadGlobs: string[];
+    allowedWriteGlobs: string[];
+    forbiddenWriteGlobs: string[];
+  };
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface PlatformTaskRecord {
   runId: string;
   taskId: string;
@@ -238,6 +259,9 @@ export interface RunDetail {
 
 export interface RunSubmissionPayload {
   repositoryRootPath: string;
+  projectId?: string;
+  projectName?: string;
+  workspaceRootPath?: string;
   requirement?: string;
   requirementPath?: string;
   changedFiles?: string[];
@@ -248,6 +272,36 @@ export interface RunSubmissionPayload {
   repositoryName?: string;
   defaultBranch?: string;
   runId?: string;
+}
+
+export interface ProjectRegistrationPayload {
+  repositoryRootPath: string;
+  projectId?: string;
+  projectName?: string;
+  workspaceRootPath?: string;
+  projectPath?: string;
+  topologyPath?: string;
+  riskPath?: string;
+  repositoryId?: string;
+  repositoryName?: string;
+  defaultBranch?: string;
+  branchPrefix?: string;
+  workspacePolicy?: {
+    allowedReadGlobs?: string[];
+    allowedWriteGlobs?: string[];
+    forbiddenWriteGlobs?: string[];
+  };
+}
+
+export interface ProjectRegistrationResult {
+  schema: string;
+  repository: {
+    repositoryId: string;
+    repositoryName: string;
+    repositoryRootPath: string;
+    defaultBranch?: string | null;
+  };
+  project: ProjectListItem;
 }
 
 export interface RunSubmissionResult {
@@ -336,6 +390,11 @@ export async function listRuns(): Promise<RunListItem[]> {
   return payload.runs;
 }
 
+export async function listProjects(): Promise<ProjectListItem[]> {
+  const payload = await requestJson<{ projects: ProjectListItem[] }>('/api/projects');
+  return payload.projects;
+}
+
 export async function getRunDetail(runId: string): Promise<RunDetail> {
   const payload = await requestJson<{ run: RunDetail }>(`/api/runs/${encodeURIComponent(runId)}`);
   return payload.run;
@@ -366,6 +425,14 @@ export async function submitRun(payload: RunSubmissionPayload): Promise<RunSubmi
     body: JSON.stringify(payload)
   });
   return response.runSubmission;
+}
+
+export async function registerProject(payload: ProjectRegistrationPayload): Promise<ProjectRegistrationResult> {
+  const response = await requestJson<{ projectRegistration: ProjectRegistrationResult }>('/api/projects', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return response.projectRegistration;
 }
 
 export async function postTaskAction(

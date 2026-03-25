@@ -139,7 +139,7 @@ export function ArtifactDetailPanel(
                         <dt>Remote URL</dt>
                         <dd>
                           {artifactCatalogEntry.storage?.remoteUrl ? (
-                            <a href={artifactCatalogEntry.storage.remoteUrl} rel="noreferrer" target="_blank">
+                            <a className="detail-link" href={artifactCatalogEntry.storage.remoteUrl} rel="noreferrer" target="_blank">
                               {artifactCatalogEntry.storage.remoteUrl}
                             </a>
                           ) : 'n/a'}
@@ -148,6 +148,10 @@ export function ArtifactDetailPanel(
                       <div>
                         <dt>Object key</dt>
                         <dd>{artifactCatalogEntry.storage?.objectKey ?? 'n/a'}</dd>
+                      </div>
+                      <div>
+                        <dt>Provider</dt>
+                        <dd>{artifactCatalogEntry.storage?.provider ?? 'local-fs'}</dd>
                       </div>
                     </dl>
                   </div>

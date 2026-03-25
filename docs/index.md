@@ -9,6 +9,8 @@
 
 This file is the shortest stable map for humans and AI agents reading Spec2Flow.
 
+Spec2Flow是一个“自动驾驶”级别的软件工程控制台（Autonomous Engineering Control Plane）。它不仅仅是一个任务管理工具，而是一个能够观察 Agent 思考、编码、测试和自我修复过程的“数字指挥部”
+
 Use it to answer two questions quickly:
 
 1. which document should I read first for this task?
@@ -101,9 +103,17 @@ Docs governance quick path:
 
 ### How should the web control plane product UI be designed?
 
+- [docs/ui/index.md](/Users/cliff/workspace/Spec2Flow/docs/ui/index.md)
 - [docs/ui/operator-console.md](/Users/cliff/workspace/Spec2Flow/docs/ui/operator-console.md)
+- [docs/ui/visual-language.md](/Users/cliff/workspace/Spec2Flow/docs/ui/visual-language.md)
+- [docs/ui/interaction-concepts.md](/Users/cliff/workspace/Spec2Flow/docs/ui/interaction-concepts.md)
 - [docs/plans/web-control-plane-frontend-implementation.md](/Users/cliff/workspace/Spec2Flow/docs/plans/web-control-plane-frontend-implementation.md)
 - [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
+
+### Where do the UI mockups, screenshots, and generated prototypes live?
+
+- [docs/ui/index.md](/Users/cliff/workspace/Spec2Flow/docs/ui/index.md)
+- [docs/ui/reference/README.md](/Users/cliff/workspace/Spec2Flow/docs/ui/reference/README.md)
 
 ### Where did the older plans go?
 
@@ -152,7 +162,7 @@ Docs governance quick path:
 ### Web control plane product UI
 
 - primary: [docs/ui/operator-console.md](/Users/cliff/workspace/Spec2Flow/docs/ui/operator-console.md)
-- supporting: [docs/plans/web-control-plane-frontend-implementation.md](/Users/cliff/workspace/Spec2Flow/docs/plans/web-control-plane-frontend-implementation.md)
+- supporting: [docs/ui/visual-language.md](/Users/cliff/workspace/Spec2Flow/docs/ui/visual-language.md)
 
 ### Copilot operating policy
 

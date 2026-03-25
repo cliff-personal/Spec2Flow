@@ -1,7 +1,9 @@
 import type { SubmissionFormState } from '../lib/control-plane-ui-types';
+import type { ProjectListItem } from '../lib/control-plane-api';
 
 export function RunSubmissionPanel(
   props: Readonly<{
+    selectedProject: ProjectListItem | null;
     submissionState: SubmissionFormState;
     onFieldChange: <K extends keyof SubmissionFormState>(field: K, value: SubmissionFormState[K]) => void;
     onSubmit: () => void;
@@ -13,10 +15,10 @@ export function RunSubmissionPanel(
     <article className="panel panel--accent">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">POST /api/runs</p>
-          <h3>Run Submission</h3>
+          <p className="eyebrow">New Requirement</p>
+          <h3>Launch One Autonomous Run</h3>
         </div>
-        <span className="panel__hint">Real backend mutation</span>
+        <span className="panel__hint">{props.selectedProject ? 'Project-scoped intake' : 'Select a project first'}</span>
       </div>
 
       <form
@@ -27,11 +29,20 @@ export function RunSubmissionPanel(
         }}
       >
         <label>
-          <span>Repository Root</span>
+          <span>Project</span>
           <input
-            value={props.submissionState.repositoryRootPath}
-            onChange={(event) => props.onFieldChange('repositoryRootPath', event.target.value)}
-            placeholder="/Users/cliff/workspace/Synapse-Network"
+            value={props.selectedProject?.projectName ?? ''}
+            disabled
+            placeholder="Select a project"
+          />
+        </label>
+
+        <label>
+          <span>Workspace Root</span>
+          <input
+            value={props.selectedProject?.workspaceRootPath ?? ''}
+            disabled
+            placeholder="/Users/cliff/workspace/Spec2Flow"
           />
         </label>
 
@@ -49,8 +60,8 @@ export function RunSubmissionPanel(
           <textarea
             value={props.submissionState.requirement}
             onChange={(event) => props.onFieldChange('requirement', event.target.value)}
-            placeholder="Optional inline requirement summary"
-            rows={5}
+            placeholder="Describe the feature, acceptance criteria, constraints, and any operator notes."
+            rows={7}
           />
         </label>
 
@@ -65,10 +76,10 @@ export function RunSubmissionPanel(
         </label>
 
         <div className="form-grid__full form-grid__actions">
-          <button disabled={props.isPending} type="submit">
-            {props.isPending ? 'Submitting...' : 'Create Platform Run'}
+          <button disabled={props.isPending || !props.selectedProject} type="submit">
+            {props.isPending ? 'Submitting...' : 'Create Autonomous Run'}
           </button>
-          <p>Uses existing planner and PostgreSQL initialization services, not a parallel web-only intake model.</p>
+          <p>Spec2Flow will branch, plan, implement, test, execute, repair bounded defects, and prepare a review-ready handoff inside the selected workspace boundary.</p>
         </div>
 
         {props.errorMessage ? <p className="error-text">{props.errorMessage}</p> : null}

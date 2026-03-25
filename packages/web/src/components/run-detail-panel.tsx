@@ -12,8 +12,8 @@ export function RunDetailPanel(
     <article className="panel panel--tall">
       <div className="panel__header">
         <div>
-          <p className="eyebrow">GET /api/runs/:runId</p>
-          <h3>Run Detail</h3>
+          <p className="eyebrow">Run Summary</p>
+          <h3>Branch, workspace, and delivery state</h3>
         </div>
         <StatusPill value={props.runDetail?.runState.run.status} />
       </div>
@@ -52,6 +52,14 @@ export function RunDetailPanel(
           <div>
             <dt>Worktree</dt>
             <dd>{props.runDetail.runState.workspace?.worktreePath ?? 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>Provisioning</dt>
+            <dd>{props.runDetail.runState.workspace?.provisioningStatus ?? 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>Write Scope</dt>
+            <dd>{props.runDetail.runState.workspace?.workspacePolicy.allowedWriteGlobs.length ?? 0} globs</dd>
           </div>
         </dl>
       ) : (
