@@ -11,6 +11,7 @@ type SchemaBackedArtifactId =
   | 'test-cases'
   | 'execution-report'
   | 'execution-evidence-index'
+  | 'execution-artifact-catalog'
   | 'defect-summary'
   | 'collaboration-handoff'
   | 'publication-record';
@@ -32,6 +33,7 @@ const schemaBackedArtifactIds: SchemaBackedArtifactId[] = [
   'test-cases',
   'execution-report',
   'execution-evidence-index',
+  'execution-artifact-catalog',
   'defect-summary',
   'collaboration-handoff',
   'publication-record'
@@ -65,6 +67,10 @@ const schemaBackedArtifactConfigs: Record<SchemaBackedArtifactId, SchemaBackedAr
   'execution-evidence-index': {
     validate: (validators, payload) => validators.executionEvidenceIndex(payload),
     getErrors: (validators) => validators.executionEvidenceIndex.errors ?? []
+  },
+  'execution-artifact-catalog': {
+    validate: (validators, payload) => validators.executionArtifactCatalog(payload),
+    getErrors: (validators) => validators.executionArtifactCatalog.errors ?? []
   },
   'defect-summary': {
     validate: (validators, payload) => validators.defectSummary(payload),

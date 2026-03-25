@@ -48,6 +48,12 @@ function createTopologyPayload() {
             teardownPolicy: 'on-failure',
             teardownTimeoutSeconds: 20
           },
+          artifactStore: {
+            mode: 'remote-catalog',
+            provider: 'generic-http',
+            publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
+            keyPrefix: 'frontend-smoke/'
+          },
           requirementSignals: {
             phrases: ['frontend smoke'],
             keywords: ['ui', 'frontend']
@@ -194,6 +200,12 @@ describe('task-graph-service route selection', () => {
         maxDurationSeconds: 180,
         teardownPolicy: 'on-failure',
         teardownTimeoutSeconds: 20
+      },
+      artifactStore: {
+        mode: 'remote-catalog',
+        provider: 'generic-http',
+        publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
+        keyPrefix: 'frontend-smoke/'
       },
       browserChecks: [
         expect.objectContaining({

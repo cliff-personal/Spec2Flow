@@ -86,4 +86,33 @@ describe('browser-automation-service', () => {
       expect.objectContaining({ category: 'browser-check' })
     ]));
   });
+
+  it('degrades gracefully when capture is requested but Playwright is unavailable or unsupported', async () => {
+    const tempDir = createTempDir();
+    const baseUrl = await startFixtureServer();
+
+    const result = await runBrowserAutomation({
+      cwd: tempDir,
+      artifactsDir: 'spec2flow/outputs/execution/frontend-smoke',
+      browserChecks: [
+        {
+          id: 'smoke-home-capture',
+          url: baseUrl,
+          expectText: 'frontend ready',
+          captureScreenshot: true,
+          required: true,
+          requireEvidenceCapture: false
+        }
+      ]
+    });
+
+    expect(result.summaries[0]).toEqual(expect.objectContaining({
+      id: 'smoke-home-capture',
+      status: 'passed'
+    }));
+    expect(result.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'playwright-capability-report' }),
+      expect.objectContaining({ id: 'browser-check-smoke-home-capture' })
+    ]));
+  });
 });

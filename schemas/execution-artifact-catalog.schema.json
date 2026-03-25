@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec2flow.dev/schemas/execution-artifact-catalog.schema.json",
+  "title": "Spec2Flow Execution Artifact Catalog",
+  "description": "Catalogs deterministic execution artifacts with local and optional remote storage descriptors.",
+  "type": "object",
+  "required": ["taskId", "stage", "summary", "store", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "taskId": { "type": "string", "minLength": 1 },
+    "stage": { "type": "string", "const": "automated-execution" },
+    "summary": { "type": "string", "minLength": 1 },
+    "store": { "$ref": "#/$defs/store" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/catalogArtifact" }
+    }
+  },
+  "$defs": {
+    "store": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["local", "remote-catalog"] },
+        "provider": { "type": "string", "enum": ["generic-http", "s3", "gcs", "azure-blob"] },
+        "publicBaseUrl": { "type": "string", "minLength": 1 },
+        "keyPrefix": { "type": "string", "minLength": 1 }
+      }
+    },
+    "storageReference": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["local", "remote-catalog"] },
+        "provider": { "type": "string", "enum": ["generic-http", "s3", "gcs", "azure-blob"] },
+        "objectKey": { "type": "string", "minLength": 1 },
+        "remoteUrl": { "type": "string", "minLength": 1 }
+      }
+    },
+    "catalogArtifact": {
+      "type": "object",
+      "required": ["id", "path", "kind", "category"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["log", "trace", "screenshot", "video", "report", "other"] },
+        "category": {
+          "type": "string",
+          "enum": [
+            "service-startup",
+            "service-health",
+            "service-teardown",
+            "verification-command",
+            "browser-check",
+            "browser-screenshot",
+            "browser-trace",
+            "browser-video",
+            "execution-lifecycle",
+            "artifact-index",
+            "other"
+          ]
+        },
+        "contentType": { "type": "string", "minLength": 1 },
+        "storage": { "$ref": "#/$defs/storageReference" }
+      }
+    }
+  }
+}

@@ -224,6 +224,12 @@ describe('deterministic-execution-service', () => {
     claim.taskClaim.repositoryContext.topologyRef = 'topology.json';
     claim.taskClaim.repositoryContext.taskInputs = {
       entryServices: ['frontend'],
+      artifactStore: {
+        mode: 'remote-catalog',
+        provider: 'generic-http',
+        publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
+        keyPrefix: 'frontend-smoke/'
+      },
       browserChecks: [
         {
           id: 'smoke-home',
@@ -242,6 +248,7 @@ describe('deterministic-execution-service', () => {
       expect.objectContaining({ id: 'execution-report' }),
       expect.objectContaining({ id: 'execution-lifecycle-report' }),
       expect.objectContaining({ id: 'execution-evidence-index' }),
+      expect.objectContaining({ id: 'execution-artifact-catalog' }),
       expect.objectContaining({ id: 'browser-check-smoke-home' }),
       expect.objectContaining({ id: 'browser-html-smoke-home' }),
       expect.objectContaining({ id: 'service-health-frontend' })

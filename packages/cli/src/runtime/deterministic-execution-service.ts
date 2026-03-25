@@ -27,7 +27,11 @@ import {
   type ExecutionLifecyclePolicy,
   type ExecutionLifecycleSummary
 } from './execution-lifecycle-service.js';
-import { createExecutionArtifactStore } from './execution-artifact-store-service.js';
+import {
+  createExecutionArtifactStore,
+  type ExecutionArtifactStoreConfig
+} from './execution-artifact-store-service.js';
+import { buildExecutionArtifactCatalog } from './execution-artifact-catalog-service.js';
 
 interface ProjectAdapterSummary {
   spec2flow?: {
@@ -293,6 +297,7 @@ function getExecutionInputs(claimPayload: TaskClaimPayload): {
   entryServices: string[];
   browserChecks: BrowserCheckConfig[];
   executionPolicy: ExecutionLifecyclePolicy;
+  artifactStore: Partial<ExecutionArtifactStoreConfig>;
 } {
   const claim = claimPayload.taskClaim;
   const inputs = claim?.repositoryContext.taskInputs ?? {};
@@ -304,7 +309,10 @@ function getExecutionInputs(claimPayload: TaskClaimPayload): {
     browserChecks: Array.isArray(inputs.browserChecks)
       ? inputs.browserChecks.filter((value: unknown): value is BrowserCheckConfig => typeof value === 'object' && value !== null && !Array.isArray(value))
       : [],
-    executionPolicy: normalizeExecutionLifecyclePolicy(inputs.executionPolicy)
+    executionPolicy: normalizeExecutionLifecyclePolicy(inputs.executionPolicy),
+    artifactStore: typeof inputs.artifactStore === 'object' && inputs.artifactStore !== null && !Array.isArray(inputs.artifactStore)
+      ? inputs.artifactStore as Partial<ExecutionArtifactStoreConfig>
+      : {}
   };
 }
 
@@ -618,7 +626,7 @@ export async function runDeterministicTaskAsync(
 
   const artifactsDir = getArtifactsDir(claimPayload);
   const executionInputs = getExecutionInputs(claimPayload);
-  const artifactStore = createExecutionArtifactStore(cwd);
+  const artifactStore = createExecutionArtifactStore(cwd, executionInputs.artifactStore);
   const lifecycleGuard = createExecutionLifecycleGuard(executionInputs.executionPolicy, options.signal);
   let serviceSummaries: DeterministicServiceSummary[] = [];
   let serviceArtifacts: DeterministicServiceEvidenceArtifact[] = [];
@@ -674,7 +682,8 @@ export async function runDeterministicTaskAsync(
         artifactsDir,
         browserChecks: executionInputs.browserChecks,
         ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
-        ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {})
+        ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {}),
+        artifactStore
       });
       browserSummaries = browserResult.summaries;
       browserArtifacts = browserResult.artifacts;
@@ -794,6 +803,21 @@ export async function runDeterministicTaskAsync(
       contentType: 'application/json',
       payload: evidenceIndex.payload
     });
+    const artifactCatalogPath = artifactStore.getConfig().catalogPath ?? path.join(artifactsDir, 'execution-artifact-catalog.json');
+    const artifactCatalogPayload = buildExecutionArtifactCatalog({
+      taskId: claim.taskId,
+      summary: 'Execution artifact catalog with local and remote storage descriptors.',
+      artifacts: artifactStore.listArtifacts(),
+      storeConfig: artifactStore.getConfig()
+    });
+    artifactStore.writeJsonArtifact({
+      id: 'execution-artifact-catalog',
+      path: artifactCatalogPath,
+      kind: 'report',
+      category: 'artifact-index',
+      contentType: 'application/json',
+      payload: artifactCatalogPayload
+    });
 
     const hasFailures = commandResults.some((result) => result.status === 'failed');
     const lifecycleInterrupted = lifecycleSummary?.timedOut || lifecycleSummary?.aborted;
@@ -825,9 +849,10 @@ export async function runDeterministicTaskAsync(
             reportPath,
             ...(lifecycleArtifactPath ? [lifecycleArtifactPath] : []),
             evidenceIndex.artifact.path,
+            artifactCatalogPath,
             ...artifactStore.listArtifacts()
               .map((artifact) => artifact.path)
-              .filter((artifactPath) => artifactPath !== reportPath && artifactPath !== evidenceIndex.artifact.path && artifactPath !== lifecycleArtifactPath)
+              .filter((artifactPath) => artifactPath !== reportPath && artifactPath !== evidenceIndex.artifact.path && artifactPath !== lifecycleArtifactPath && artifactPath !== artifactCatalogPath)
           ],
           collaborationActions: []
         },
@@ -835,8 +860,9 @@ export async function runDeterministicTaskAsync(
           { id: 'execution-report', kind: 'report', path: reportPath, taskId: claim.taskId },
           ...(lifecycleArtifactPath ? [{ id: 'execution-lifecycle-report', kind: 'report' as const, path: lifecycleArtifactPath, taskId: claim.taskId }] : []),
           evidenceIndex.artifact,
+          { id: 'execution-artifact-catalog', kind: 'report' as const, path: artifactCatalogPath, taskId: claim.taskId },
           ...artifactStore.listArtifacts()
-            .filter((artifact) => !['execution-report', 'execution-evidence-index', 'execution-lifecycle-report'].includes(artifact.id))
+            .filter((artifact) => !['execution-report', 'execution-evidence-index', 'execution-lifecycle-report', 'execution-artifact-catalog'].includes(artifact.id))
             .map((artifact) => ({
             id: artifact.id,
             kind: artifact.kind,

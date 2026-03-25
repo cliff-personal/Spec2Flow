@@ -3,6 +3,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ensureDirForFile, loadOptionalStructuredFileFrom, resolveFromBaseDir, writeJsonFrom } from '../shared/fs-utils.js';
 import type { DeterministicRepositoryGap } from './service-orchestration-service.js';
+import { probePlaywrightCapability, type PlaywrightCapabilitySummary } from './playwright-capability-service.js';
+import type { ExecutionArtifactStore } from './execution-artifact-store-service.js';
 
 interface ProjectServiceDefinition {
   health?: string;
@@ -41,6 +43,7 @@ export interface BrowserCheckConfig {
   captureTrace?: boolean;
   captureVideo?: boolean;
   required?: boolean;
+  requireEvidenceCapture?: boolean;
 }
 
 export interface BrowserAutomationArtifact {
@@ -55,6 +58,7 @@ export interface BrowserAutomationSummary {
   id: string;
   url: string;
   status: 'passed' | 'failed' | 'skipped';
+  captureStatus?: 'captured' | 'degraded' | 'not-requested';
   htmlSnapshotPath?: string;
   screenshotPath?: string;
   tracePath?: string;
@@ -74,6 +78,14 @@ export interface RunBrowserAutomationOptions {
   browserChecks: BrowserCheckConfig[];
   projectAdapterRef?: string | null;
   topologyRef?: string | null;
+  artifactStore?: ExecutionArtifactStore;
+}
+
+interface PlaywrightCaptureResult {
+  screenshotPath?: string;
+  tracePath?: string;
+  videoPath?: string;
+  error?: string;
 }
 
 function sanitizeToken(value: string): string {
@@ -116,14 +128,6 @@ function extractTitle(html: string): string | null {
   return match?.[1]?.trim() ?? null;
 }
 
-function detectPlaywright(cwd: string): boolean {
-  const result = spawnSync('node', ['-e', 'require.resolve("playwright")'], {
-    cwd,
-    stdio: 'ignore'
-  });
-  return result.status === 0;
-}
-
 function maybeCaptureWithPlaywright(
   cwd: string,
   url: string,
@@ -131,11 +135,7 @@ function maybeCaptureWithPlaywright(
   screenshotPath: string | null,
   tracePath: string | null,
   videoDir: string | null
-): { screenshotPath?: string; tracePath?: string; videoPath?: string; error?: string } {
-  if (!detectPlaywright(cwd)) {
-    return { error: 'playwright-not-installed' };
-  }
-
+): PlaywrightCaptureResult {
   const runnerDir = path.join(cwd, '.spec2flow', 'tmp');
   const runnerPath = path.join(runnerDir, `playwright-capture-${sanitizeToken(check.id)}.mjs`);
   fs.mkdirSync(runnerDir, { recursive: true });
@@ -199,13 +199,15 @@ function buildBrowserCheckReport(
   url: string,
   status: BrowserAutomationSummary['status'],
   htmlSnapshotPath: string | null,
-  title: string | null
+  title: string | null,
+  captureStatus: BrowserAutomationSummary['captureStatus']
 ): Record<string, unknown> {
   return {
     browserCheckReport: {
       id: check.id,
       url,
       status,
+      ...(captureStatus ? { captureStatus } : {}),
       ...(check.expectText ? { expectText: check.expectText } : {}),
       ...(check.expectTitle ? { expectTitle: check.expectTitle } : {}),
       ...(htmlSnapshotPath ? { htmlSnapshotPath } : {}),
@@ -218,6 +220,7 @@ function buildBrowserAutomationSummary(
   check: BrowserCheckConfig,
   url: string,
   status: BrowserAutomationSummary['status'],
+  captureStatus: BrowserAutomationSummary['captureStatus'],
   htmlSnapshotPath: string,
   cwd: string,
   paths: {
@@ -230,6 +233,7 @@ function buildBrowserAutomationSummary(
     id: check.id,
     url,
     status,
+    ...(captureStatus ? { captureStatus } : {}),
     htmlSnapshotPath,
     ...(paths.screenshotPath && fs.existsSync(resolveFromBaseDir(cwd, paths.screenshotPath)) ? { screenshotPath: paths.screenshotPath } : {}),
     ...(paths.tracePath && fs.existsSync(resolveFromBaseDir(cwd, paths.tracePath)) ? { tracePath: paths.tracePath } : {}),
@@ -253,6 +257,31 @@ export async function runBrowserAutomation(options: RunBrowserAutomationOptions)
   const artifacts: BrowserAutomationArtifact[] = [];
   const repositoryGaps: DeterministicRepositoryGap[] = [];
   let requiredFailureCount = 0;
+  const captureRequested = options.browserChecks.some((check) => check.captureScreenshot || check.captureTrace || check.captureVideo);
+  const playwrightCapability = probePlaywrightCapability(options.cwd, captureRequested);
+  const capabilityReportPath = path.join(options.artifactsDir, 'browser', 'playwright-capability.json');
+
+  if (captureRequested) {
+    if (options.artifactStore) {
+      options.artifactStore.writeJsonArtifact({
+        id: 'playwright-capability-report',
+        path: capabilityReportPath,
+        kind: 'report',
+        category: 'browser-check',
+        contentType: 'application/json',
+        payload: { playwrightCapability }
+      });
+    } else {
+      writeJsonFrom(options.cwd, capabilityReportPath, { playwrightCapability });
+    }
+    artifacts.push({
+      id: 'playwright-capability-report',
+      kind: 'report',
+      path: capabilityReportPath,
+      category: 'browser-check',
+      contentType: 'application/json'
+    });
+  }
 
   for (const check of options.browserChecks) {
     const baseUrl = resolveBrowserUrl(check, projectPayload, topologyPayload);
@@ -281,6 +310,9 @@ export async function runBrowserAutomation(options: RunBrowserAutomationOptions)
     const tracePath = check.captureTrace ? path.join(browserDir, `${sanitizeToken(check.id)}-trace.zip`) : null;
     const videoDir = check.captureVideo ? path.join(browserDir, `${sanitizeToken(check.id)}-video`) : null;
     let status: BrowserAutomationSummary['status'] = 'passed';
+    let captureStatus: BrowserAutomationSummary['captureStatus'] = check.captureScreenshot || check.captureTrace || check.captureVideo
+      ? 'captured'
+      : 'not-requested';
     let pageTitle: string | null = null;
 
     try {
@@ -315,14 +347,20 @@ export async function runBrowserAutomation(options: RunBrowserAutomationOptions)
         contentType: 'text/html'
       });
 
-      const captureResult = maybeCaptureWithPlaywright(options.cwd, url, check, screenshotPath, tracePath, videoDir);
-      if (captureResult.error && (check.captureScreenshot || check.captureTrace || check.captureVideo)) {
+      const captureRequestedForCheck = Boolean(check.captureScreenshot || check.captureTrace || check.captureVideo);
+      const captureResult: PlaywrightCaptureResult = captureRequestedForCheck && playwrightCapability.available
+        ? maybeCaptureWithPlaywright(options.cwd, url, check, screenshotPath, tracePath, videoDir)
+        : (captureRequestedForCheck
+          ? { error: playwrightCapability.reason ?? 'playwright-unavailable' }
+          : {});
+      if (captureResult.error && captureRequestedForCheck) {
+        captureStatus = 'degraded';
         repositoryGaps.push({
           code: 'browser-automation-unavailable',
           message: `Browser check ${check.id} could not capture Playwright evidence: ${captureResult.error}`,
           recoverable: true
         });
-        if (check.required) {
+        if (check.requireEvidenceCapture) {
           status = 'failed';
         }
       }
@@ -358,6 +396,7 @@ export async function runBrowserAutomation(options: RunBrowserAutomationOptions)
       }
     } catch (error) {
       status = 'failed';
+      captureStatus = captureStatus ?? 'not-requested';
       repositoryGaps.push({
         code: 'browser-check-request-failed',
         message: `Browser check ${check.id} failed to load ${url}: ${error instanceof Error ? error.message : String(error)}`,
@@ -365,12 +404,25 @@ export async function runBrowserAutomation(options: RunBrowserAutomationOptions)
       });
     }
 
-    writeJsonFrom(options.cwd, reportPath, buildBrowserCheckReport(check, url, status, htmlSnapshotPath, pageTitle));
+    const reportPayload = buildBrowserCheckReport(check, url, status, htmlSnapshotPath, pageTitle, captureStatus);
+    if (options.artifactStore) {
+      options.artifactStore.writeJsonArtifact({
+        id: `browser-check-${sanitizeToken(check.id)}`,
+        path: reportPath,
+        kind: 'report',
+        category: 'browser-check',
+        contentType: 'application/json',
+        payload: reportPayload
+      });
+    } else {
+      writeJsonFrom(options.cwd, reportPath, reportPayload);
+    }
     summaries.push({
       ...buildBrowserAutomationSummary(
         check,
         url,
         status,
+        captureStatus,
         htmlSnapshotPath,
         options.cwd,
         {

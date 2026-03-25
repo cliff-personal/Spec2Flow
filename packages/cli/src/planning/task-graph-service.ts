@@ -418,6 +418,9 @@ function buildRouteTaskBundle(
           maxDurationSeconds: 900,
           teardownPolicy: 'always',
           teardownTimeoutSeconds: 15
+        },
+        artifactStore: route.artifactStore ?? {
+          mode: 'local'
         }
       },
       targetFiles: routeTargetFiles,
@@ -466,6 +469,9 @@ function buildRouteTaskBundle(
           maxDurationSeconds: 900,
           teardownPolicy: 'always',
           teardownTimeoutSeconds: 15
+        },
+        artifactStore: route.artifactStore ?? {
+          mode: 'local'
         }
       },
       targetFiles: routeTargetFiles,

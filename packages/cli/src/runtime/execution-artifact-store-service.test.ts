@@ -24,7 +24,12 @@ afterEach(() => {
 describe('execution-artifact-store-service', () => {
   it('writes and registers artifacts through one store abstraction', () => {
     const tempDir = createTempDir();
-    const store = createExecutionArtifactStore(tempDir);
+    const store = createExecutionArtifactStore(tempDir, {
+      mode: 'remote-catalog',
+      provider: 'generic-http',
+      publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
+      keyPrefix: 'frontend-smoke/'
+    });
 
     store.writeJsonArtifact({
       id: 'report',
@@ -46,7 +51,14 @@ describe('execution-artifact-store-service', () => {
     expect(fs.existsSync(path.join(tempDir, 'spec2flow/outputs/execution/report.json'))).toBe(true);
     expect(fs.existsSync(path.join(tempDir, 'spec2flow/outputs/execution/report.log'))).toBe(true);
     expect(store.listArtifacts()).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'report', category: 'other' }),
+      expect.objectContaining({
+        id: 'report',
+        category: 'other',
+        storage: expect.objectContaining({
+          mode: 'remote-catalog',
+          objectKey: 'frontend-smoke/spec2flow/outputs/execution/report.json'
+        })
+      }),
       expect.objectContaining({ id: 'log', category: 'verification-command' })
     ]));
   });

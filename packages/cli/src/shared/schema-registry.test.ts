@@ -178,6 +178,32 @@ describe('schema-registry', () => {
       repositoryGaps: []
     })).toBe(true);
 
+    expect(validators.executionArtifactCatalog({
+      taskId: 'frontend-smoke--automated-execution',
+      stage: 'automated-execution',
+      summary: 'Artifact catalog with remote storage refs.',
+      store: {
+        mode: 'remote-catalog',
+        provider: 'generic-http',
+        publicBaseUrl: 'https://artifacts.example.com/spec2flow/',
+        keyPrefix: 'frontend-smoke/'
+      },
+      artifacts: [
+        {
+          id: 'execution-report',
+          path: 'spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+          kind: 'report',
+          category: 'artifact-index',
+          storage: {
+            mode: 'remote-catalog',
+            provider: 'generic-http',
+            objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+            remoteUrl: 'https://artifacts.example.com/spec2flow/frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json'
+          }
+        }
+      ]
+    })).toBe(true);
+
     expect(validators.defectSummary({
       taskId: 'frontend-smoke--defect-feedback',
       stage: 'defect-feedback',
