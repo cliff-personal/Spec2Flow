@@ -240,6 +240,7 @@ describe('deterministic-execution-service', () => {
     expect(result.adapterRun.status).toBe('completed');
     expect(result.adapterRun.artifacts).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'execution-report' }),
+      expect.objectContaining({ id: 'execution-lifecycle-report' }),
       expect.objectContaining({ id: 'execution-evidence-index' }),
       expect.objectContaining({ id: 'browser-check-smoke-home' }),
       expect.objectContaining({ id: 'browser-html-smoke-home' }),
@@ -249,5 +250,33 @@ describe('deterministic-execution-service', () => {
     const evidenceIndexPath = result.adapterRun.artifacts.find((artifact) => artifact.id === 'execution-evidence-index')?.path;
     expect(evidenceIndexPath).toBeTruthy();
     expect(fs.existsSync(evidenceIndexPath ?? 'missing')).toBe(true);
+  });
+
+  it('blocks long-running execution when the lifecycle timeout is exceeded and still emits lifecycle evidence', async () => {
+    const tempDir = createTempDir();
+    const claim = createClaim(tempDir, 'automated-execution', 'node -e "setTimeout(() => process.stdout.write(\'late\'), 5000)"');
+
+    if (!claim.taskClaim) {
+      throw new Error('expected deterministic claim');
+    }
+
+    claim.taskClaim.repositoryContext.taskInputs = {
+      executionPolicy: {
+        maxDurationSeconds: 1,
+        teardownPolicy: 'always',
+        teardownTimeoutSeconds: 2
+      }
+    };
+
+    const result = await runDeterministicTaskAsync(claim, tempDir);
+
+    expect(result.adapterRun.status).toBe('blocked');
+    expect(result.adapterRun.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'execution-timeout' })
+    ]));
+    expect(result.adapterRun.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'execution-lifecycle-report' }),
+      expect.objectContaining({ id: 'execution-evidence-index' })
+    ]));
   });
 });

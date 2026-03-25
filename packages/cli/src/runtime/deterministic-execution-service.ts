@@ -7,6 +7,8 @@ import type { AdapterRunDocument, TaskClaimPayload } from '../types/index.js';
 import {
   describeDetectedServices,
   runServiceOrchestration,
+  teardownManagedServices,
+  type ManagedServiceHandle,
   type DeterministicRepositoryGap,
   type DeterministicServiceEvidenceArtifact,
   type DeterministicServiceSummary
@@ -18,6 +20,14 @@ import {
   type BrowserAutomationSummary
 } from './browser-automation-service.js';
 import { buildExecutionEvidenceIndex, type ExecutionEvidenceIndexArtifactInput } from './execution-evidence-index-service.js';
+import {
+  createExecutionLifecycleGuard,
+  normalizeExecutionLifecyclePolicy,
+  shouldTeardownManagedServices,
+  type ExecutionLifecyclePolicy,
+  type ExecutionLifecycleSummary
+} from './execution-lifecycle-service.js';
+import { createExecutionArtifactStore } from './execution-artifact-store-service.js';
 
 interface ProjectAdapterSummary {
   spec2flow?: {
@@ -282,6 +292,7 @@ function buildExecutionReport(
 function getExecutionInputs(claimPayload: TaskClaimPayload): {
   entryServices: string[];
   browserChecks: BrowserCheckConfig[];
+  executionPolicy: ExecutionLifecyclePolicy;
 } {
   const claim = claimPayload.taskClaim;
   const inputs = claim?.repositoryContext.taskInputs ?? {};
@@ -292,7 +303,8 @@ function getExecutionInputs(claimPayload: TaskClaimPayload): {
       : [],
     browserChecks: Array.isArray(inputs.browserChecks)
       ? inputs.browserChecks.filter((value: unknown): value is BrowserCheckConfig => typeof value === 'object' && value !== null && !Array.isArray(value))
-      : []
+      : [],
+    executionPolicy: normalizeExecutionLifecyclePolicy(inputs.executionPolicy)
   };
 }
 
@@ -306,7 +318,8 @@ function buildExecutionEvidenceIndexArtifact(
   serviceSummaries: DeterministicServiceSummary[],
   browserArtifacts: BrowserAutomationArtifact[],
   browserSummaries: BrowserAutomationSummary[],
-  repositoryGaps: DeterministicRepositoryGap[]
+  repositoryGaps: DeterministicRepositoryGap[],
+  lifecycleArtifactPath?: string
 ): {
   artifact: {
     id: string;
@@ -344,6 +357,15 @@ function buildExecutionEvidenceIndexArtifact(
         contentType: 'text/plain'
       })),
       ...browserArtifacts,
+      ...(lifecycleArtifactPath
+        ? [{
+            id: 'execution-lifecycle-report',
+            path: lifecycleArtifactPath,
+            kind: 'report' as const,
+            category: 'execution-lifecycle' as const,
+            contentType: 'application/json'
+          }]
+        : []),
       {
         id: 'execution-evidence-index',
         path: path.join(artifactsDir, 'execution-evidence-index.json'),
@@ -424,6 +446,23 @@ function buildNoCommandsResult(claim: NonNullable<TaskClaimPayload['taskClaim']>
           recoverable: true
         }
       ]
+    }
+  };
+}
+
+function buildExecutionLifecycleReport(
+  claimPayload: TaskClaimPayload,
+  lifecycle: ExecutionLifecycleSummary,
+  managedServiceCount: number,
+  teardownExecuted: boolean
+): Record<string, unknown> {
+  return {
+    executionLifecycleReport: {
+      taskId: claimPayload.taskClaim?.taskId ?? null,
+      stage: 'automated-execution',
+      ...lifecycle,
+      managedServiceCount,
+      teardownExecuted
     }
   };
 }
@@ -579,56 +618,142 @@ export async function runDeterministicTaskAsync(
 
   const artifactsDir = getArtifactsDir(claimPayload);
   const executionInputs = getExecutionInputs(claimPayload);
+  const artifactStore = createExecutionArtifactStore(cwd);
+  const lifecycleGuard = createExecutionLifecycleGuard(executionInputs.executionPolicy, options.signal);
   let serviceSummaries: DeterministicServiceSummary[] = [];
   let serviceArtifacts: DeterministicServiceEvidenceArtifact[] = [];
   let browserSummaries: BrowserAutomationSummary[] = [];
   let browserArtifacts: BrowserAutomationArtifact[] = [];
   let repositoryGaps: DeterministicRepositoryGap[] = [];
-
-  if (claim.stage === 'automated-execution' && executionInputs.entryServices.length > 0) {
-    const orchestrationResult = await runServiceOrchestration({
-      cwd,
-      artifactsDir,
-      entryServices: executionInputs.entryServices,
-      ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
-      ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {})
-    });
-    serviceSummaries = orchestrationResult.services;
-    serviceArtifacts = orchestrationResult.artifacts;
-    repositoryGaps = [...repositoryGaps, ...orchestrationResult.repositoryGaps];
-  }
+  let managedServices: ManagedServiceHandle[] = [];
+  let lifecycleSummary: ExecutionLifecycleSummary | null = null;
+  let teardownExecuted = false;
+  let lifecycleArtifactPath: string | null = null;
 
   const commandResults: CommandRunResult[] = [];
 
-  for (const [index, command] of commands.entries()) {
-    commandResults.push(await runShellCommandAsync(
-      command,
-      cwd,
-      path.join(artifactsDir, `${sanitizeFileToken(claim.taskId)}-verification-evidence-${index + 1}.log`),
-      options
-    ));
-  }
-
-  if (claim.stage === 'automated-execution' && executionInputs.browserChecks.length > 0) {
-    const browserResult = await runBrowserAutomation({
-      cwd,
-      artifactsDir,
-      browserChecks: executionInputs.browserChecks,
-      ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
-      ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {})
-    });
-    browserSummaries = browserResult.summaries;
-    browserArtifacts = browserResult.artifacts;
-    repositoryGaps = [...repositoryGaps, ...browserResult.repositoryGaps];
-
-    if (browserResult.requiredFailureCount > 0) {
-      commandResults.push({
-        command: 'browser-automation',
-        status: 'failed',
-        exitCode: null,
-        logPath: path.join(artifactsDir, 'browser', 'browser-automation-summary.log')
+  try {
+    if (claim.stage === 'automated-execution' && executionInputs.entryServices.length > 0) {
+      const orchestrationResult = await runServiceOrchestration({
+        cwd,
+        artifactsDir,
+        entryServices: executionInputs.entryServices,
+        ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
+        ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {}),
+        signal: lifecycleGuard.signal,
+        artifactStore
       });
-      writeCommandLog(cwd, path.join(artifactsDir, 'browser', 'browser-automation-summary.log'), JSON.stringify(browserSummaries, null, 2), '');
+      serviceSummaries = orchestrationResult.services;
+      serviceArtifacts = orchestrationResult.artifacts;
+      managedServices = orchestrationResult.managedServices;
+      repositoryGaps = [...repositoryGaps, ...orchestrationResult.repositoryGaps];
+    }
+
+    for (const [index, command] of commands.entries()) {
+      const commandResult = await runShellCommandAsync(
+        command,
+        cwd,
+        path.join(artifactsDir, `${sanitizeFileToken(claim.taskId)}-verification-evidence-${index + 1}.log`),
+        {
+          signal: lifecycleGuard.signal
+        }
+      );
+      commandResults.push(commandResult);
+      artifactStore.registerArtifact({
+        id: `verification-evidence-${index + 1}`,
+        path: commandResult.logPath,
+        kind: 'log',
+        category: 'verification-command',
+        contentType: 'text/plain'
+      });
+    }
+
+    if (claim.stage === 'automated-execution' && executionInputs.browserChecks.length > 0) {
+      const browserResult = await runBrowserAutomation({
+        cwd,
+        artifactsDir,
+        browserChecks: executionInputs.browserChecks,
+        ...(claim.repositoryContext.projectAdapterRef ? { projectAdapterRef: claim.repositoryContext.projectAdapterRef } : {}),
+        ...(claim.repositoryContext.topologyRef ? { topologyRef: claim.repositoryContext.topologyRef } : {})
+      });
+      browserSummaries = browserResult.summaries;
+      browserArtifacts = browserResult.artifacts;
+      repositoryGaps = [...repositoryGaps, ...browserResult.repositoryGaps];
+
+      for (const browserArtifact of browserArtifacts) {
+        artifactStore.registerArtifact(browserArtifact);
+      }
+
+      if (browserResult.requiredFailureCount > 0) {
+        const browserSummaryLogPath = path.join(artifactsDir, 'browser', 'browser-automation-summary.log');
+        commandResults.push({
+          command: 'browser-automation',
+          status: 'failed',
+          exitCode: null,
+          logPath: browserSummaryLogPath
+        });
+        writeCommandLog(cwd, browserSummaryLogPath, JSON.stringify(browserSummaries, null, 2), '');
+        artifactStore.registerArtifact({
+          id: `verification-evidence-${commandResults.length}`,
+          path: browserSummaryLogPath,
+          kind: 'log',
+          category: 'verification-command',
+          contentType: 'text/plain'
+        });
+      }
+    }
+  } catch (error) {
+    if (!(error instanceof Error && (error.name === 'AbortError' || (error as { code?: string }).code === 'ABORT_ERR'))) {
+      throw error;
+    }
+    commandResults.push({
+      command: 'execution-lifecycle',
+      status: 'blocked',
+      exitCode: null,
+      logPath: path.join(artifactsDir, 'execution-lifecycle-abort.log')
+    });
+    writeCommandLog(cwd, path.join(artifactsDir, 'execution-lifecycle-abort.log'), '', error.message);
+    artifactStore.registerArtifact({
+      id: `verification-evidence-${commandResults.length}`,
+      path: path.join(artifactsDir, 'execution-lifecycle-abort.log'),
+      kind: 'log',
+      category: 'verification-command',
+      contentType: 'text/plain'
+    });
+  } finally {
+    lifecycleSummary = lifecycleGuard.complete();
+    const hasCommandFailures = commandResults.some((result) => result.status !== 'passed');
+    if (
+      claim.stage === 'automated-execution'
+      && managedServices.length > 0
+      && shouldTeardownManagedServices(executionInputs.executionPolicy, {
+        hasFailures: hasCommandFailures,
+        repositoryGaps: repositoryGaps.length > 0,
+        interrupted: lifecycleSummary.timedOut || lifecycleSummary.aborted
+      })
+    ) {
+      const teardownResult = await teardownManagedServices({
+        cwd,
+        artifactsDir,
+        managedServices,
+        teardownTimeoutSeconds: executionInputs.executionPolicy.teardownTimeoutSeconds,
+        artifactStore
+      });
+      teardownExecuted = true;
+      serviceArtifacts = [...serviceArtifacts, ...teardownResult.artifacts];
+      repositoryGaps = [...repositoryGaps, ...teardownResult.repositoryGaps];
+    }
+
+    if (claim.stage === 'automated-execution') {
+      lifecycleArtifactPath = path.join(artifactsDir, 'execution-lifecycle-report.json');
+      artifactStore.writeJsonArtifact({
+        id: 'execution-lifecycle-report',
+        path: lifecycleArtifactPath,
+        kind: 'report',
+        category: 'execution-lifecycle',
+        contentType: 'application/json',
+        payload: buildExecutionLifecycleReport(claimPayload, lifecycleSummary, managedServices.length, teardownExecuted)
+      });
     }
   }
 
@@ -639,7 +764,14 @@ export async function runDeterministicTaskAsync(
       browserChecks: browserSummaries,
       repositoryGaps
     });
-    writeJsonFrom(cwd, reportPath, reportPayload);
+    artifactStore.writeJsonArtifact({
+      id: 'execution-report',
+      path: reportPath,
+      kind: 'report',
+      category: 'other',
+      contentType: 'application/json',
+      payload: reportPayload
+    });
 
     const evidenceIndex = buildExecutionEvidenceIndexArtifact(
       claimPayload,
@@ -651,11 +783,20 @@ export async function runDeterministicTaskAsync(
       serviceSummaries,
       browserArtifacts,
       browserSummaries,
-      repositoryGaps
+      repositoryGaps,
+      lifecycleArtifactPath ?? undefined
     );
-    writeJsonFrom(cwd, evidenceIndex.artifact.path, evidenceIndex.payload);
+    artifactStore.writeJsonArtifact({
+      id: evidenceIndex.artifact.id,
+      path: evidenceIndex.artifact.path,
+      kind: evidenceIndex.artifact.kind,
+      category: 'artifact-index',
+      contentType: 'application/json',
+      payload: evidenceIndex.payload
+    });
 
-    const hasFailures = commandResults.some((result) => result.status !== 'passed');
+    const hasFailures = commandResults.some((result) => result.status === 'failed');
+    const lifecycleInterrupted = lifecycleSummary?.timedOut || lifecycleSummary?.aborted;
 
     return {
       adapterRun: {
@@ -664,10 +805,12 @@ export async function runDeterministicTaskAsync(
         taskId: claim.taskId,
         runId: claim.runId,
         stage: claim.stage,
-        status: hasFailures ? 'failed' : repositoryGaps.length > 0 ? 'blocked' : 'completed',
+        status: hasFailures ? 'failed' : lifecycleInterrupted || repositoryGaps.length > 0 ? 'blocked' : 'completed',
         summary: hasFailures
           ? 'deterministic verification failed'
-          : repositoryGaps.length > 0
+          : lifecycleInterrupted
+            ? 'deterministic verification stopped by execution lifecycle guard'
+            : repositoryGaps.length > 0
             ? 'deterministic verification completed with repository gaps'
             : 'deterministic verification passed',
         notes: [
@@ -680,34 +823,21 @@ export async function runDeterministicTaskAsync(
           editedFiles: [],
           artifactFiles: [
             reportPath,
+            ...(lifecycleArtifactPath ? [lifecycleArtifactPath] : []),
             evidenceIndex.artifact.path,
-            ...serviceArtifacts.map((artifact) => artifact.path),
-            ...commandResults.map((result) => result.logPath),
-            ...browserArtifacts.map((artifact) => artifact.path)
+            ...artifactStore.listArtifacts()
+              .map((artifact) => artifact.path)
+              .filter((artifactPath) => artifactPath !== reportPath && artifactPath !== evidenceIndex.artifact.path && artifactPath !== lifecycleArtifactPath)
           ],
           collaborationActions: []
         },
         artifacts: [
-          {
-            id: 'execution-report',
-            kind: 'report',
-            path: reportPath,
-            taskId: claim.taskId
-          },
+          { id: 'execution-report', kind: 'report', path: reportPath, taskId: claim.taskId },
+          ...(lifecycleArtifactPath ? [{ id: 'execution-lifecycle-report', kind: 'report' as const, path: lifecycleArtifactPath, taskId: claim.taskId }] : []),
           evidenceIndex.artifact,
-          ...serviceArtifacts.map((artifact) => ({
-            id: artifact.id,
-            kind: artifact.kind,
-            path: artifact.path,
-            taskId: claim.taskId
-          })),
-          ...commandResults.map((result, index) => ({
-            id: `verification-evidence-${index + 1}`,
-            kind: 'log' as const,
-            path: result.logPath,
-            taskId: claim.taskId
-          })),
-          ...browserArtifacts.map((artifact) => ({
+          ...artifactStore.listArtifacts()
+            .filter((artifact) => !['execution-report', 'execution-evidence-index', 'execution-lifecycle-report'].includes(artifact.id))
+            .map((artifact) => ({
             id: artifact.id,
             kind: artifact.kind,
             path: artifact.path,
@@ -725,6 +855,16 @@ export async function runDeterministicTaskAsync(
                   taskId: claim.taskId,
                   recoverable: true
                 }))
+              : []
+          ),
+          ...(
+            lifecycleInterrupted
+              ? [{
+                  code: lifecycleSummary?.timedOut ? 'execution-timeout' : 'execution-aborted',
+                  message: lifecycleSummary?.abortReason ?? 'Execution lifecycle interrupted the deterministic task.',
+                  taskId: claim.taskId,
+                  recoverable: true
+                }]
               : []
           ),
           ...repositoryGaps.map((gap) => ({

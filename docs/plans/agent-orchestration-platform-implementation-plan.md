@@ -28,7 +28,7 @@ This document is the working implementation plan for the platform-shaped version
 | Scheduler with task leasing | Ready tasks can be leased safely to concurrent workers | `lease-next-platform-task`; `heartbeat-platform-task`; `start-platform-task`; `expire-platform-leases`; `packages/cli/src/platform/platform-scheduler-service.ts` | `partial` | Lease ownership, heartbeat, and timeout recovery now exist, but there is still no worker registry or dead-letter queue service |
 | Stage-specialized workers | Requirements, implementation, test, execution, defect, and collaboration run as role-scoped workers | `run-platform-worker-task`; `run-platform-requirements-worker`; `run-platform-implementation-worker`; `run-platform-test-design-worker`; `run-platform-execution-worker`; `run-platform-defect-worker`; `run-platform-collaboration-worker` | `partial` | DB-backed worker harness, execution-time heartbeat auto-renew, and stage entrypoints now exist, but there is still no long-running worker service or worker registry |
 | Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/auto-repair-policy-service.ts`; `packages/cli/src/runtime/task-result-service.ts`; `packages/cli/src/platform/platform-auto-repair-service.ts`; `packages/cli/src/platform/migrations/0003_platform_auto_repair.sql` | `partial` | Auto-repair policy fields, downstream rerun invalidation, repair escalation, repair-attempt records, and retry-budget persistence now exist, but there is still no background orchestration daemon or operator-facing repair console |
-| Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts`; `packages/cli/src/runtime/service-orchestration-service.ts`; `packages/cli/src/runtime/browser-automation-service.ts`; `packages/cli/src/runtime/execution-evidence-index-service.ts` | `partial` | Service orchestration, browser checks, and execution evidence indexing now exist, but teardown policy, full Playwright capture availability, and artifact-store abstraction are still missing |
+| Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts`; `packages/cli/src/runtime/service-orchestration-service.ts`; `packages/cli/src/runtime/browser-automation-service.ts`; `packages/cli/src/runtime/execution-evidence-index-service.ts`; `packages/cli/src/runtime/execution-lifecycle-service.ts`; `packages/cli/src/runtime/execution-artifact-store-service.ts` | `partial` | Service orchestration, browser checks, execution lifecycle timeout, managed-service teardown, and execution artifact-store indexing now exist, but full Playwright capture availability and object-store abstraction are still missing |
 | Collaboration publish flow | Commit code, create branch, optionally draft PR | `packages/cli/src/runtime/collaboration-publication-service.ts`; `packages/cli/src/platform/platform-publication-service.ts`; `publications` table | `partial` | Controller-side branch creation, scoped auto-commit, publication records, and PR-draft artifacts now exist, but there is still no remote push, PR API integration, or operator approval UI |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
 | Event stream and observability | Operators can see progress, retries, and artifacts live | `get-platform-observability`; `packages/cli/src/platform/platform-event-taxonomy.ts`; `packages/cli/src/platform/platform-observability-service.ts` | `partial` | Durable events and observability read models now exist, but there is still no streaming transport or external telemetry export |
@@ -358,14 +358,16 @@ Current implemented core:
 - service orchestration exists for topology-driven entry services
 - browser checks now capture structured HTML or metadata evidence, with optional Playwright capture when available
 - execution evidence indexing now catalogs service, command, and browser artifacts
+- execution lifecycle policy now enforces timeout and managed-service teardown
+- execution artifact storage now flows through a dedicated store abstraction before indexing
 
 Scope:
 
-- harden service startup orchestration
+- harden service startup orchestration and teardown
 - harden browser automation integration
 - keep screenshot, trace, and video evidence optional behind Playwright availability
-- add environment convergence and teardown policies
-- harden richer artifact indexing
+- harden environment convergence and teardown policies
+- harden richer artifact indexing and artifact-store abstraction
 
 Exit signal:
 
@@ -373,10 +375,10 @@ Exit signal:
 
 Unimplemented markers:
 
-- `partial`: service orchestration exists, but teardown and long-running service lifecycle policy are still missing
+- `implemented`: service orchestration, managed-service teardown, and long-running lifecycle timeout now exist
 - `partial`: browser automation exists, but full Playwright-backed screenshot, trace, and video capture depends on repository runtime availability
 - `implemented`: structured execution evidence indexing now exists for service, command, and browser artifacts
-- `gap`: artifact store abstraction
+- `partial`: artifact-store abstraction now exists for deterministic execution, but it is still local-file-backed rather than pluggable object storage
 
 ## Phase 9: Multi-Repo And Operator Model
 

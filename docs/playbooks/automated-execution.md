@@ -14,6 +14,9 @@ In the task graph it is created as `<route-name>--automated-execution` and depen
 ## Consumes
 
 - route `verifyCommands`
+- route `entryServices` when service orchestration is required
+- route `browserChecks` when browser validation is declared
+- route `executionPolicy` for timeout and teardown behavior
 - target files and route boundaries
 - designed test artifacts and implementation outputs from earlier stages
 
@@ -21,8 +24,17 @@ In the task graph it is created as `<route-name>--automated-execution` and depen
 
 - `execution-report`
 - `verification-evidence`
+- `execution-evidence-index`
+- `execution-lifecycle-report`
 
 These artifacts are required even when commands run successfully. Passing execution without the artifact contract is treated as incomplete.
+
+When route metadata declares service or browser coverage, the deterministic execution runtime may also emit:
+
+- service startup and health reports
+- service teardown reports for services started by Spec2Flow
+- browser HTML snapshots
+- optional Playwright screenshot, trace, or video evidence when the repository runtime supports it
 
 ## Allowed Actions
 
@@ -46,6 +58,12 @@ When any of those conditions happen, runtime routing sends the route into `defec
 
 - success with satisfied artifact contract: `defect-feedback` is auto-skipped and `collaboration` can be promoted
 - failed, blocked, or missing artifact contract: `defect-feedback` becomes the required next stage
+
+Execution hardening rules:
+
+- services that were already healthy before execution are observed but not torn down by Spec2Flow
+- services started by deterministic execution are torn down according to `executionPolicy.teardownPolicy`
+- long-running commands are stopped by the execution lifecycle guard when `executionPolicy.maxDurationSeconds` is exceeded
 
 ## Validation Path
 

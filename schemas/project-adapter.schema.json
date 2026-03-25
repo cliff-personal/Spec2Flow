@@ -115,6 +115,7 @@
           ]
         },
         "start": { "type": "string", "minLength": 1 },
+        "stop": { "type": "string", "minLength": 1 },
         "health": { "type": "string", "minLength": 1 },
         "install": { "type": "string", "minLength": 1 },
         "test": { "type": "string", "minLength": 1 },

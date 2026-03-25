@@ -11,11 +11,13 @@ export interface ExecutionEvidenceIndexArtifactInput {
   category:
     | 'service-startup'
     | 'service-health'
+    | 'service-teardown'
     | 'verification-command'
     | 'browser-check'
     | 'browser-screenshot'
     | 'browser-trace'
     | 'browser-video'
+    | 'execution-lifecycle'
     | 'artifact-index'
     | 'other';
   contentType?: string;

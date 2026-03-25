@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { describeDetectedServices, runServiceOrchestration } from './service-orchestration-service.js';
+import { describeDetectedServices, runServiceOrchestration, teardownManagedServices } from './service-orchestration-service.js';
 
 const tempDirs: string[] = [];
 const servers: Server[] = [];
@@ -117,5 +117,61 @@ describe('service-orchestration-service', () => {
     const healthArtifact = result.artifacts.find((artifact) => artifact.category === 'service-health');
     expect(healthArtifact).toBeTruthy();
     expect(fs.existsSync(path.join(tempDir, healthArtifact?.path ?? 'missing'))).toBe(true);
+  });
+
+  it('tears down services that were started by deterministic execution', async () => {
+    const tempDir = createTempDir();
+    const projectPath = path.join(tempDir, 'project.json');
+    const topologyPath = path.join(tempDir, 'topology.json');
+
+    fs.writeFileSync(projectPath, JSON.stringify({
+      spec2flow: {
+        services: {
+          worker: {
+            path: 'services/worker',
+            start: `node -e "require('node:fs').writeFileSync(${JSON.stringify(path.join(tempDir, 'worker.ready'))}, 'ok'); setInterval(() => {}, 1000)"`
+          }
+        }
+      }
+    }, null, 2));
+    fs.writeFileSync(topologyPath, JSON.stringify({
+      topology: {
+        services: [
+          {
+            name: 'worker',
+            kind: 'worker',
+            healthChecks: [
+              {
+                type: 'file',
+                target: 'worker.ready',
+                timeoutSeconds: 1
+              }
+            ]
+          }
+        ]
+      }
+    }, null, 2));
+
+    const orchestration = await runServiceOrchestration({
+      cwd: tempDir,
+      artifactsDir: 'spec2flow/outputs/execution/worker-smoke',
+      entryServices: ['worker'],
+      projectAdapterRef: 'project.json',
+      topologyRef: 'topology.json'
+    });
+
+    expect(orchestration.managedServices).toHaveLength(1);
+
+    const teardown = await teardownManagedServices({
+      cwd: tempDir,
+      artifactsDir: 'spec2flow/outputs/execution/worker-smoke',
+      managedServices: orchestration.managedServices,
+      teardownTimeoutSeconds: 2
+    });
+
+    expect(teardown.repositoryGaps).toEqual([]);
+    expect(teardown.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: 'service-teardown' })
+    ]));
   });
 });

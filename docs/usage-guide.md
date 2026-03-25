@@ -86,6 +86,15 @@ For `automated-execution`, that deterministic path now also understands topology
 - it can bring required entry services to a healthy state before command execution
 - it can run route-scoped browser checks and attach HTML or optional Playwright evidence
 - it writes an `execution-evidence-index` artifact that catalogs service, command, and browser evidence in one place
+- it enforces an execution lifecycle policy with timeout and managed-service teardown for services started by Spec2Flow
+
+Route topology can now also declare an optional `executionPolicy` block with:
+
+- `maxDurationSeconds`
+- `teardownPolicy`
+- `teardownTimeoutSeconds`
+
+That policy is routed into the `automated-execution` task input so deterministic execution can stop long-running commands and clean up only the services it started.
 
 The repository's self-dogfood runtime for that path lives at `.spec2flow/model-adapter-runtime.deterministic.json`.
 

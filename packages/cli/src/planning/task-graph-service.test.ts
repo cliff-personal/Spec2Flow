@@ -43,6 +43,11 @@ function createTopologyPayload() {
               expectText: 'Smoke'
             }
           ],
+          executionPolicy: {
+            maxDurationSeconds: 180,
+            teardownPolicy: 'on-failure',
+            teardownTimeoutSeconds: 20
+          },
           requirementSignals: {
             phrases: ['frontend smoke'],
             keywords: ['ui', 'frontend']
@@ -185,6 +190,11 @@ describe('task-graph-service route selection', () => {
       routeName: 'frontend-smoke',
       entryServices: ['frontend'],
       browserAutomationRequired: true,
+      executionPolicy: {
+        maxDurationSeconds: 180,
+        teardownPolicy: 'on-failure',
+        teardownTimeoutSeconds: 20
+      },
       browserChecks: [
         expect.objectContaining({
           id: 'frontend-home',

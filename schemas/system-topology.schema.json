@@ -103,6 +103,9 @@
           "type": "array",
           "items": { "$ref": "#/$defs/browserCheck" }
         },
+        "executionPolicy": {
+          "$ref": "#/$defs/executionPolicy"
+        },
         "requirementSignals": {
           "type": "object",
           "additionalProperties": false,
@@ -135,6 +138,19 @@
         "captureTrace": { "type": "boolean", "default": false },
         "captureVideo": { "type": "boolean", "default": false },
         "required": { "type": "boolean", "default": false }
+      }
+    },
+    "executionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxDurationSeconds": { "type": "integer", "minimum": 1, "default": 900 },
+        "teardownPolicy": {
+          "type": "string",
+          "enum": ["always", "on-failure", "never"],
+          "default": "always"
+        },
+        "teardownTimeoutSeconds": { "type": "integer", "minimum": 1, "default": 15 }
       }
     }
   }

@@ -413,7 +413,12 @@ function buildRouteTaskBundle(
         routeName: route.name,
         entryServices: route.entryServices,
         browserAutomationRequired: routeRequiresBrowserAutomation(routeServiceKinds),
-        browserChecks: route.browserChecks ?? []
+        browserChecks: route.browserChecks ?? [],
+        executionPolicy: route.executionPolicy ?? {
+          maxDurationSeconds: 900,
+          teardownPolicy: 'always',
+          teardownTimeoutSeconds: 15
+        }
       },
       targetFiles: routeTargetFiles,
       artifactsDir,
@@ -456,7 +461,12 @@ function buildRouteTaskBundle(
         routeName: route.name,
         entryServices: route.entryServices,
         browserAutomationRequired: routeRequiresBrowserAutomation(routeServiceKinds),
-        browserChecks: route.browserChecks ?? []
+        browserChecks: route.browserChecks ?? [],
+        executionPolicy: route.executionPolicy ?? {
+          maxDurationSeconds: 900,
+          teardownPolicy: 'always',
+          teardownTimeoutSeconds: 15
+        }
       },
       targetFiles: routeTargetFiles,
       verifyCommands: routeVerifyCommands,
