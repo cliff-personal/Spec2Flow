@@ -19,6 +19,8 @@ function createSnapshot(): PlatformRunStateSnapshot {
       updatedAt: '2026-03-24T10:06:00.000Z',
       startedAt: '2026-03-24T10:00:10.000Z'
     },
+    project: null,
+    workspace: null,
     tasks: [
       {
         runId: 'run-1',

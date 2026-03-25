@@ -6,11 +6,14 @@ import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
   PlatformPublicationRecord,
+  PlatformProjectRecord,
   PlatformRepairAttemptRecord,
   PlatformRunRecord,
   PlatformRunStateSnapshot,
+  PlatformRunWorkspaceRecord,
   PlatformTaskLeaseRecord,
   PlatformTaskRecord,
+  PlatformWorkspacePolicy,
   PlatformWorkerIdentity
 } from '../types/platform-persistence.js';
 import type { ReviewPolicy } from '../types/review-policy.js';
@@ -115,6 +118,35 @@ interface PlatformPublicationRow extends Record<string, unknown> {
   metadata: Record<string, unknown>;
   created_at: Date | string | null;
   updated_at: Date | string | null;
+}
+
+interface PlatformRunProjectWorkspaceRow extends Record<string, unknown> {
+  project_id: string | null;
+  project_repository_id: string | null;
+  project_name: string | null;
+  project_repository_root_path: string | null;
+  project_workspace_root_path: string | null;
+  project_path: string | null;
+  topology_path: string | null;
+  risk_path: string | null;
+  project_default_branch: string | null;
+  project_branch_prefix: string | null;
+  project_workspace_policy: PlatformWorkspacePolicy | null;
+  project_metadata: Record<string, unknown> | null;
+  project_created_at: Date | string | null;
+  project_updated_at: Date | string | null;
+  workspace_run_id: string | null;
+  workspace_repository_id: string | null;
+  worktree_mode: PlatformRunWorkspaceRecord['worktreeMode'] | null;
+  provisioning_status: PlatformRunWorkspaceRecord['provisioningStatus'] | null;
+  branch_name: string | null;
+  base_branch: string | null;
+  workspace_root_path: string | null;
+  worktree_path: string | null;
+  workspace_policy: PlatformWorkspacePolicy | null;
+  workspace_metadata: Record<string, unknown> | null;
+  workspace_created_at: Date | string | null;
+  workspace_updated_at: Date | string | null;
 }
 
 export interface LeaseNextPlatformTaskOptions extends PlatformWorkerIdentity {
@@ -305,6 +337,66 @@ function mapPlatformArtifactRow(row: PlatformArtifactRow): PlatformArtifactRecor
     schemaType: row.schema_type,
     metadata: row.metadata ?? {},
     createdAt: normalizeTimestamp(row.created_at)
+  };
+}
+
+function mapProjectWorkspaceContext(
+  row: PlatformRunProjectWorkspaceRow | null
+): Pick<PlatformRunStateSnapshot, 'project' | 'workspace'> {
+  if (!row?.project_id || !row.project_repository_id || !row.project_name || !row.project_repository_root_path || !row.project_workspace_root_path) {
+    return {
+      project: null,
+      workspace: null
+    };
+  }
+
+  const project: PlatformProjectRecord = {
+    projectId: row.project_id,
+    repositoryId: row.project_repository_id,
+    name: row.project_name,
+    repositoryRootPath: row.project_repository_root_path,
+    workspaceRootPath: row.project_workspace_root_path,
+    projectPath: row.project_path,
+    topologyPath: row.topology_path,
+    riskPath: row.risk_path,
+    defaultBranch: row.project_default_branch,
+    branchPrefix: row.project_branch_prefix,
+    workspacePolicy: row.project_workspace_policy ?? {
+      allowedReadGlobs: ['**/*'],
+      allowedWriteGlobs: ['**/*'],
+      forbiddenWriteGlobs: []
+    },
+    metadata: row.project_metadata ?? {},
+    createdAt: normalizeTimestamp(row.project_created_at),
+    updatedAt: normalizeTimestamp(row.project_updated_at)
+  };
+
+  if (!row.workspace_run_id || !row.workspace_repository_id || !row.worktree_mode || !row.provisioning_status || !row.workspace_root_path || !row.worktree_path) {
+    return {
+      project,
+      workspace: null
+    };
+  }
+
+  const workspace: PlatformRunWorkspaceRecord = {
+    runId: row.workspace_run_id,
+    projectId: row.project_id,
+    repositoryId: row.workspace_repository_id,
+    worktreeMode: row.worktree_mode,
+    provisioningStatus: row.provisioning_status,
+    branchName: row.branch_name,
+    baseBranch: row.base_branch,
+    workspaceRootPath: row.workspace_root_path,
+    worktreePath: row.worktree_path,
+    workspacePolicy: row.workspace_policy ?? project.workspacePolicy,
+    metadata: row.workspace_metadata ?? {},
+    createdAt: normalizeTimestamp(row.workspace_created_at),
+    updatedAt: normalizeTimestamp(row.workspace_updated_at)
+  };
+
+  return {
+    project,
+    workspace
   };
 }
 
@@ -864,6 +956,45 @@ export async function getPlatformRunState(
     `,
     [options.runId]
   );
+  const projectWorkspaceResult = await executor.query<PlatformRunProjectWorkspaceRow>(
+    `
+      SELECT
+        projects.project_id,
+        projects.repository_id AS project_repository_id,
+        projects.name AS project_name,
+        projects.repository_root_path AS project_repository_root_path,
+        projects.workspace_root_path AS project_workspace_root_path,
+        projects.project_path,
+        projects.topology_path,
+        projects.risk_path,
+        projects.default_branch AS project_default_branch,
+        projects.branch_prefix AS project_branch_prefix,
+        projects.workspace_policy AS project_workspace_policy,
+        projects.metadata AS project_metadata,
+        projects.created_at AS project_created_at,
+        projects.updated_at AS project_updated_at,
+        run_workspaces.run_id AS workspace_run_id,
+        run_workspaces.repository_id AS workspace_repository_id,
+        run_workspaces.worktree_mode,
+        run_workspaces.provisioning_status,
+        run_workspaces.branch_name,
+        run_workspaces.base_branch,
+        run_workspaces.workspace_root_path,
+        run_workspaces.worktree_path,
+        run_workspaces.workspace_policy,
+        run_workspaces.metadata AS workspace_metadata,
+        run_workspaces.created_at AS workspace_created_at,
+        run_workspaces.updated_at AS workspace_updated_at
+      FROM ${quotedSchema}.runs AS runs
+      LEFT JOIN ${quotedSchema}.run_workspaces AS run_workspaces
+        ON run_workspaces.run_id = runs.run_id
+      LEFT JOIN ${quotedSchema}.projects AS projects
+        ON projects.project_id = run_workspaces.project_id
+      WHERE runs.run_id = $1
+      LIMIT 1
+    `,
+    [options.runId]
+  );
   const eventResult = await executor.query<PlatformEventRow>(
     `
       SELECT *
@@ -902,8 +1033,15 @@ export async function getPlatformRunState(
     [options.runId]
   );
 
+  const run = runResult.rows[0] ? mapPlatformRunRow(runResult.rows[0]) : null;
+  const projectWorkspace = run
+    ? mapProjectWorkspaceContext(projectWorkspaceResult.rows[0] ?? null)
+    : { project: null, workspace: null };
+
   return {
-    run: runResult.rows[0] ? mapPlatformRunRow(runResult.rows[0]) : null,
+    run,
+    project: projectWorkspace.project,
+    workspace: projectWorkspace.workspace,
     tasks: taskResult.rows.map((row) => mapPlatformTaskRow(row)),
     recentEvents: eventResult.rows.map((row) => mapPlatformEventRow(row)),
     artifacts: artifactResult.rows.map((row) => mapPlatformArtifactRow(row)),

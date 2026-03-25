@@ -186,7 +186,10 @@ The PostgreSQL commands are:
 - `start-platform-task`: transition one leased task into `in-progress`
 - `expire-platform-leases`: requeue or block stale leased work after timeout
 - `get-platform-run-state`: read one DB-backed run snapshot with tasks, events, and artifacts
+- `register-platform-project`: upsert one project registry entry with workspace policy and branch defaults
 - `serve-platform-control-plane`: start the first HTTP backend for the future web control plane
+- `GET /api/projects`: list registered projects with repository and workspace metadata
+- `POST /api/projects`: register one project before run intake
 - `GET /api/runs/:runId/tasks/:taskId/artifact-catalog`: read one task-scoped execution artifact catalog from the control plane
 - `GET /artifacts/:objectKey`: serve one local-fs artifact through the control plane when `artifactStore.publicBaseUrl` points at `/artifacts/`
 - `run-platform-worker-task`: materialize one leased DB-backed task into a worker claim, execute it, and persist the result back to PostgreSQL
@@ -244,6 +247,19 @@ npm run get:platform-run-state -- \
   --database-schema spec2flow_platform \
   --run-id spec2flow-platform-phase2
 
+npm run spec2flow -- register-platform-project \
+  --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
+  --database-schema spec2flow_platform \
+  --repo-root . \
+  --project .spec2flow/project.yaml \
+  --topology .spec2flow/topology.yaml \
+  --risk .spec2flow/policies/risk.yaml \
+  --project-name Spec2Flow \
+  --workspace-root . \
+  --branch-prefix spec2flow/ \
+  --allowed-read-globs "**/*" \
+  --allowed-write-globs "src/**,docs/**"
+
 npm run serve:platform-control-plane -- \
   --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \
   --database-schema spec2flow_platform \
@@ -287,7 +303,10 @@ Phase 2 adds scheduler-safe task runtime semantics on top of that schema:
 - stale leases can be recovered without editing JSON files by running `expire-platform-leases`
 - `get-platform-run-state` exposes the DB-backed run snapshot needed for future workers and web control-plane surfaces
 - `serve-platform-control-plane` exposes the first backend HTTP surface for health checks, run submission, run lists, run detail, task detail, observability snapshots, and task-level operator actions for retry and approval
+- run lists, run detail, and DB-backed run snapshots now surface `project`, `workspace`, `branch`, and `worktree` metadata explicitly instead of burying them in raw run request payloads
+- `register-platform-project` and `POST /api/projects` let operators register projects and workspace policy before creating runs
 - `POST /api/runs` accepts `repositoryRootPath` plus optional `projectId`, `projectName`, `workspaceRootPath`, `branchPrefix`, `worktreeRootPath`, `worktreeMode`, `workspacePolicy`, `projectPath`, `topologyPath`, `riskPath`, `requirement`, `requirementPath`, `changedFiles`, and repository metadata overrides; onboarding files default to `.spec2flow/project.yaml`, `.spec2flow/topology.yaml`, and `.spec2flow/policies/risk.yaml` relative to `repositoryRootPath`
+- `POST /api/projects` accepts `repositoryRootPath` plus optional `projectId`, `projectName`, `workspaceRootPath`, `projectPath`, `topologyPath`, `riskPath`, `repositoryId`, `repositoryName`, `defaultBranch`, `branchPrefix`, and `workspacePolicy`
 - run submission now provisions a project-scoped workspace binding, writes a run-scoped `task-graph.json` into the run worktree, and persists both `projects` and `run_workspaces` metadata alongside the platform run
 - DB-backed worker claims now carry `workspace` context and default deterministic or adapter execution into the run worktree instead of the controller repo cwd
 - `packages/web` now contains the first frontend shell for that API surface, and `npm run web:dev` expects the backend to be available at `http://127.0.0.1:4310` unless `VITE_CONTROL_PLANE_BASE_URL` overrides it

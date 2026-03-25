@@ -11,10 +11,18 @@ export interface RunListItem {
   repositoryId: string;
   repositoryName: string;
   repositoryRootPath: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  workspaceRootPath?: string | null;
   workflowName: string;
   status: PlatformRunStatus;
   currentStage: string | null;
   riskLevel: string | null;
+  branchName?: string | null;
+  baseBranch?: string | null;
+  worktreeMode?: 'managed' | 'none' | null;
+  worktreePath?: string | null;
+  provisioningStatus?: 'provisioned' | 'skipped' | null;
   createdAt: string | null;
   updatedAt: string | null;
   startedAt: string | null;
@@ -181,6 +189,39 @@ export interface RunDetail {
       currentStage: string | null;
       riskLevel: string | null;
     };
+    project: {
+      projectId: string;
+      repositoryId: string;
+      name: string;
+      repositoryRootPath: string;
+      workspaceRootPath: string;
+      projectPath?: string | null;
+      topologyPath?: string | null;
+      riskPath?: string | null;
+      defaultBranch?: string | null;
+      branchPrefix?: string | null;
+      workspacePolicy: {
+        allowedReadGlobs: string[];
+        allowedWriteGlobs: string[];
+        forbiddenWriteGlobs: string[];
+      };
+    } | null;
+    workspace: {
+      runId: string;
+      projectId: string;
+      repositoryId: string;
+      worktreeMode: 'managed' | 'none';
+      provisioningStatus: 'provisioned' | 'skipped';
+      branchName?: string | null;
+      baseBranch?: string | null;
+      workspaceRootPath: string;
+      worktreePath: string;
+      workspacePolicy: {
+        allowedReadGlobs: string[];
+        allowedWriteGlobs: string[];
+        forbiddenWriteGlobs: string[];
+      };
+    } | null;
     tasks: PlatformTaskRecord[];
     recentEvents: Array<{
       eventId: string;
@@ -212,9 +253,12 @@ export interface RunSubmissionPayload {
 export interface RunSubmissionResult {
   platformRun: {
     schema: string;
+    projectId: string;
+    projectName: string;
     repositoryId: string;
     repositoryName: string;
     repositoryRootPath: string;
+    workspaceRootPath: string;
     runId: string;
     workflowName: string;
     taskCount: number;
@@ -223,6 +267,11 @@ export interface RunSubmissionResult {
     status: PlatformRunStatus;
     currentStage: string | null;
     riskLevel: string | null;
+    branchName?: string | null;
+    baseBranch?: string | null;
+    worktreeMode: 'managed' | 'none';
+    worktreePath: string;
+    provisioningStatus: 'provisioned' | 'skipped';
   };
   taskGraph: {
     graphId: string;

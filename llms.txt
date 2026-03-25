@@ -49,8 +49,10 @@ Mandatory repository intake rule for AI agents:
 
 - [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
 - PostgreSQL worker runtime commands now include `run-platform-worker-task` plus stage-locked worker entrypoints for requirements, implementation, test design, execution, defect, and collaboration.
-- `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, run list, run detail, task list, observability endpoints, task-level retry/approval operator actions, real run-level pause/resume actions, and `/artifacts/<objectKey>` serving for local-fs execution evidence.
+- `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, project list and registration, run list, run detail, task list, observability endpoints, task-level retry/approval operator actions, real run-level pause/resume actions, and `/artifacts/<objectKey>` serving for local-fs execution evidence.
 - `POST /api/runs` and `packages/cli/src/platform/platform-control-plane-run-submission-service.ts` now also persist `projects` and `run_workspaces`, provision run-scoped worktrees, and write a run-local task-graph artifact for DB-backed workers.
+- `register-platform-project`, `GET /api/projects`, and `POST /api/projects` now provide the first explicit project registry surface for local-first project/workspace setup.
+- `get-platform-run-state`, run list, and run detail now expose `project`, `workspace`, `branch`, and `worktree` metadata as explicit read-model fields instead of only raw request payload blobs.
 - `packages/web` now contains the first React-based frontend shell for the web control plane, and `web:dev` starts that shell against the control-plane HTTP API.
 - `run-platform-worker-task` now renews its own lease during execution and stops when lease ownership is lost or heartbeat failures exceed the configured threshold.
 - Auto-repair policy fields now flow from `risk-policy.schema.json` into task `reviewPolicy`; downstream rerun invalidation and repair escalation are decided by `packages/cli/src/runtime/auto-repair-policy-service.ts`, and PostgreSQL-backed runs persist repair attempts plus escalation events through `packages/cli/src/platform/platform-auto-repair-service.ts`.

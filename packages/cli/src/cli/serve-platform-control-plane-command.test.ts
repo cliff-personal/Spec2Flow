@@ -66,9 +66,31 @@ describe('serve-platform-control-plane-command', () => {
       getPlatformControlPlaneRunObservability: vi.fn(async () => null),
       getPlatformControlPlaneTaskArtifactCatalog: vi.fn(async () => null),
       getPlatformControlPlaneRunTasks: vi.fn(async () => null),
+      listPlatformProjects: vi.fn(async () => []),
       listPlatformRuns: vi.fn(async () => []),
       pausePlatformControlPlaneRun: vi.fn(async () => null),
       rejectPlatformControlPlaneTask: vi.fn(async () => null),
+      registerPlatformProject: vi.fn(async () => ({
+        schema: 'spec2flow_platform',
+        repository: {
+          repositoryId: 'spec2flow',
+          repositoryName: 'Spec2Flow',
+          repositoryRootPath: '/workspace/Spec2Flow',
+          defaultBranch: 'main'
+        },
+        project: {
+          projectId: 'spec2flow-local',
+          repositoryId: 'spec2flow',
+          name: 'Spec2Flow',
+          repositoryRootPath: '/workspace/Spec2Flow',
+          workspaceRootPath: '/workspace/Spec2Flow',
+          workspacePolicy: {
+            allowedReadGlobs: ['**/*'],
+            allowedWriteGlobs: ['**/*'],
+            forbiddenWriteGlobs: []
+          }
+        }
+      })),
       resolvePlatformDatabaseConfig: vi.fn(() => ({
         connectionString: 'postgresql://local/spec2flow',
         schema: 'spec2flow_platform'

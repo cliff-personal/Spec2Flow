@@ -41,6 +41,8 @@ export interface PlatformProjectRecord {
   branchPrefix?: string | null;
   workspacePolicy: PlatformWorkspacePolicy;
   metadata?: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export type PlatformRunWorkspaceMode = 'managed' | 'none';
@@ -176,6 +178,8 @@ export interface PlatformArtifactRecord {
 
 export interface PlatformRunStateSnapshot {
   run: PlatformRunRecord | null;
+  project: PlatformProjectRecord | null;
+  workspace: PlatformRunWorkspaceRecord | null;
   tasks: PlatformTaskRecord[];
   recentEvents: PlatformEventRecord[];
   artifacts: PlatformArtifactRecord[];

@@ -32,7 +32,8 @@ export function RunsPanel(
           >
             <div>
               <strong>{run.workflowName}</strong>
-              <span>{run.repositoryName}</span>
+              <span>{run.projectName ?? run.repositoryName}</span>
+              <span>{run.branchName ?? run.repositoryRootPath}</span>
             </div>
             <div>
               <StatusPill value={run.status} />

@@ -60,10 +60,18 @@ describe('platform-control-plane-service', () => {
             repository_id: 'spec2flow',
             repository_name: 'Spec2Flow',
             repository_root_path: '/workspace/Spec2Flow',
+            project_id: 'spec2flow-local',
+            project_name: 'Spec2Flow Local',
+            workspace_root_path: '/workspace/Spec2Flow',
             workflow_name: 'platform-flow',
             status: 'running',
             current_stage: 'collaboration',
             risk_level: 'high',
+            branch_name: 'spec2flow/run-1',
+            base_branch: 'main',
+            worktree_mode: 'managed',
+            worktree_path: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+            provisioning_status: 'provisioned',
             created_at: '2026-03-24T12:00:00.000Z',
             updated_at: '2026-03-24T12:05:00.000Z',
             started_at: '2026-03-24T12:00:10.000Z',
@@ -80,7 +88,10 @@ describe('platform-control-plane-service', () => {
 
     expect(result).toEqual([expect.objectContaining({
       runId: 'run-1',
+      projectId: 'spec2flow-local',
+      projectName: 'Spec2Flow Local',
       repositoryName: 'Spec2Flow',
+      branchName: 'spec2flow/run-1',
       status: 'running'
     })]);
   });
@@ -156,6 +167,48 @@ describe('platform-control-plane-service', () => {
         }
       },
       {
+        match: 'FROM "spec2flow_platform".runs AS runs',
+        result: {
+          rows: [{
+            project_id: 'spec2flow-local',
+            project_repository_id: 'spec2flow',
+            project_name: 'Spec2Flow Local',
+            project_repository_root_path: '/workspace/Spec2Flow',
+            project_workspace_root_path: '/workspace/Spec2Flow',
+            project_path: '/workspace/Spec2Flow/project.json',
+            topology_path: '/workspace/Spec2Flow/topology.yaml',
+            risk_path: '/workspace/Spec2Flow/risk.yaml',
+            project_default_branch: 'main',
+            project_branch_prefix: 'spec2flow/',
+            project_workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            project_metadata: {},
+            project_created_at: '2026-03-24T11:59:00.000Z',
+            project_updated_at: '2026-03-24T11:59:00.000Z',
+            workspace_run_id: 'run-1',
+            workspace_repository_id: 'spec2flow',
+            worktree_mode: 'managed',
+            provisioning_status: 'provisioned',
+            branch_name: 'spec2flow/run-1',
+            base_branch: 'main',
+            workspace_root_path: '/workspace/Spec2Flow',
+            worktree_path: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+            workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            workspace_metadata: {},
+            workspace_created_at: '2026-03-24T12:00:00.000Z',
+            workspace_updated_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
         match: 'FROM "spec2flow_platform".events',
         result: {
           rows: [{
@@ -211,7 +264,9 @@ describe('platform-control-plane-service', () => {
 
     expect(result).toEqual(expect.objectContaining({
       runState: expect.objectContaining({
-        run: expect.objectContaining({ runId: 'run-1' })
+        run: expect.objectContaining({ runId: 'run-1' }),
+        project: expect.objectContaining({ projectId: 'spec2flow-local' }),
+        workspace: expect.objectContaining({ branchName: 'spec2flow/run-1' })
       }),
       platformObservability: expect.objectContaining({
         approvals: expect.arrayContaining([
@@ -326,6 +381,10 @@ describe('platform-control-plane-service', () => {
           }],
           rowCount: 1
         }
+      },
+      {
+        match: 'FROM "spec2flow_platform".runs AS runs',
+        result: { rows: [], rowCount: 0 }
       },
       {
         match: 'FROM "spec2flow_platform".events',

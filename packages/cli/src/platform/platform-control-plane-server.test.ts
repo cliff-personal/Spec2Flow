@@ -23,14 +23,42 @@ describe('platform-control-plane-server', () => {
         repositoryId: 'spec2flow',
         repositoryName: 'Spec2Flow',
         repositoryRootPath: '/workspace/Spec2Flow',
+        projectId: 'spec2flow-local',
+        projectName: 'Spec2Flow Local',
+        workspaceRootPath: '/workspace/Spec2Flow',
         workflowName: 'platform-flow',
         status: 'running',
         currentStage: 'collaboration',
         riskLevel: 'high',
+        branchName: 'spec2flow/run-1',
+        baseBranch: 'main',
+        worktreeMode: 'managed',
+        worktreePath: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+        provisioningStatus: 'provisioned',
         createdAt: '2026-03-24T12:00:00.000Z',
         updatedAt: '2026-03-24T12:05:00.000Z',
         startedAt: '2026-03-24T12:00:10.000Z',
         completedAt: null
+      }],
+      listPlatformProjects: async () => [{
+        projectId: 'spec2flow-local',
+        projectName: 'Spec2Flow Local',
+        repositoryId: 'spec2flow',
+        repositoryName: 'Spec2Flow',
+        repositoryRootPath: '/workspace/Spec2Flow',
+        workspaceRootPath: '/workspace/Spec2Flow',
+        projectPath: '/workspace/Spec2Flow/project.json',
+        topologyPath: '/workspace/Spec2Flow/topology.yaml',
+        riskPath: '/workspace/Spec2Flow/risk.yaml',
+        defaultBranch: 'main',
+        branchPrefix: 'spec2flow/',
+        workspacePolicy: {
+          allowedReadGlobs: ['**/*'],
+          allowedWriteGlobs: ['src/**'],
+          forbiddenWriteGlobs: ['.git/**']
+        },
+        createdAt: '2026-03-24T12:00:00.000Z',
+        updatedAt: '2026-03-24T12:00:00.000Z'
       }],
       getPlatformControlPlaneRunDetail: async () => ({
         runState: {
@@ -41,6 +69,39 @@ describe('platform-control-plane-server', () => {
             status: 'running',
             currentStage: 'collaboration',
             riskLevel: 'high'
+          },
+          project: {
+            projectId: 'spec2flow-local',
+            repositoryId: 'spec2flow',
+            name: 'Spec2Flow Local',
+            repositoryRootPath: '/workspace/Spec2Flow',
+            workspaceRootPath: '/workspace/Spec2Flow',
+            projectPath: '/workspace/Spec2Flow/project.json',
+            topologyPath: '/workspace/Spec2Flow/topology.yaml',
+            riskPath: '/workspace/Spec2Flow/risk.yaml',
+            defaultBranch: 'main',
+            branchPrefix: 'spec2flow/',
+            workspacePolicy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            }
+          },
+          workspace: {
+            runId: 'run-1',
+            projectId: 'spec2flow-local',
+            repositoryId: 'spec2flow',
+            worktreeMode: 'managed',
+            provisioningStatus: 'provisioned',
+            branchName: 'spec2flow/run-1',
+            baseBranch: 'main',
+            workspaceRootPath: '/workspace/Spec2Flow',
+            worktreePath: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+            workspacePolicy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            }
           },
           tasks: [],
           recentEvents: [],
@@ -276,6 +337,32 @@ describe('platform-control-plane-server', () => {
           }
         }
       }),
+      registerPlatformProject: async () => ({
+        schema: 'spec2flow_platform',
+        repository: {
+          repositoryId: 'spec2flow',
+          repositoryName: 'Spec2Flow',
+          repositoryRootPath: '/workspace/Spec2Flow',
+          defaultBranch: 'main'
+        },
+        project: {
+          projectId: 'spec2flow-local',
+          repositoryId: 'spec2flow',
+          name: 'Spec2Flow Local',
+          repositoryRootPath: '/workspace/Spec2Flow',
+          workspaceRootPath: '/workspace/Spec2Flow',
+          projectPath: '/workspace/Spec2Flow/project.json',
+          topologyPath: '/workspace/Spec2Flow/topology.yaml',
+          riskPath: '/workspace/Spec2Flow/risk.yaml',
+          defaultBranch: 'main',
+          branchPrefix: 'spec2flow/',
+          workspacePolicy: {
+            allowedReadGlobs: ['**/*'],
+            allowedWriteGlobs: ['src/**'],
+            forbiddenWriteGlobs: ['.git/**']
+          }
+        }
+      }),
       retryPlatformTask: async () => ({
         action: 'retry',
         runId: 'run-1',
@@ -329,7 +416,30 @@ describe('platform-control-plane-server', () => {
     const runListResponse = await fetch(`${baseUrl}/api/runs`);
     expect(runListResponse.status).toBe(200);
     expect(await runListResponse.json()).toEqual(expect.objectContaining({
-      runs: expect.arrayContaining([expect.objectContaining({ runId: 'run-1' })])
+      runs: expect.arrayContaining([expect.objectContaining({ runId: 'run-1', projectId: 'spec2flow-local' })])
+    }));
+
+    const projectListResponse = await fetch(`${baseUrl}/api/projects`);
+    expect(projectListResponse.status).toBe(200);
+    expect(await projectListResponse.json()).toEqual(expect.objectContaining({
+      projects: expect.arrayContaining([expect.objectContaining({ projectId: 'spec2flow-local' })])
+    }));
+
+    const projectRegistrationResponse = await fetch(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        repositoryRootPath: '/workspace/Spec2Flow',
+        projectName: 'Spec2Flow Local'
+      })
+    });
+    expect(projectRegistrationResponse.status).toBe(201);
+    expect(await projectRegistrationResponse.json()).toEqual(expect.objectContaining({
+      projectRegistration: expect.objectContaining({
+        project: expect.objectContaining({ projectId: 'spec2flow-local' })
+      })
     }));
 
     const runSubmissionResponse = await fetch(`${baseUrl}/api/runs`, {
@@ -355,7 +465,9 @@ describe('platform-control-plane-server', () => {
     expect(await runDetailResponse.json()).toEqual(expect.objectContaining({
       run: expect.objectContaining({
         runState: expect.objectContaining({
-          run: expect.objectContaining({ runId: 'run-1' })
+          run: expect.objectContaining({ runId: 'run-1' }),
+          project: expect.objectContaining({ projectId: 'spec2flow-local' }),
+          workspace: expect.objectContaining({ branchName: 'spec2flow/run-1' })
         })
       })
     }));
@@ -433,6 +545,7 @@ describe('platform-control-plane-server', () => {
       port: 0,
       eventLimit: 20,
       listPlatformRuns: async () => [],
+      listPlatformProjects: async () => [],
       getPlatformControlPlaneRunDetail: async () => null,
       getPlatformControlPlaneRunTasks: async () => null,
       getPlatformControlPlaneRunObservability: async () => null,
@@ -477,6 +590,9 @@ describe('platform-control-plane-server', () => {
           }
         }
       }),
+      registerPlatformProject: async () => {
+        throw new Error('unreachable');
+      },
       retryPlatformTask: async () => null,
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null,
@@ -507,12 +623,16 @@ describe('platform-control-plane-server', () => {
       port: 0,
       eventLimit: 20,
       listPlatformRuns: async () => [],
+      listPlatformProjects: async () => [],
       getPlatformControlPlaneRunDetail: async () => null,
       getPlatformControlPlaneRunTasks: async () => null,
       getPlatformControlPlaneRunObservability: async () => null,
       getPlatformControlPlaneTaskArtifactCatalog: async () => null,
       getPlatformControlPlaneLocalArtifactContent: async () => null,
       submitPlatformRun: async () => {
+        throw new Error('unreachable');
+      },
+      registerPlatformProject: async () => {
         throw new Error('unreachable');
       },
       retryPlatformTask: async () => null,

@@ -21,10 +21,18 @@ interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   repository_id: string;
   repository_name: string;
   repository_root_path: string;
+  project_id: string | null;
+  project_name: string | null;
+  workspace_root_path: string | null;
   workflow_name: string;
   status: PlatformRunStatus;
   current_stage: TaskStage | null;
   risk_level: RiskLevel | null;
+  branch_name: string | null;
+  base_branch: string | null;
+  worktree_mode: 'managed' | 'none' | null;
+  worktree_path: string | null;
+  provisioning_status: 'provisioned' | 'skipped' | null;
   created_at: Date | string | null;
   updated_at: Date | string | null;
   started_at: Date | string | null;
@@ -77,10 +85,18 @@ function mapRunRow(row: PlatformControlPlaneRunRow): PlatformControlPlaneRunList
     repositoryId: row.repository_id,
     repositoryName: row.repository_name,
     repositoryRootPath: row.repository_root_path,
+    projectId: row.project_id,
+    projectName: row.project_name,
+    workspaceRootPath: row.workspace_root_path,
     workflowName: row.workflow_name,
     status: row.status,
     currentStage: row.current_stage,
     riskLevel: row.risk_level,
+    branchName: row.branch_name,
+    baseBranch: row.base_branch,
+    worktreeMode: row.worktree_mode,
+    worktreePath: row.worktree_path,
+    provisioningStatus: row.provisioning_status,
     createdAt: normalizeTimestamp(row.created_at),
     updatedAt: normalizeTimestamp(row.updated_at),
     startedAt: normalizeTimestamp(row.started_at),
@@ -152,10 +168,18 @@ export async function listPlatformRuns(
         runs.repository_id,
         repositories.name AS repository_name,
         repositories.root_path AS repository_root_path,
+        projects.project_id,
+        projects.name AS project_name,
+        run_workspaces.workspace_root_path,
         runs.workflow_name,
         runs.status,
         runs.current_stage,
         runs.risk_level,
+        run_workspaces.branch_name,
+        run_workspaces.base_branch,
+        run_workspaces.worktree_mode,
+        run_workspaces.worktree_path,
+        run_workspaces.provisioning_status,
         runs.created_at,
         runs.updated_at,
         runs.started_at,
@@ -163,6 +187,10 @@ export async function listPlatformRuns(
       FROM ${quotedSchema}.runs AS runs
       INNER JOIN ${quotedSchema}.repositories AS repositories
         ON repositories.repository_id = runs.repository_id
+      LEFT JOIN ${quotedSchema}.run_workspaces AS run_workspaces
+        ON run_workspaces.run_id = runs.run_id
+      LEFT JOIN ${quotedSchema}.projects AS projects
+        ON projects.project_id = run_workspaces.project_id
       ${whereSql}
       ORDER BY runs.created_at DESC, runs.run_id DESC
       LIMIT $${values.length}

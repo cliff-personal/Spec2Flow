@@ -25,6 +25,8 @@ describe('get-platform-run-state-command', () => {
       fail: vi.fn(),
       getPlatformRunState: vi.fn(async () => ({
         run: null,
+        project: null,
+        workspace: null,
         tasks: [],
         recentEvents: [],
         artifacts: [],
@@ -43,6 +45,8 @@ describe('get-platform-run-state-command', () => {
     expect(writeJson).toHaveBeenCalledWith('generated/platform-run-state.json', {
       platformRunState: {
         run: null,
+        project: null,
+        workspace: null,
         tasks: [],
         recentEvents: [],
         artifacts: [],

@@ -26,6 +26,7 @@ import { runInitExecutionState } from './init-execution-state-command.js';
 import { runLeaseNextPlatformTask, type PlatformTaskLeaseDocument } from './lease-next-platform-task-command.js';
 import { runMigratePlatformDb, type PlatformMigrationReportDocument } from './migrate-platform-db-command.js';
 import { runPreflightCopilotCli } from './preflight-copilot-cli-command.js';
+import { runRegisterPlatformProject, type PlatformProjectRegistrationDocument } from './register-platform-project-command.js';
 import { runTaskWithAdapter, type AdapterTaskRunDocument } from './run-task-with-adapter-command.js';
 import { runDeterministicTaskCommand } from './run-deterministic-task-command.js';
 import { runPlatformWorkerTask, type PlatformWorkerRunDocument } from './run-platform-worker-task-command.js';
@@ -45,6 +46,7 @@ import {
   getPlatformControlPlaneRunTasks,
   listPlatformRuns
 } from '../platform/platform-control-plane-service.js';
+import { listPlatformProjects, registerPlatformProject } from '../platform/platform-project-service.js';
 import {
   approvePlatformControlPlaneTask,
   pausePlatformControlPlaneRun,
@@ -66,7 +68,7 @@ export interface DistCommandHandlerDependencies {
   fail: (message: string) => void;
   getRouteNameFromTaskId: (taskId: string | null | undefined) => string;
   parseCsvOption: (value: string | undefined) => string[];
-  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument | PlatformTaskLeaseDocument | PlatformTaskHeartbeatDocument | PlatformTaskStartDocument | PlatformLeaseExpirationSweepDocument | PlatformRunStateDocument | PlatformObservabilityDocument | PlatformWorkerRunDocument) => void;
+  printJson: (value: CopilotPreflightReportDocument | ValidateOnboardingResultDocument | DocsValidationReportDocument | TaskGraphDocument | ExecutionStateDocument | TaskResultDocument | TaskClaimPayload | SimulatedModelRunDocument | AdapterTaskRunDocument | AdapterRunDocument | WorkflowLoopSummaryDocument | PlatformMigrationReportDocument | PlatformRunInitDocument | PlatformTaskLeaseDocument | PlatformTaskHeartbeatDocument | PlatformTaskStartDocument | PlatformLeaseExpirationSweepDocument | PlatformRunStateDocument | PlatformObservabilityDocument | PlatformWorkerRunDocument | PlatformProjectRegistrationDocument) => void;
   readStructuredFile: (filePath: string) => any;
   rootDir: string;
   sanitizeStageName: (stage: string) => string;
@@ -116,6 +118,17 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         getDefaultPlatformMigrationsDir,
         migratePlatformDatabase,
         printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }),
+    'register-platform-project': (options) =>
+      runRegisterPlatformProject(options, {
+        createPlatformPool,
+        fail: dependencies.fail,
+        parseCsvOption: dependencies.parseCsvOption,
+        printJson: dependencies.printJson,
+        registerPlatformProject,
         resolvePlatformDatabaseConfig,
         withPlatformTransaction,
         writeJson: dependencies.writeJson
@@ -190,9 +203,11 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         getPlatformControlPlaneRunObservability,
         getPlatformControlPlaneTaskArtifactCatalog,
         getPlatformControlPlaneRunTasks,
+        listPlatformProjects,
         listPlatformRuns,
         pausePlatformControlPlaneRun,
         rejectPlatformControlPlaneTask,
+        registerPlatformProject,
         resolvePlatformDatabaseConfig,
         resumePlatformControlPlaneRun,
         retryPlatformControlPlaneTask,

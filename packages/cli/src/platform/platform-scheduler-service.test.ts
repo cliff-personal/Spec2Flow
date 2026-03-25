@@ -530,6 +530,48 @@ describe('platform-scheduler-service', () => {
         }
       },
       {
+        match: 'FROM "spec2flow_platform".runs AS runs',
+        result: {
+          rows: [{
+            project_id: 'spec2flow-local',
+            project_repository_id: 'spec2flow',
+            project_name: 'Spec2Flow Local',
+            project_repository_root_path: '/workspace/Spec2Flow',
+            project_workspace_root_path: '/workspace/Spec2Flow',
+            project_path: '/workspace/Spec2Flow/project.yaml',
+            topology_path: '/workspace/Spec2Flow/topology.yaml',
+            risk_path: '/workspace/Spec2Flow/risk.yaml',
+            project_default_branch: 'main',
+            project_branch_prefix: 'spec2flow/',
+            project_workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            project_metadata: {},
+            project_created_at: '2026-03-24T10:00:00.000Z',
+            project_updated_at: '2026-03-24T10:00:00.000Z',
+            workspace_run_id: 'run-1',
+            workspace_repository_id: 'spec2flow',
+            worktree_mode: 'managed',
+            provisioning_status: 'provisioned',
+            branch_name: 'spec2flow/run-1',
+            base_branch: 'main',
+            workspace_root_path: '/workspace/Spec2Flow',
+            worktree_path: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+            workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            workspace_metadata: {},
+            workspace_created_at: '2026-03-24T10:00:00.000Z',
+            workspace_updated_at: '2026-03-24T10:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
         match: 'FROM "spec2flow_platform".events',
         result: {
           rows: [buildEventRow()],
@@ -568,6 +610,14 @@ describe('platform-scheduler-service', () => {
       runId: 'run-1',
       status: 'running',
       currentStage: 'requirements-analysis'
+    });
+    expect(result.project).toMatchObject({
+      projectId: 'spec2flow-local',
+      name: 'Spec2Flow Local'
+    });
+    expect(result.workspace).toMatchObject({
+      branchName: 'spec2flow/run-1',
+      worktreePath: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1'
     });
     expect(result.tasks[0]).toMatchObject({
       taskId: 'task-1',

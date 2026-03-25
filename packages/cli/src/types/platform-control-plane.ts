@@ -1,15 +1,30 @@
 import type { PlatformObservabilityReadModel } from './platform-observability.js';
-import type { PlatformRunRecord, PlatformRunStateSnapshot, PlatformTaskRecord } from './platform-persistence.js';
+import type {
+  PlatformProjectRecord,
+  PlatformRunRecord,
+  PlatformRunStateSnapshot,
+  PlatformRunWorkspaceRecord,
+  PlatformTaskRecord,
+  PlatformWorkspacePolicy
+} from './platform-persistence.js';
 
 export interface PlatformControlPlaneRunListItem {
   runId: string;
   repositoryId: string;
   repositoryName: string;
   repositoryRootPath: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  workspaceRootPath?: string | null;
   workflowName: string;
   status: PlatformRunRecord['status'];
   currentStage: PlatformRunRecord['currentStage'];
   riskLevel: PlatformRunRecord['riskLevel'];
+  branchName?: string | null;
+  baseBranch?: string | null;
+  worktreeMode?: PlatformRunWorkspaceRecord['worktreeMode'] | null;
+  worktreePath?: string | null;
+  provisioningStatus?: PlatformRunWorkspaceRecord['provisioningStatus'] | null;
   createdAt: string | null;
   updatedAt: string | null;
   startedAt: string | null;
@@ -19,6 +34,53 @@ export interface PlatformControlPlaneRunListItem {
 export interface PlatformControlPlaneRunDetail {
   runState: PlatformRunStateSnapshot;
   platformObservability: PlatformObservabilityReadModel;
+}
+
+export interface PlatformControlPlaneProjectListItem {
+  projectId: string;
+  projectName: string;
+  repositoryId: string;
+  repositoryName: string;
+  repositoryRootPath: string;
+  workspaceRootPath: string;
+  projectPath?: string | null;
+  topologyPath?: string | null;
+  riskPath?: string | null;
+  defaultBranch?: string | null;
+  branchPrefix?: string | null;
+  workspacePolicy: PlatformWorkspacePolicy;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface PlatformControlPlaneProjectRegistrationRequest {
+  repositoryRootPath: string;
+  projectId?: string;
+  projectName?: string;
+  workspaceRootPath?: string;
+  projectPath?: string;
+  topologyPath?: string;
+  riskPath?: string;
+  repositoryId?: string;
+  repositoryName?: string;
+  defaultBranch?: string;
+  branchPrefix?: string;
+  workspacePolicy?: {
+    allowedReadGlobs?: string[];
+    allowedWriteGlobs?: string[];
+    forbiddenWriteGlobs?: string[];
+  };
+}
+
+export interface PlatformControlPlaneProjectRegistrationResult {
+  schema: string;
+  repository: {
+    repositoryId: string;
+    repositoryName: string;
+    repositoryRootPath: string;
+    defaultBranch?: string | null;
+  };
+  project: PlatformProjectRecord;
 }
 
 export interface PlatformControlPlaneTaskList {
@@ -173,6 +235,14 @@ export interface PlatformControlPlaneRunActionDocument {
 
 export interface PlatformControlPlaneRunSubmissionDocument {
   runSubmission: PlatformControlPlaneRunSubmissionResult;
+}
+
+export interface PlatformControlPlaneProjectListDocument {
+  projects: PlatformControlPlaneProjectListItem[];
+}
+
+export interface PlatformControlPlaneProjectRegistrationDocument {
+  projectRegistration: PlatformControlPlaneProjectRegistrationResult;
 }
 
 export interface PlatformControlPlaneTaskArtifactCatalogDocument {

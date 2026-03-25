@@ -74,6 +74,8 @@ function createMaterialization(): PlatformWorkerMaterialization {
     },
     snapshot: {
       run: null,
+      project: null,
+      workspace: null,
       tasks: [],
       recentEvents: [],
       artifacts: [],
@@ -142,6 +144,8 @@ function createPersistResult(): PersistPlatformWorkerResult {
     blockedRepairAttempts: 0,
     platformRunState: {
       run: null,
+      project: null,
+      workspace: null,
       tasks: [],
       recentEvents: [],
       artifacts: [],

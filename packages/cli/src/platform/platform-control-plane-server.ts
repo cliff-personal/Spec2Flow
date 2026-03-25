@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type {
+  PlatformControlPlaneProjectListDocument,
+  PlatformControlPlaneProjectListItem,
+  PlatformControlPlaneProjectRegistrationDocument,
+  PlatformControlPlaneProjectRegistrationRequest,
+  PlatformControlPlaneProjectRegistrationResult,
   PlatformControlPlaneTaskArtifactCatalog,
   PlatformControlPlaneRunActionDocument,
   PlatformControlPlaneRunActionResult,
@@ -19,6 +24,7 @@ import type {
 } from '../types/index.js';
 import { PlatformControlPlaneActionError } from './platform-control-plane-action-service.js';
 import { PlatformControlPlaneRunSubmissionError } from './platform-control-plane-run-submission-service.js';
+import { PlatformProjectRegistrationError } from './platform-project-service.js';
 
 export interface StartPlatformControlPlaneServerOptions {
   host?: string;
@@ -29,6 +35,10 @@ export interface StartPlatformControlPlaneServerOptions {
     repositoryId?: string;
     status?: PlatformRunStatus;
   }) => Promise<PlatformControlPlaneRunListItem[]>;
+  listPlatformProjects: (options: {
+    limit: number;
+    repositoryId?: string;
+  }) => Promise<PlatformControlPlaneProjectListItem[]>;
   getPlatformControlPlaneRunDetail: (options: {
     runId: string;
     eventLimit: number;
@@ -56,6 +66,9 @@ export interface StartPlatformControlPlaneServerOptions {
     localPath: string;
     contentType: string;
   } | null>;
+  registerPlatformProject: (
+    options: PlatformControlPlaneProjectRegistrationRequest
+  ) => Promise<PlatformControlPlaneProjectRegistrationResult>;
   submitPlatformRun: (options: PlatformControlPlaneRunSubmissionRequest) => Promise<PlatformControlPlaneRunSubmissionResult>;
   retryPlatformTask: (options: {
     runId: string;
@@ -94,6 +107,7 @@ export interface StartedPlatformControlPlaneServer {
 }
 
 const RUN_DETAIL_ROUTE = /^\/api\/runs\/([^/]+)$/u;
+const PROJECT_LIST_ROUTE = '/api/projects';
 const RUN_TASKS_ROUTE = /^\/api\/runs\/([^/]+)\/tasks$/u;
 const RUN_TASK_ARTIFACT_CATALOG_ROUTE = /^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/artifact-catalog$/u;
 const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
@@ -248,17 +262,20 @@ function parseChangedFiles(value: unknown): string[] | undefined {
   return value;
 }
 
-function parseOptionalStringArray(value: unknown): string[] | undefined {
+function parseOptionalStringArray(
+  value: unknown,
+  createError: (message: string) => Error = (message) => new PlatformControlPlaneRunSubmissionError(
+    'invalid-request',
+    message,
+    400
+  )
+): string[] | undefined {
   if (value === undefined) {
     return undefined;
   }
 
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
-    throw new PlatformControlPlaneRunSubmissionError(
-      'invalid-request',
-      'Workspace policy arrays must contain only strings',
-      400
-    );
+    throw createError('Workspace policy arrays must contain only strings');
   }
 
   return value;
@@ -328,6 +345,71 @@ function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissio
   };
 }
 
+function parseProjectRegistrationBody(body: unknown): PlatformControlPlaneProjectRegistrationRequest {
+  const record = asObjectRecord(body);
+  const repositoryRootPath = parseOptionalString(record?.repositoryRootPath);
+
+  if (!repositoryRootPath) {
+    throw new PlatformProjectRegistrationError(
+      'invalid-request',
+      'Project registration request body must include a non-empty repositoryRootPath',
+      400
+    );
+  }
+
+  const projectId = parseOptionalString(record?.projectId);
+  const projectName = parseOptionalString(record?.projectName);
+  const workspaceRootPath = parseOptionalString(record?.workspaceRootPath);
+  const projectPath = parseOptionalString(record?.projectPath);
+  const topologyPath = parseOptionalString(record?.topologyPath);
+  const riskPath = parseOptionalString(record?.riskPath);
+  const repositoryId = parseOptionalString(record?.repositoryId);
+  const repositoryName = parseOptionalString(record?.repositoryName);
+  const defaultBranch = parseOptionalString(record?.defaultBranch);
+  const branchPrefix = parseOptionalString(record?.branchPrefix);
+  const workspacePolicyRecord = asObjectRecord(record?.workspacePolicy);
+  const allowedReadGlobs = workspacePolicyRecord
+    ? parseOptionalStringArray(
+        workspacePolicyRecord.allowedReadGlobs,
+        (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
+      )
+    : undefined;
+  const allowedWriteGlobs = workspacePolicyRecord
+    ? parseOptionalStringArray(
+        workspacePolicyRecord.allowedWriteGlobs,
+        (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
+      )
+    : undefined;
+  const forbiddenWriteGlobs = workspacePolicyRecord
+    ? parseOptionalStringArray(
+        workspacePolicyRecord.forbiddenWriteGlobs,
+        (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
+      )
+    : undefined;
+  const workspacePolicy = workspacePolicyRecord
+    ? {
+        ...(allowedReadGlobs ? { allowedReadGlobs } : {}),
+        ...(allowedWriteGlobs ? { allowedWriteGlobs } : {}),
+        ...(forbiddenWriteGlobs ? { forbiddenWriteGlobs } : {})
+      }
+    : undefined;
+
+  return {
+    repositoryRootPath,
+    ...(projectId ? { projectId } : {}),
+    ...(projectName ? { projectName } : {}),
+    ...(workspaceRootPath ? { workspaceRootPath } : {}),
+    ...(projectPath ? { projectPath } : {}),
+    ...(topologyPath ? { topologyPath } : {}),
+    ...(riskPath ? { riskPath } : {}),
+    ...(repositoryId ? { repositoryId } : {}),
+    ...(repositoryName ? { repositoryName } : {}),
+    ...(defaultBranch ? { defaultBranch } : {}),
+    ...(branchPrefix ? { branchPrefix } : {}),
+    ...(workspacePolicy ? { workspacePolicy } : {})
+  };
+}
+
 async function handleRunListRequest(
   response: ServerResponse,
   url: URL,
@@ -362,6 +444,26 @@ async function handleRunListRequest(
   return true;
 }
 
+async function handleProjectListRequest(
+  response: ServerResponse,
+  url: URL,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (url.pathname !== PROJECT_LIST_ROUTE) {
+    return false;
+  }
+
+  const repositoryId = url.searchParams.get('repositoryId');
+  const projects: PlatformControlPlaneProjectListDocument = {
+    projects: await options.listPlatformProjects({
+      limit: parsePositiveInteger(url.searchParams.get('limit'), 50),
+      ...(repositoryId ? { repositoryId } : {})
+    })
+  };
+  writeJson(response, 200, projects);
+  return true;
+}
+
 async function handleRunSubmissionRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -377,6 +479,24 @@ async function handleRunSubmissionRequest(
     runSubmission: await options.submitPlatformRun(runSubmissionRequest)
   };
   writeJson(response, 201, runSubmission);
+  return true;
+}
+
+async function handleProjectRegistrationRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (pathname !== PROJECT_LIST_ROUTE) {
+    return false;
+  }
+
+  const projectRegistrationRequest = parseProjectRegistrationBody(await readJsonBody(request));
+  const projectRegistration: PlatformControlPlaneProjectRegistrationDocument = {
+    projectRegistration: await options.registerPlatformProject(projectRegistrationRequest)
+  };
+  writeJson(response, 201, projectRegistration);
   return true;
 }
 
@@ -635,6 +755,10 @@ async function handleGetRequest(
     return true;
   }
 
+  if (await handleProjectListRequest(response, url, options)) {
+    return true;
+  }
+
   if (await handleLocalArtifactRequest(response, pathname, options)) {
     return true;
   }
@@ -661,6 +785,10 @@ async function handlePostRequest(
   options: StartPlatformControlPlaneServerOptions
 ): Promise<boolean> {
   if (await handleRunSubmissionRequest(request, response, pathname, options)) {
+    return true;
+  }
+
+  if (await handleProjectRegistrationRequest(request, response, pathname, options)) {
     return true;
   }
 
@@ -711,7 +839,11 @@ export async function startPlatformControlPlaneServer(
   const host = options.host ?? '127.0.0.1';
   const server = createServer((request, response) => {
     void handleRequest(request, response, options).catch((error) => {
-      if (error instanceof PlatformControlPlaneActionError || error instanceof PlatformControlPlaneRunSubmissionError) {
+      if (
+        error instanceof PlatformControlPlaneActionError
+        || error instanceof PlatformControlPlaneRunSubmissionError
+        || error instanceof PlatformProjectRegistrationError
+      ) {
         writeError(response, error.statusCode, error.code, error.message, error.details);
         return;
       }

@@ -37,6 +37,22 @@ export function RunDetailPanel(
             <dt>Risk</dt>
             <dd>{props.runDetail.runState.run.riskLevel ?? 'n/a'}</dd>
           </div>
+          <div>
+            <dt>Project</dt>
+            <dd>{props.runDetail.runState.project?.name ?? 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>Workspace Root</dt>
+            <dd>{props.runDetail.runState.workspace?.workspaceRootPath ?? props.runDetail.runState.project?.workspaceRootPath ?? 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>Branch</dt>
+            <dd>{props.runDetail.runState.workspace?.branchName ?? 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>Worktree</dt>
+            <dd>{props.runDetail.runState.workspace?.worktreePath ?? 'n/a'}</dd>
+          </div>
         </dl>
       ) : (
         <p>Select a run to load detail.</p>

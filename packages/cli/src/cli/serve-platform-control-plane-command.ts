@@ -8,6 +8,10 @@ import {
   listPlatformRuns
 } from '../platform/platform-control-plane-service.js';
 import {
+  listPlatformProjects as listPlatformProjectsService,
+  registerPlatformProject as registerPlatformProjectService
+} from '../platform/platform-project-service.js';
+import {
   approvePlatformControlPlaneTask as approvePlatformControlPlaneTaskAction,
   pausePlatformControlPlaneRun as pausePlatformControlPlaneRunAction,
   rejectPlatformControlPlaneTask as rejectPlatformControlPlaneTaskAction,
@@ -29,12 +33,14 @@ export interface ServePlatformControlPlaneDependencies {
   getPlatformControlPlaneRunObservability: typeof getPlatformControlPlaneRunObservability;
   getPlatformControlPlaneTaskArtifactCatalog: typeof getPlatformControlPlaneTaskArtifactCatalog;
   getPlatformControlPlaneRunTasks: typeof getPlatformControlPlaneRunTasks;
+  listPlatformProjects: typeof listPlatformProjectsService;
   listPlatformRuns: typeof listPlatformRuns;
   pausePlatformControlPlaneRun: typeof pausePlatformControlPlaneRunAction;
   rejectPlatformControlPlaneTask: typeof rejectPlatformControlPlaneTaskAction;
   resolvePlatformDatabaseConfig: typeof resolvePlatformDatabaseConfig;
   resumePlatformControlPlaneRun: typeof resumePlatformControlPlaneRunAction;
   retryPlatformControlPlaneTask: typeof retryPlatformControlPlaneTaskAction;
+  registerPlatformProject: typeof registerPlatformProjectService;
   submitPlatformControlPlaneRun: typeof submitPlatformControlPlaneRunService;
   startPlatformControlPlaneServer: typeof startPlatformControlPlaneServer;
   withPlatformTransaction: typeof withPlatformTransaction;
@@ -85,6 +91,9 @@ export async function runServePlatformControlPlane(
     listPlatformRuns: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.listPlatformRuns(client, config.schema, request)),
+    listPlatformProjects: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.listPlatformProjects(client, config.schema, request)),
     getPlatformControlPlaneRunDetail: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.getPlatformControlPlaneRunDetail(client, config.schema, request)),
@@ -103,6 +112,9 @@ export async function runServePlatformControlPlane(
     submitPlatformRun: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.submitPlatformControlPlaneRun(client, config.schema, request)),
+    registerPlatformProject: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.registerPlatformProject(client, config.schema, request)),
     retryPlatformTask: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.retryPlatformControlPlaneTask(client, config.schema, request)),
