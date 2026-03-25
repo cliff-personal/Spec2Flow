@@ -1,6 +1,6 @@
 import { Bell, Terminal } from 'lucide-react';
 
-export function OverviewTopbar(): JSX.Element {
+export function AppTopbar(): JSX.Element {
   return (
     <header className="fixed top-0 left-20 right-0 flex justify-between items-center px-6 z-40 h-16 bg-[#0E0E0F]/60 backdrop-blur-md">
       {/* Left: Brand + Status */}
@@ -32,9 +32,7 @@ export function OverviewTopbar(): JSX.Element {
             <Terminal className="w-5 h-5" />
           </button>
         </div>
-        <div
-          className="w-8 h-8 rounded-full border border-[#3B494B]/30 bg-[#2A2A2B] flex items-center justify-center text-[10px] font-headline text-[#00F0FF] uppercase tracking-wider"
-        >
+        <div className="w-8 h-8 rounded-full border border-[#3B494B]/30 bg-[#2A2A2B] flex items-center justify-center text-[10px] font-headline text-[#00F0FF] uppercase tracking-wider">
           JD
         </div>
       </div>

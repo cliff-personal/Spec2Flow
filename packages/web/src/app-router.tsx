@@ -1,5 +1,4 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { OverviewPage } from './pages/overview-page';
 import { ProjectsPage } from './pages/projects-page';
 import { ControlPlaneRunDetailPage } from './pages/control-plane-run-detail-page';
 import { ControlPlaneRunsPage } from './pages/control-plane-runs-page';
@@ -9,11 +8,10 @@ export function AppRouter(): JSX.Element {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<OverviewPage />} path="/overview" />
+        <Route element={<Navigate replace to="/projects" />} path="/" />
         <Route element={<ProjectsPage />} path="/projects" />
         <Route element={<ProjectsPage />} path="/projects/:projectId" />
         <Route element={<ControlPlaneShell />} path="/">
-          <Route element={<Navigate replace to="/overview" />} index />
           <Route element={<ControlPlaneRunsPage />} path="runs" />
           <Route element={<ControlPlaneRunDetailPage />} path="runs/:runId" />
         </Route>

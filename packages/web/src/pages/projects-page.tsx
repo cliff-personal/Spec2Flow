@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useControlPlaneProjectsPage } from '../hooks/use-control-plane-projects-page';
-import { OverviewSidebar } from '../components/overview/overview-sidebar';
-import { OverviewTopbar } from '../components/overview/overview-topbar';
+import { AppNavRail } from '../components/shared/app-nav-rail';
+import { AppTopbar } from '../components/shared/app-topbar';
 import { ProjectTreeSidebar } from '../components/projects/project-tree-sidebar';
 import { ProjectsHeroPanel } from '../components/projects/projects-hero';
 import { ProjectsStatusBar } from '../components/projects/projects-status-bar';
@@ -39,10 +39,10 @@ export function ProjectsPage(): JSX.Element {
       }}
     >
       {/* Far-left nav rail */}
-      <OverviewSidebar />
+      <AppNavRail />
 
       {/* Top bar */}
-      <OverviewTopbar />
+      <AppTopbar />
 
       {/* Project tree sidebar */}
       <ProjectTreeSidebar

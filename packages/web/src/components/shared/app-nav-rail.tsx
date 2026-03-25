@@ -5,16 +5,17 @@ type NavItemConfig = {
   icon: React.ReactNode;
   label: string;
   to: string;
+  end?: boolean;
 };
 
 const navItems: NavItemConfig[] = [
-  { icon: <Home className="w-5 h-5" />, label: 'Home', to: '/overview' },
+  { icon: <Home className="w-5 h-5" />, label: 'Home', to: '/projects', end: true },
   { icon: <FolderOpen className="w-5 h-5" />, label: 'Projects', to: '/projects' },
   { icon: <History className="w-5 h-5" />, label: 'History', to: '/runs' },
   { icon: <BarChart2 className="w-5 h-5" />, label: 'Health', to: '/health' },
 ];
 
-export function OverviewSidebar(): JSX.Element {
+export function AppNavRail(): JSX.Element {
   return (
     <aside
       className="fixed left-0 top-0 h-screen flex flex-col items-center py-8 z-50 w-20 border-r border-[#353436]/30 bg-[#131314]/80 backdrop-blur-xl"
@@ -29,8 +30,8 @@ export function OverviewSidebar(): JSX.Element {
 
       {/* Navigation */}
       <nav className="flex flex-col gap-8 flex-1">
-        {navItems.map(({ icon, label, to }) => (
-          <NavLink key={label} to={to} end={to === '/overview'}>
+        {navItems.map(({ icon, label, to, end }) => (
+          <NavLink key={label} to={to} end={end}>
             {({ isActive }) => (
               <button
                 className={`flex flex-col items-center gap-1 transition-all duration-300 ${
@@ -48,7 +49,7 @@ export function OverviewSidebar(): JSX.Element {
         ))}
       </nav>
 
-      {/* Settings (bottom) */}
+      {/* Settings */}
       <div className="mt-auto">
         <NavLink to="/settings">
           {({ isActive }) => (
