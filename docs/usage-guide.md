@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `package.json`, `docs/examples/synapse-network/README.md`, `docs/playbooks/index.md`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`, `npm run validate:synapse-example`
+- Last verified: 2026-03-25
 
 ## Goal
 

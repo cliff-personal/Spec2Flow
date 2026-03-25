@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `.github/copilot-instructions.md`, `.github/instructions/`, `package.json`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Purpose
 

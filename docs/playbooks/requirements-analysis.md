@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/shared/task-role-profile.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run submit:synapse-task-result`
+- Last verified: 2026-03-25
 
 ## Starts When
 

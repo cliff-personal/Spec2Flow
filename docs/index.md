@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `README.md`, `AGENTS.md`, `docs/structure.md`, `llms.txt`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Purpose
 

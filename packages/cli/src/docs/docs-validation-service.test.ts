@@ -7,6 +7,7 @@ import { buildDocsValidationReport } from './docs-validation-service.js';
 
 describe('docs-validation-service', () => {
   const tempDirs: string[] = [];
+  const validationNow = new Date('2026-03-25T00:00:00.000Z');
 
   afterEach(() => {
     for (const tempDir of tempDirs) {
@@ -24,13 +25,13 @@ describe('docs-validation-service', () => {
           'validate:docs': 'node spec2flow validate-docs'
         }
       }, null, 2),
-      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`, `docs/index.md`\n- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`\n\nSee [Docs Index](docs/index.md).\n',
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`, `docs/index.md`\n- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`\n- Last verified: 2026-03-25\n\nSee [Docs Index](docs/index.md).\n',
       'AGENTS.md': '# Agents\n\nUse `npm run build`.\n',
       '.github/copilot-instructions.md': 'See `AGENTS.md` and [Docs Index](../docs/index.md).\n',
-      'docs/index.md': '# Docs Index\n\n- Status: active\n- Source of truth: `README.md`, `AGENTS.md`\n- Verified with: `npm run build`, `npm run validate:docs`\n\nSee [README](../README.md).\n'
+      'docs/index.md': '# Docs Index\n\n- Status: active\n- Source of truth: `README.md`, `AGENTS.md`\n- Verified with: `npm run build`, `npm run validate:docs`\n- Last verified: 2026-03-25\n\nSee [README](../README.md).\n'
     });
 
-    const report = buildDocsValidationReport(repoRoot);
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
 
     expect(report.status).toBe('passed');
     expect(report.summary.validatedFiles).toBe(4);
@@ -49,7 +50,7 @@ describe('docs-validation-service', () => {
       '.github/copilot-instructions.md': 'Run `npm run build`.\n'
     });
 
-    const report = buildDocsValidationReport(repoRoot);
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
 
     expect(report.status).toBe('failed');
     expect(report.issues).toEqual(expect.arrayContaining([
@@ -57,6 +58,11 @@ describe('docs-validation-service', () => {
         file: 'README.md',
         kind: 'metadata',
         message: 'missing Verified with metadata'
+      },
+      {
+        file: 'README.md',
+        kind: 'metadata',
+        message: 'missing Last verified metadata'
       },
       {
         file: 'README.md',
@@ -84,14 +90,14 @@ describe('docs-validation-service', () => {
   it('ignores historical docs and excluded directories', () => {
     const repoRoot = createRepoFixture({
       'package.json': JSON.stringify({ scripts: { build: 'tsc -p tsconfig.build.json' } }, null, 2),
-      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`\n- Verified with: `npm run build`\n',
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n',
       'AGENTS.md': '# Agents\n',
       '.github/copilot-instructions.md': 'Run `npm run build`.\n',
       'docs/plans/historical/old-plan.md': '# Old Plan\n\n- Status: historical\n\nRun `npm run missing-script`.\n',
       'packages/cli/dist/stale.md': '# Dist\n\n- Status: active\n\nRun `npm run missing-script`.\n'
     });
 
-    const report = buildDocsValidationReport(repoRoot);
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
 
     expect(report.status).toBe('passed');
     expect(report.validatedFiles).toEqual(expect.arrayContaining(['README.md', 'AGENTS.md', '.github/copilot-instructions.md']));
@@ -102,15 +108,15 @@ describe('docs-validation-service', () => {
   it('reports docs root layout drift for plan docs and archived statuses', () => {
     const repoRoot = createRepoFixture({
       'package.json': JSON.stringify({ scripts: { build: 'tsc -p tsconfig.build.json' } }, null, 2),
-      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`\n- Verified with: `npm run build`\n',
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n',
       'AGENTS.md': '# Agents\n',
       '.github/copilot-instructions.md': 'Run `npm run build`.\n',
-      'docs/roadmap.md': '# Roadmap\n\n- Status: active\n- Source of truth: `README.md`\n- Verified with: `npm run build`\n',
+      'docs/roadmap.md': '# Roadmap\n\n- Status: active\n- Source of truth: `README.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n',
       'docs/archive-note.md': '# Archive Note\n\n- Status: historical\n- Source of truth: `README.md`\n- Verified with: archived for reference only\n',
       'docs/plans/historical/roadmap.md': '# Roadmap\n\n- Status: historical\n- Source of truth: `README.md`\n- Verified with: archived for reference only\n'
     });
 
-    const report = buildDocsValidationReport(repoRoot);
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
 
     expect(report.status).toBe('failed');
     expect(report.issues).toEqual(expect.arrayContaining([
@@ -136,14 +142,14 @@ describe('docs-validation-service', () => {
   it('rejects archived plan files as source-of-truth or direct navigation targets for active docs', () => {
     const repoRoot = createRepoFixture({
       'package.json': JSON.stringify({ scripts: { build: 'tsc -p tsconfig.build.json' } }, null, 2),
-      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`, `docs/plans/historical/roadmap.md`\n- Verified with: `npm run build`\n\nSee [Old roadmap](docs/plans/historical/roadmap.md).\nSee [Historical index](docs/plans/historical/index.md).\n',
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`, `docs/plans/historical/roadmap.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n\nSee [Old roadmap](docs/plans/historical/roadmap.md).\nSee [Historical index](docs/plans/historical/index.md).\n',
       'AGENTS.md': '# Agents\n',
       '.github/copilot-instructions.md': 'Run `npm run build`.\n',
       'docs/plans/historical/index.md': '# Historical Plans\n\n- Status: reference\n- Source of truth: `docs/plans/index.md`\n- Verified with: archived for reference only\n',
       'docs/plans/historical/roadmap.md': '# Roadmap\n\n- Status: historical\n- Source of truth: `README.md`\n- Verified with: archived for reference only\n'
     });
 
-    const report = buildDocsValidationReport(repoRoot);
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
 
     expect(report.status).toBe('failed');
     expect(report.issues).toEqual(expect.arrayContaining([
@@ -189,6 +195,98 @@ describe('docs-validation-service', () => {
     expect(docsIndex).toContain('### Where do active docs rules and archived plan rules live?');
     expect(docsIndex).toContain('docs/structure.md');
     expect(docsIndex).toContain('docs/plans/index.md');
+  });
+
+  it('rejects invalid, future, and stale Last verified metadata for active docs', () => {
+    const repoRoot = createRepoFixture({
+      'package.json': JSON.stringify({ scripts: { build: 'tsc -p tsconfig.build.json' } }, null, 2),
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `AGENTS.md`\n- Verified with: `npm run build`\n- Last verified: yesterday\n',
+      'AGENTS.md': '# Agents\n',
+      '.github/copilot-instructions.md': 'Run `npm run build`.\n',
+      'docs/index.md': '# Docs Index\n\n- Status: active\n- Source of truth: `README.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-26\n',
+      'docs/usage-guide.md': '# Usage\n\n- Status: active\n- Source of truth: `README.md`\n- Verified with: `npm run build`\n- Last verified: 2025-11-20\n'
+    });
+
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
+
+    expect(report.status).toBe('failed');
+    expect(report.issues).toEqual(expect.arrayContaining([
+      {
+        file: 'README.md',
+        kind: 'metadata',
+        message: 'Last verified metadata must use YYYY-MM-DD'
+      },
+      {
+        file: 'docs/index.md',
+        kind: 'metadata',
+        message: 'Last verified date cannot be in the future: 2026-03-26'
+      },
+      {
+        file: 'docs/usage-guide.md',
+        kind: 'metadata',
+        message: 'active doc freshness window exceeded: 2025-11-20 is older than 120 days'
+      }
+    ]));
+  });
+
+  it('rejects deprecated scripts and overbroad source-of-truth paths in active docs', () => {
+    const repoRoot = createRepoFixture({
+      'package.json': JSON.stringify({
+        scripts: {
+          build: 'tsc -p tsconfig.build.json',
+          lint: 'eslint .'
+        },
+        spec2flow: {
+          docsValidation: {
+            deprecatedScripts: {
+              'legacy:build': 'build'
+            }
+          }
+        }
+      }, null, 2),
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `schemas/`, `AGENTS.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n\nRun `npm run legacy:build`.\n',
+      'AGENTS.md': '# Agents\n',
+      '.github/copilot-instructions.md': 'Run `npm run build`.\n',
+      'schemas/task-graph.schema.json': '{}\n'
+    });
+
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
+
+    expect(report.status).toBe('failed');
+    expect(report.issues).toEqual(expect.arrayContaining([
+      {
+        file: 'README.md',
+        kind: 'source-of-truth',
+        message: 'source of truth path is too broad for an active doc; reference concrete files instead: schemas/'
+      },
+      {
+        file: 'README.md',
+        kind: 'script',
+        message: 'referenced npm script is deprecated: legacy:build; use build'
+      }
+    ]));
+  });
+
+  it('rejects non-reciprocal supersession metadata', () => {
+    const repoRoot = createRepoFixture({
+      'package.json': JSON.stringify({ scripts: { build: 'tsc -p tsconfig.build.json' } }, null, 2),
+      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `docs/design.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n',
+      'AGENTS.md': '# Agents\n',
+      '.github/copilot-instructions.md': 'Run `npm run build`.\n',
+      'docs/design.md': '# Design\n\n- Status: active\n- Source of truth: `README.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n- Supersedes: `reference.md`\n',
+      'docs/reference.md': '# Reference\n\n- Status: reference\n- Source of truth: `README.md`\n- Verified with: archived for reference only\n'
+    });
+
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
+
+    expect(report.status).toBe('failed');
+    expect(report.issues).toEqual(expect.arrayContaining([
+      {
+        file: 'docs/design.md',
+        kind: 'supersession',
+        message: 'Supersedes relationship must be reciprocal: docs/design.md -> docs/reference.md requires Superseded by'
+      }
+    ]));
   });
 });
 

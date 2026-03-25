@@ -5,10 +5,21 @@ const EXCLUDED_DIRECTORY_NAMES = new Set(['.git', '.spec2flow', 'node_modules', 
 const EXCLUDED_DIRECTORY_PATHS = new Set(['packages/cli/dist']);
 const CANONICAL_DOCS = new Set(['AGENTS.md', '.github/copilot-instructions.md']);
 const MARKDOWN_FILE_EXTENSION = '.md';
+const ACTIVE_DOC_FRESHNESS_WINDOW_DAYS = 120;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const OVERBROAD_SOURCE_OF_TRUTH_PATHS = new Set([
+  'packages/cli/src/adapters/',
+  'packages/cli/src/planning/',
+  'packages/cli/src/platform/',
+  'packages/cli/src/runtime/',
+  'packages/cli/src/types/',
+  'packages/web/',
+  'schemas/'
+]);
 
 export interface DocsValidationIssue {
   file: string;
-  kind: 'metadata' | 'source-of-truth' | 'script' | 'link' | 'layout';
+  kind: 'metadata' | 'source-of-truth' | 'script' | 'link' | 'layout' | 'supersession';
   message: string;
 }
 
@@ -29,20 +40,49 @@ interface ParsedMetadata {
   status: string | null;
   sourceOfTruthLine: string | null;
   verifiedWithLine: string | null;
+  lastVerifiedLine: string | null;
+  supersedesLine: string | null;
+  supersededByLine: string | null;
 }
 
-export function buildDocsValidationReport(repoRoot: string): DocsValidationReportDocument {
+interface DocsValidationConfig {
+  deprecatedScripts: Map<string, string>;
+}
+
+interface MarkdownDocumentEntry {
+  content: string;
+  filePath: string;
+  metadata: ParsedMetadata;
+  relativeFilePath: string;
+}
+
+export function buildDocsValidationReport(
+  repoRoot: string,
+  options?: { now?: Date }
+): DocsValidationReportDocument {
   const packageJsonPath = path.join(repoRoot, 'package.json');
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { scripts?: Record<string, string> };
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+    scripts?: Record<string, string>;
+    spec2flow?: { docsValidation?: { deprecatedScripts?: Record<string, string> } };
+  };
   const availableScripts = new Set(Object.keys(packageJson.scripts ?? {}));
+  const config = parseDocsValidationConfig(packageJson);
   const markdownFiles = collectMarkdownFiles(repoRoot);
   const issues: DocsValidationIssue[] = [];
   const validatedFiles: string[] = [];
+  const now = normalizeToUtcDay(options?.now ?? new Date());
+  const documentEntries: MarkdownDocumentEntry[] = [];
 
   for (const filePath of markdownFiles) {
     const content = fs.readFileSync(filePath, 'utf8');
     const relativeFilePath = toRepoRelativePath(repoRoot, filePath);
     const metadata = parseMetadata(content);
+    documentEntries.push({
+      content,
+      filePath,
+      metadata,
+      relativeFilePath
+    });
     const isCanonicalDoc = CANONICAL_DOCS.has(relativeFilePath);
     const isActiveDoc = metadata.status === 'active';
 
@@ -57,15 +97,19 @@ export function buildDocsValidationReport(repoRoot: string): DocsValidationRepor
     if (isActiveDoc) {
       validateRequiredMetadata(relativeFilePath, metadata, issues);
       validateSourceOfTruthPaths(repoRoot, relativeFilePath, metadata.sourceOfTruthLine, issues);
+      validateSourceOfTruthScope(relativeFilePath, metadata.sourceOfTruthLine, issues);
+      validateLastVerified(relativeFilePath, metadata.lastVerifiedLine, now, issues);
     }
 
     if (isCanonicalDoc || isActiveDoc) {
       validateArchivedPlanReferences(relativeFilePath, metadata.sourceOfTruthLine, content, issues);
     }
 
-    validateReferencedScripts(relativeFilePath, content, availableScripts, issues);
+    validateReferencedScripts(relativeFilePath, content, availableScripts, config.deprecatedScripts, issues);
     validateMarkdownLinks(repoRoot, filePath, relativeFilePath, content, issues);
   }
+
+  validateSupersessionRelationships(repoRoot, documentEntries, issues);
 
   validatedFiles.sort((left, right) => left.localeCompare(right));
   issues.sort((left, right) => {
@@ -125,7 +169,10 @@ function parseMetadata(content: string): ParsedMetadata {
   return {
     status: matchMetadataValue(content, /^- Status:\s*(.+)$/m),
     sourceOfTruthLine: matchMetadataValue(content, /^- Source of truth:\s*(.+)$/m),
-    verifiedWithLine: matchMetadataValue(content, /^- Verified with:\s*(.+)$/m)
+    verifiedWithLine: matchMetadataValue(content, /^- Verified with:\s*(.+)$/m),
+    lastVerifiedLine: matchMetadataValue(content, /^- Last verified:\s*(.+)$/m),
+    supersedesLine: matchMetadataValue(content, /^- Supersedes:\s*(.+)$/m),
+    supersededByLine: matchMetadataValue(content, /^- Superseded by:\s*(.+)$/m)
   };
 }
 
@@ -162,6 +209,14 @@ function validateRequiredMetadata(
       message: 'missing Verified with metadata'
     });
   }
+
+  if (!metadata.lastVerifiedLine) {
+    issues.push({
+      file: relativeFilePath,
+      kind: 'metadata',
+      message: 'missing Last verified metadata'
+    });
+  }
 }
 
 function validateSourceOfTruthPaths(
@@ -188,10 +243,72 @@ function validateSourceOfTruthPaths(
   }
 }
 
+function validateSourceOfTruthScope(
+  relativeFilePath: string,
+  sourceOfTruthLine: string | null,
+  issues: DocsValidationIssue[]
+): void {
+  if (!sourceOfTruthLine) {
+    return;
+  }
+
+  for (const sourcePath of extractBacktickedValues(sourceOfTruthLine)) {
+    if (!isOverbroadSourceOfTruthPath(sourcePath)) {
+      continue;
+    }
+
+    issues.push({
+      file: relativeFilePath,
+      kind: 'source-of-truth',
+      message: `source of truth path is too broad for an active doc; reference concrete files instead: ${sourcePath}`
+    });
+  }
+}
+
+function validateLastVerified(
+  relativeFilePath: string,
+  lastVerifiedLine: string | null,
+  now: Date,
+  issues: DocsValidationIssue[]
+): void {
+  if (!lastVerifiedLine) {
+    return;
+  }
+
+  const parsedDate = parseIsoDay(lastVerifiedLine);
+  if (!parsedDate) {
+    issues.push({
+      file: relativeFilePath,
+      kind: 'metadata',
+      message: 'Last verified metadata must use YYYY-MM-DD'
+    });
+    return;
+  }
+
+  if (parsedDate.getTime() > now.getTime()) {
+    issues.push({
+      file: relativeFilePath,
+      kind: 'metadata',
+      message: `Last verified date cannot be in the future: ${lastVerifiedLine}`
+    });
+    return;
+  }
+
+  const ageInDays = Math.floor((now.getTime() - parsedDate.getTime()) / MILLISECONDS_PER_DAY);
+  if (ageInDays > ACTIVE_DOC_FRESHNESS_WINDOW_DAYS) {
+    issues.push({
+      file: relativeFilePath,
+      kind: 'metadata',
+      message: `active doc freshness window exceeded: ${lastVerifiedLine} is older than ${ACTIVE_DOC_FRESHNESS_WINDOW_DAYS} days`
+    });
+  }
+}
+
 function validateReferencedScripts(
   relativeFilePath: string,
   content: string,
   availableScripts: Set<string>,
+  deprecatedScripts: Map<string, string>,
   issues: DocsValidationIssue[]
 ): void {
   const referencedScripts = new Set<string>();
@@ -204,6 +321,15 @@ function validateReferencedScripts(
   }
 
   for (const scriptName of referencedScripts) {
+    if (deprecatedScripts.has(scriptName)) {
+      issues.push({
+        file: relativeFilePath,
+        kind: 'script',
+        message: `referenced npm script is deprecated: ${scriptName}; use ${deprecatedScripts.get(scriptName)}`
+      });
+      continue;
+    }
+
     if (availableScripts.has(scriptName)) {
       continue;
     }
@@ -212,6 +338,104 @@ function validateReferencedScripts(
       file: relativeFilePath,
       kind: 'script',
       message: `referenced npm script does not exist: ${scriptName}`
+    });
+  }
+}
+
+function validateSupersessionRelationships(
+  repoRoot: string,
+  documentEntries: MarkdownDocumentEntry[],
+  issues: DocsValidationIssue[]
+): void {
+  const entriesByRelativePath = new Map(
+    documentEntries.map((entry) => [entry.relativeFilePath, entry] as const)
+  );
+
+  for (const entry of documentEntries) {
+    validateSupersessionDirection(
+      repoRoot,
+      entry,
+      entry.metadata.supersedesLine,
+      'Supersedes',
+      'Superseded by',
+      (peerMetadata) => peerMetadata.supersededByLine,
+      entriesByRelativePath,
+      issues
+    );
+    validateSupersessionDirection(
+      repoRoot,
+      entry,
+      entry.metadata.supersededByLine,
+      'Superseded by',
+      'Supersedes',
+      (peerMetadata) => peerMetadata.supersedesLine,
+      entriesByRelativePath,
+      issues
+    );
+  }
+}
+
+function validateSupersessionDirection(
+  repoRoot: string,
+  entry: MarkdownDocumentEntry,
+  metadataLine: string | null,
+  directionLabel: 'Supersedes' | 'Superseded by',
+  reciprocalLabel: 'Supersedes' | 'Superseded by',
+  reciprocalSelector: (metadata: ParsedMetadata) => string | null,
+  entriesByRelativePath: Map<string, MarkdownDocumentEntry>,
+  issues: DocsValidationIssue[]
+): void {
+  for (const rawTargetPath of extractBacktickedValues(metadataLine ?? '')) {
+    const resolvedTargetPath = resolveRepoRelativePath(repoRoot, path.dirname(entry.filePath), rawTargetPath);
+    if (!resolvedTargetPath) {
+      issues.push({
+        file: entry.relativeFilePath,
+        kind: 'supersession',
+        message: `${directionLabel} target does not exist: ${rawTargetPath}`
+      });
+      continue;
+    }
+
+    if (!resolvedTargetPath.endsWith(MARKDOWN_FILE_EXTENSION)) {
+      issues.push({
+        file: entry.relativeFilePath,
+        kind: 'supersession',
+        message: `${directionLabel} target must be a markdown file: ${rawTargetPath}`
+      });
+      continue;
+    }
+
+    if (resolvedTargetPath === entry.relativeFilePath) {
+      issues.push({
+        file: entry.relativeFilePath,
+        kind: 'supersession',
+        message: `${directionLabel} cannot reference the same file: ${rawTargetPath}`
+      });
+      continue;
+    }
+
+    const peerEntry = entriesByRelativePath.get(resolvedTargetPath);
+    if (!peerEntry) {
+      issues.push({
+        file: entry.relativeFilePath,
+        kind: 'supersession',
+        message: `${directionLabel} target is outside the validated markdown set: ${rawTargetPath}`
+      });
+      continue;
+    }
+
+    const reciprocalTargets = extractBacktickedValues(reciprocalSelector(peerEntry.metadata) ?? '')
+      .map((candidate) => resolveRepoRelativePath(repoRoot, path.dirname(peerEntry.filePath), candidate))
+      .filter((candidate): candidate is string => Boolean(candidate));
+
+    if (reciprocalTargets.includes(entry.relativeFilePath)) {
+      continue;
+    }
+
+    issues.push({
+      file: entry.relativeFilePath,
+      kind: 'supersession',
+      message: `${directionLabel} relationship must be reciprocal: ${entry.relativeFilePath} -> ${resolvedTargetPath} requires ${reciprocalLabel}`
     });
   }
 }
@@ -337,6 +561,11 @@ function isDirectArchivedPlanDocument(targetPath: string): boolean {
     && !/\/index\.md$/i.test(normalizedTarget);
 }
 
+function isOverbroadSourceOfTruthPath(sourcePath: string): boolean {
+  const normalizedPath = sourcePath.replace(/\\/g, '/');
+  return OVERBROAD_SOURCE_OF_TRUTH_PATHS.has(normalizedPath);
+}
+
 function shouldIgnoreLinkTarget(target: string): boolean {
   return target.startsWith('#')
     || /^https?:\/\//i.test(target)
@@ -370,6 +599,26 @@ function extractMarkdownLinkTargets(content: string): string[] {
     .map((target) => decodeURIComponent(stripWrappingAngleBrackets(stripOptionalTitle(target)).split('#', 1)[0] ?? ''));
 }
 
+function parseDocsValidationConfig(packageJson: {
+  spec2flow?: { docsValidation?: { deprecatedScripts?: Record<string, string> } };
+}): DocsValidationConfig {
+  return {
+    deprecatedScripts: new Map(Object.entries(packageJson.spec2flow?.docsValidation?.deprecatedScripts ?? {}))
+  };
+}
+
+function resolveRepoRelativePath(repoRoot: string, baseDirectory: string, targetPath: string): string | null {
+  const resolvedPath = path.isAbsolute(targetPath)
+    ? targetPath
+    : path.resolve(baseDirectory, targetPath);
+
+  if (!fs.existsSync(resolvedPath)) {
+    return null;
+  }
+
+  return toRepoRelativePathOrAbsolute(repoRoot, resolvedPath);
+}
+
 function toRepoRelativePath(repoRoot: string, absolutePath: string): string {
   return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 }
@@ -377,4 +626,31 @@ function toRepoRelativePath(repoRoot: string, absolutePath: string): string {
 function toRepoRelativePathOrAbsolute(repoRoot: string, candidatePath: string): string {
   const relativePath = toRepoRelativePath(repoRoot, candidatePath);
   return relativePath.startsWith('..') ? candidatePath : relativePath;
+}
+
+function parseIsoDay(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    Number.isNaN(parsedDate.getTime())
+    || parsedDate.getUTCFullYear() !== year
+    || parsedDate.getUTCMonth() !== month - 1
+    || parsedDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsedDate;
+}
+
+function normalizeToUtcDay(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
 }

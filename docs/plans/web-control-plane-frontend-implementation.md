@@ -1,8 +1,9 @@
 # Web Control Plane Frontend Implementation
 
 - Status: active
-- Source of truth: `docs/agent-orchestration-platform-design.md`, `docs/plans/agent-orchestration-platform-implementation-plan.md`, `packages/web/`, `packages/cli/src/platform/platform-control-plane-server.ts`
+- Source of truth: `docs/agent-orchestration-platform-design.md`, `docs/plans/agent-orchestration-platform-implementation-plan.md`, `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/web/src/lib/control-plane-api.ts`, `packages/web/src/pages/control-plane-runs-page.tsx`, `packages/web/src/pages/control-plane-run-detail-page.tsx`, `packages/web/src/components/dag-preview-panel.tsx`
 - Verified with: `npm run build`, `npm run web:build`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Goal
 

@@ -1,8 +1,9 @@
 # Architecture Gap Matrix
 
 - Status: active
-- Source of truth: `docs/architecture.md`, `package.json`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/`, `packages/cli/src/adapters/`, `schemas/`
+- Source of truth: `docs/architecture.md`, `package.json`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/execution-state-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `schemas/task-graph.schema.json`, `schemas/execution-state.schema.json`, `schemas/model-adapter-runtime.schema.json`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Purpose
 

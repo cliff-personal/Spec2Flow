@@ -1,8 +1,9 @@
 # Runtime Configuration Reference
 
 - Status: active
-- Source of truth: `.spec2flow/model-adapter-runtime.json`, `docs/examples/synapse-network/model-adapter-runtime.json`, `packages/cli/src/adapters/`, `schemas/model-adapter-runtime.schema.json`
+- Source of truth: `.spec2flow/model-adapter-runtime.json`, `docs/examples/synapse-network/model-adapter-runtime.json`, `packages/cli/src/adapters/adapter-runtime-resolver.ts`, `packages/cli/src/adapters/copilot-preflight.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `schemas/model-adapter-runtime.schema.json`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Goal
 

@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `docs/structure.md`, `docs/Harness_engineering.md`, `docs/index.md`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Purpose
 

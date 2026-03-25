@@ -1,8 +1,9 @@
 # Agent Orchestration Platform Implementation Plan
 
 - Status: active
-- Source of truth: `docs/agent-orchestration-platform-design.md`, `docs/architecture.md`, `docs/plans/architecture-gap-matrix.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/`, `packages/cli/src/adapters/`
+- Source of truth: `docs/agent-orchestration-platform-design.md`, `docs/architecture.md`, `docs/plans/architecture-gap-matrix.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/platform/platform-scheduler-service.ts`, `packages/cli/src/platform/platform-worker-service.ts`, `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/auto-repair-policy-service.ts`, `packages/cli/src/runtime/collaboration-publication-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Goal
 

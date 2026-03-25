@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `package.json`, `AGENTS.md`, `llms.txt`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Goal
 
@@ -227,10 +228,16 @@ Shared infrastructure utilities for filesystem IO, schema loading, and common ou
 - Archive superseded plans under `docs/plans/historical/` instead of leaving them in primary navigation.
 - When two docs overlap, one must defer to the other and link outward rather than repeating behavior.
 - New top-level docs should answer one dominant question and be wired into `README.md`, `llms.txt`, or `docs/index.md` only if they are active navigation targets.
+- Active docs must keep a metadata block with `Status`, `Source of truth`, `Verified with`, and `Last verified`.
+- Key API or design docs should use `Supersedes` and `Superseded by` when canonical ownership moves from one file to another.
+- `Last verified` must use `YYYY-MM-DD` and stay within the active-doc freshness window enforced by `npm run validate:docs`.
+- `Source of truth` entries for active docs must stay concrete. Whole directories such as `packages/cli/src/runtime/`, `packages/web/`, or `schemas/` are treated as overbroad and should be narrowed to the owning files.
 
 These placement rules are not advisory only. `npm run validate:docs` fails when plan-like docs appear directly under `docs/` root or when root-level docs are marked `completed` or `historical`.
 
 `npm run validate:docs` also fails when active or canonical docs link directly to specific archived plan files or cite them as source of truth. Historical references must flow through the plan index pages instead.
+
+`npm run validate:docs` now also fails when an active doc is missing `Last verified`, uses a non-ISO date, points that date into the future, lets the freshness window expire, references a deprecated `npm run` script, or keeps an overbroad `Source of truth` path. It also validates reciprocal `Supersedes` and `Superseded by` relationships when those metadata lines are present. This is intentional friction: an active doc that nobody has re-checked recently is operational drift, not harmless prose.
 
 ## Solo Maintainer Recommendation
 

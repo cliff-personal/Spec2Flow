@@ -1,5 +1,11 @@
 # Spec2Flow 复杂系统接入与自动化设计方案（以 Synapse-Network 为例）
 
+- Status: reference
+- Source of truth: `docs/architecture.md`, `docs/examples/synapse-network/README.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/task-result-service.ts`
+- Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
+- Superseded by: `agent-orchestration-platform-design.md`
+
 ## 1. 文档目标
 
 这份文档回答四个问题：

@@ -1,8 +1,9 @@
 # Architecture Overview
 
 - Status: active
-- Source of truth: `AGENTS.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/`, `packages/cli/src/adapters/`
+- Source of truth: `AGENTS.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/execution-state-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `packages/cli/src/shared/task-role-profile.ts`
 - Verified with: `npm run build`, `npm run test:unit`
+- Last verified: 2026-03-25
 
 Spec2Flow is organized around a six-stage workflow implemented through five cooperating parts:
 

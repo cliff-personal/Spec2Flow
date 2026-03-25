@@ -66,5 +66,21 @@
     "@types/pg": "^8.20.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
+  },
+  "spec2flow": {
+    "docsValidation": {
+      "deprecatedScripts": {
+        "validate:synapse-example:dist": "validate:synapse-example",
+        "generate:synapse-task-graph:dist": "generate:synapse-task-graph",
+        "generate:synapse-execution-state:dist": "generate:synapse-execution-state",
+        "claim:synapse-next-task:dist": "claim:synapse-next-task",
+        "simulate:synapse-model-run:dist": "simulate:synapse-model-run",
+        "run:synapse-task-with-adapter:dist": "run:synapse-task-with-adapter",
+        "run:synapse-copilot-cli-loop:dist": "run:synapse-copilot-cli-loop",
+        "run:synapse-workflow-loop:dist": "run:synapse-workflow-loop",
+        "submit:synapse-task-result:dist": "submit:synapse-task-result",
+        "preflight:copilot-cli:dist": "preflight:copilot-cli"
+      }
+    }
   }
 }

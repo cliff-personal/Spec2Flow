@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `AGENTS.md`, `docs/architecture.md`, `docs/copilot.md`, `package.json`
 - Verified with: `npm run build`, `npm run test:unit`
+- Last verified: 2026-03-25
 
 ## Purpose
 

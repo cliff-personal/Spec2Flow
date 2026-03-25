@@ -3,6 +3,7 @@
 - Status: active
 - Source of truth: `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/shared/task-role-profile.ts`, `packages/cli/src/runtime/task-result-service.ts`
 - Verified with: `npm run build`, `npm run test:unit`
+- Last verified: 2026-03-25
 
 ## Purpose
 

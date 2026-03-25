@@ -1,462 +1,172 @@
 # Harness Engineering for Spec2Flow
 
 - Status: active
-- Source of truth: `AGENTS.md`, `docs/index.md`, `docs/playbooks/index.md`, `docs/adr/index.md`
+- Source of truth: `AGENTS.md`, `docs/index.md`, `docs/structure.md`, `docs/playbooks/index.md`, `docs/adr/index.md`, `packages/cli/src/docs/docs-validation-service.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
+- Last verified: 2026-03-25
 
 ## Purpose
 
-This document captures how Spec2Flow should evolve its documentation and Copilot customization so the repository is easier for AI agents to navigate, safer to extend, and less likely to drift over time.
+This file defines how Spec2Flow keeps repository guidance small, current, and mechanically enforceable.
 
-The goal is not to add more prose. The goal is to improve the repository as a working harness:
+The target is not "more documentation." The target is a working harness that resists two failure modes:
 
-- a clear map for agents
-- stable contracts for execution
-- explicit boundaries for architecture
-- deterministic validation paths
-- small feedback loops that keep docs current
+- bloat: too many overlapping docs, mega-docs, and duplicated explanations
+- drift: docs that still read well after the code, commands, or contracts have moved on
 
-## What Harness Engineering Means Here
+## What Is Already Working
 
-The OpenAI harness engineering article points to a few durable ideas that apply directly to Spec2Flow:
+Spec2Flow already has the right foundation for an AI-readable repository:
 
-1. The repository should be the system of record.
-2. Agents need a map, not a giant instruction blob.
-3. Human effort should move from hand-authoring every change to designing clearer environments, constraints, and feedback loops.
-4. Architecture, validation, and style rules work better when enforced mechanically rather than repeated in prose.
-5. Entropy is normal in agent-heavy workflows, so the repository needs ongoing garbage collection.
+- `llms.txt` gives agents a first-stop machine-readable intake map.
+- `AGENTS.md` stays short and architectural instead of becoming a giant handbook.
+- `docs/index.md` routes readers to the smallest relevant source-of-truth set.
+- `docs/playbooks/` gives stage-scoped operating guidance instead of burying workflow details in root docs.
+- `docs/adr/` captures durable decisions separately from plans and exploratory prose.
+- `docs/plans/` keeps migration and rollout material out of the primary docs root.
+- `schemas/`, TypeScript types, and checked commands provide enforceable contracts.
+- `npm run validate:docs` already catches missing metadata, dead links, bad script references, archived-plan misuse, and docs-root layout drift.
 
-For Spec2Flow, this means documentation should help an agent answer four questions quickly:
+This means Spec2Flow is no longer at the "aspirational harness" stage. The repository already has real structure and real checks.
 
-1. What is this repository trying to do?
-2. What files are the source of truth for this task?
-3. What commands prove a change is correct?
-4. What rules are advisory versus enforced?
+## Remaining Drift Risks
 
-## Current Strengths
+The current weak points are narrower now, but they are still real:
 
-Spec2Flow already has several strong harness-engineering properties:
+- an active doc can be structurally valid while still being old
+- a design or plan doc can remain `active` after the stable docs already became the real truth
+- a command can still exist while no longer being the best proof path for the behavior the doc claims
+- multiple active docs can overlap and slowly diverge even when all links still work
+- agents can treat a long narrative as canonical if the doc does not state what is enforced versus advisory
 
-- `AGENTS.md` is short and architecture-oriented.
-- `.github/copilot-instructions.md` is separated from architectural guidance.
-- scoped instructions exist for TypeScript, schemas, and docs.
-- `docs/copilot.md` explains the customization strategy.
-- schemas and TypeScript types provide explicit contracts.
-- example workflow artifacts make the execution model concrete.
-- validation commands such as `npm run build` and `npm run test:unit` are stable and easy to invoke.
+This is why dates matter, but only when paired with command and source-of-truth validation.
 
-This is already much better than the common anti-pattern of a single giant Copilot instruction file.
+## Iron-Law Metadata Contract
 
-## Main Gaps
+Every active doc must expose a small metadata block near the top:
 
-The next bottlenecks are not basic guidance. They are discovery, freshness, and control-plane clarity.
+- `Status`: `active`, `reference`, `historical`, `completed`, or `draft`
+- `Source of truth`: the code paths, schemas, or docs that actually own the behavior
+- `Verified with`: the smallest stable command path that can still prove the doc is not fiction
+- `Last verified`: the most recent `YYYY-MM-DD` date when the active doc was re-checked
+- `Supersedes` / `Superseded by`: optional file-level handoff metadata when one canonical design or API doc replaces another
 
-### 1. There is no dedicated AI-facing document map
+Dates are necessary, but not sufficient.
 
-`README.md`, `AGENTS.md`, and `docs/copilot.md` together contain the right ideas, but an agent still has to infer which document to read for which question.
+A date alone is theater. The anti-drift unit is:
 
-What to add:
+1. an active status
+2. a real source-of-truth pointer
+3. a real verification command path
+4. a recent verification date
 
-- a root-level `llms.txt`
-- a short `docs/index.md` or `docs/agent-map.md`
-- section-level indexes for large domains such as architecture, usage, and examples
+If one of those four is missing, the doc is not trustworthy enough to act as active guidance.
 
-Why:
+## Freshness Policy
 
-- this reduces context search cost
-- it gives external and internal agents a stable reading order
-- it lowers the risk that agents read obsolete or secondary documents first
+Spec2Flow now treats documentation freshness as an enforced runtime concern, not a polite suggestion.
 
-### 2. Plan and design documents can grow without freshness signals
+Rules:
 
-The repository has valuable long-form documents, but not every document exposes whether it is current, historical, or superseded.
+- active docs must use `Last verified: YYYY-MM-DD`
+- active docs cannot use future dates
+- active docs cannot stay older than the freshness window enforced by `npm run validate:docs`
+- historical and completed docs are exempt from freshness windows, but they must not sit in the active docs root
+- archived plans can stay searchable, but active docs must point to archive index pages rather than archived plan files directly
 
-What to add:
+This is the key answer to "should docs include dates?"
 
-- a small metadata block near the top of major docs:
-  - status: active, reference, historical, draft
-  - source of truth: code, schema, runtime artifact, or policy doc
-  - last verified against commands or files
-  - supersedes / superseded by links when relevant
+Yes. For active docs, dates are worth adding because they give the validator something concrete to measure. Without a date, stale docs can look authoritative forever.
 
-Why:
+## Enforcement Ladder
 
-- agents cannot reliably infer freshness from prose
-- drift often starts when old plans remain readable but unmarked
-- explicit status helps both humans and agents avoid stale guidance
+Spec2Flow should keep moving repeated rules down this ladder:
 
-### 3. The repository lacks per-stage execution playbooks
+1. `llms.txt`, `AGENTS.md`, and `docs/index.md`
+   These establish reading order and source-of-truth routing.
+2. Scoped instructions
+   `.github/instructions/*.md` tells agents how to edit docs, TypeScript, and schemas without polluting always-on architecture guidance.
+3. Metadata contract
+   `Status`, `Source of truth`, `Verified with`, and `Last verified` make freshness and ownership explicit.
+4. Structure rules
+   `docs/structure.md` and `docs/plans/index.md` keep plan sprawl and historical drift out of primary navigation.
+5. Deterministic validation
+   `packages/cli/src/docs/docs-validation-service.ts` turns metadata, script, link, and archive rules into failures instead of wishes.
+6. Contracts and tests
+   `schemas/`, TypeScript types, generated examples, and unit tests keep behavior drift visible even when prose still looks clean.
 
-Spec2Flow has a six-stage model, but there is no narrow playbook for each stage that says: inputs, expected outputs, allowed tools, and validation path.
+The repository gets safer every time a recurring prose rule moves one rung lower.
 
-What to add:
+## What `validate:docs` Should Enforce
 
-- `docs/playbooks/requirements-analysis.md`
-- `docs/playbooks/code-implementation.md`
-- `docs/playbooks/test-design.md`
-- `docs/playbooks/automated-execution.md`
-- `docs/playbooks/defect-feedback.md`
-- `docs/playbooks/collaboration.md`
+For active docs and canonical navigation docs, validation should fail on:
 
-Each playbook should stay short and answer:
+- missing or malformed metadata
+- broken source-of-truth paths
+- overbroad source-of-truth directories when a concrete file path should own the truth instead
+- broken markdown links
+- referenced `npm run` commands that no longer exist
+- referenced `npm run` commands that are marked deprecated in the docs-validation registry
+- direct links to archived plan files from active or canonical docs
+- plan-like docs placed directly under `docs/` root
+- active docs whose `Last verified` date is stale
+- non-reciprocal `Supersedes` / `Superseded by` relationships
 
-- when this stage starts
-- what artifacts it must consume
-- what artifact it must emit
-- what can fail the stage
-- what command path validates the result
+This is the minimum viable anti-drift gate. If a repo wants "iron-law" behavior, this command has to be annoying in the right places.
 
-Why:
+## What Still Needs Human Judgment
 
-- this is ideal agent context: local, explicit, task-scoped
-- it avoids overloading `AGENTS.md` and `README.md`
-- it lets future custom agents or skills map directly to one stage
+No validator can prove that prose is perfectly written or that every explanation is the shortest possible one.
 
-### 4. Architectural decisions are not yet captured as small ADRs
+Humans and agents still need to decide:
 
-Important repository decisions are currently spread across architecture and plan documents.
+- whether a new doc should exist at all
+- whether a plan should be folded into a stable doc and archived
+- whether two docs overlap enough that one should defer to the other
+- whether a verification command is still the smallest honest proof path
 
-What to add:
+The rule is simple:
 
-- `docs/adr/` with concise Architecture Decision Records for decisions such as:
-  - why Spec2Flow is an orchestrator rather than a monolithic agent
-  - why adapter execution is task-scoped
-  - why contracts are schema-backed
-  - why Copilot CLI is the documented runtime surface
+If the repo can enforce it mechanically, do that.
+If it cannot enforce it mechanically yet, document it once in the narrowest owning place and then plan the enforcement upgrade.
 
-Why:
+## Practical Anti-Bloat Rules
 
-- ADRs help agents distinguish active decisions from exploratory discussion
-- they reduce the need to re-explain settled tradeoffs in multiple docs
-- they provide stable references for future refactors
+To keep the docs root sharp:
 
-### 5. Generated versus authored knowledge is still mixed conceptually
+- one doc should answer one dominant question
+- indexes should route; they should not become encyclopedias
+- stable decisions should move to ADRs
+- stage procedure should move to playbooks
+- rollout and migration narrative should move to `docs/plans/`
+- examples should show concrete evidence, not carry primary architecture truth
 
-The repository already separates generated execution artifacts, but the doc model can make this distinction more explicit.
+When a doc starts mixing architecture, operations, migration history, examples, and policy in one place, that is a bloat signal, not a sign of thoroughness.
 
-What to add:
+## Change Protocol
 
-- a documented split between:
-  - authored guidance
-  - generated evidence
-  - executable contracts
+When behavior changes:
 
-Suggested framing:
+1. update the owning code, schema, or command path
+2. update the smallest active doc that should describe it
+3. update `Last verified`
+4. run the smallest honest validation path
+5. run `npm run validate:docs`
 
-- `docs/`: authored intent and operating guidance
-- `schemas/`: enforceable contracts
-- `docs/examples/**/generated/`: checked-in example evidence
-- `.spec2flow/` and `spec2flow/outputs/`: runtime evidence, never source of truth
+When a plan becomes true:
 
-Why:
+1. move stable truth into root docs, ADRs, playbooks, or contracts
+2. change the plan status or archive it
+3. remove the plan from primary navigation if it no longer drives implementation
 
-- agents should know what may be edited, what may be regenerated, and what should only be inspected
-- this reduces accidental coupling to ephemeral artifacts
+## Definition Of "No Drift"
 
-## Recommended Documentation Optimizations
+Spec2Flow should consider its doc harness healthy only when all of the following are true:
 
-### Keep `AGENTS.md` as a table of contents, not a handbook
+- new agents read `llms.txt` first and can find the right doc quickly
+- active docs declare who owns the truth and how it was last checked
+- root docs stay small because plans, ADRs, playbooks, and examples each keep to their lane
+- `npm run validate:docs` can reject stale or structurally misleading docs
+- schemas, tests, and examples backstop the prose with executable truth
 
-Do:
-
-- keep it short
-- keep it architectural
-- link outward aggressively
-
-Do not:
-
-- add stage-specific procedures
-- add command trivia
-- add long maintenance checklists
-
-Why:
-
-- large always-on instruction files waste context budget
-- shorter maps are easier to keep fresh
-
-### Move repeated rules toward enforcement
-
-If a rule matters repeatedly, move it down this ladder:
-
-1. narrative doc
-2. scoped instruction
-3. schema or validation helper
-4. test or CI check
-
-Examples for Spec2Flow:
-
-- command references in docs should be checked by CI or a doc validation script
-- schema-linked examples should be validated automatically
-- stage artifact requirements should stay in types and schemas, not only in prose
-
-Why:
-
-- this is the best defense against doc drift
-- agents follow enforced rules more reliably than aspirational ones
-
-### Prefer indexes over long narrative expansions
-
-When a topic grows, add an index page instead of appending everything to one long doc.
-
-Good pattern:
-
-- `docs/architecture.md` stays high-level
-- `docs/adr/` stores stable decisions
-- `docs/playbooks/` stores operational stage guidance
-- `docs/examples/` stores concrete cases
-
-Bad pattern:
-
-- one mega-doc that mixes architecture, operations, policy, examples, and historical notes
-
-Why:
-
-- agents do better with progressive disclosure
-- smaller docs have clearer ownership and lower update cost
-
-### Add a documentation freshness policy
-
-Add a lightweight rule set:
-
-1. Every major doc names its source of truth.
-2. Historical plans are marked clearly.
-3. New behavior changes must update either contracts, tests, or the owning doc in the same change.
-4. When two docs overlap, one must defer to the other.
-
-Why:
-
-- this controls prose sprawl
-- it prevents parallel truths
-
-## Should Spec2Flow Install Skills from Awesome Copilot?
-
-Yes, but selectively.
-
-The right question is not "should we install more skills?" The right question is "which behaviors are repeated often enough that they deserve a stable reusable unit?"
-
-### Recommendation
-
-Do not install a large generic bundle.
-
-Prefer this order:
-
-1. keep repository-specific rules in local instructions
-2. add local repo-specific skills for repeated Spec2Flow workflows
-3. borrow community skills only when they fill a narrow gap cleanly
-
-Why:
-
-- community assets are broad and uneven in quality
-- external skills can introduce style or workflow assumptions that conflict with this repository
-- Spec2Flow itself is a workflow framework, so stability matters more than novelty
-
-### Skills worth considering as references or selective imports
-
-From `github/awesome-copilot`, the most relevant categories are:
-
-- `create-llms`
-  - useful if you want a machine-readable map for external agents
-- `update-llms`
-  - useful once documentation structure starts changing regularly
-- `documentation-writer`
-  - useful as a reference for structured doc authoring, not as an always-on rule
-- `create-architectural-decision-record`
-  - useful if you adopt ADRs
-- `context-map`
-  - useful as a pattern for generating task-specific file maps
-- `agent-governance`
-  - useful if Spec2Flow expands further into policy-enforced multi-agent execution
-- `doublecheck`
-  - useful for high-risk research or external-reference verification workflows
-- `copilot-instructions-blueprint-generator`
-  - useful as a reference when evolving `.github/copilot-instructions.md`
-
-### Skills I would not install broadly
-
-- generic "beast mode" agents
-- style-heavy agents that try to own every implementation detail
-- overlapping planning skills when Spec2Flow already has its own orchestration model
-- tools that encourage giant prompt files instead of repository structure
-
-Why:
-
-- these often fight the repository's own harness instead of strengthening it
-
-### Best adoption model
-
-For this repository, the safest pattern is:
-
-1. inspect an Awesome Copilot skill
-2. extract only the useful behavior pattern
-3. re-express it as a local Spec2Flow skill or instruction
-4. keep the trigger phrases and scope narrow
-
-That preserves compatibility with the repo's architecture and avoids hidden external assumptions.
-
-## Recommended Local Skills for Spec2Flow
-
-Spec2Flow would benefit more from a few repo-native skills than from many generic imports.
-
-### 1. `stage-playbook`
-
-Use when a task has already been claimed and the agent needs stage-specific execution guidance.
-
-Should include:
-
-- expected inputs and outputs by stage
-- artifact contract reminders
-- smallest validation path
-- common failure modes
-
-### 2. `doc-gardening`
-
-Use when a change touches docs, schemas, examples, or command behavior.
-
-Should include:
-
-- how to locate the owning source of truth
-- how to mark stale or historical docs
-- how to update cross-links
-- how to avoid duplicating behavior descriptions
-
-### 3. `task-graph-review`
-
-Use when changing planning, runtime routing, or task graph semantics.
-
-Should include:
-
-- boundary checklist
-- affected schemas and types
-- required regression tests
-- example fixtures to update
-
-### 4. `adapter-runtime-review`
-
-Use when changing Copilot CLI integration or future provider adapters.
-
-Should include:
-
-- preflight expectations
-- provider-specific versus controller-owned rules
-- expected outputs and failure reporting
-
-## How to Fight Documentation Drift
-
-Documentation drift is mostly a control problem, not a writing problem.
-
-### Add explicit ownership
-
-Every durable doc should imply one primary owner:
-
-- architecture docs are owned by runtime architecture
-- usage docs are owned by current command behavior
-- playbooks are owned by the corresponding stage contracts
-- examples are owned by the commands that generate or consume them
-
-### Mark document state
-
-Use a small header block for major docs:
-
-- status
-- source of truth
-- verified with
-
-### Add doc checks to CI over time
-
-Examples:
-
-- verify referenced commands exist in `package.json`
-- verify linked files exist
-- verify example JSON files still validate against schemas
-- fail when docs marked `active` reference removed commands
-
-### Run periodic doc gardening
-
-The repository should eventually have a repeatable maintenance loop that:
-
-- finds duplicate concepts
-- marks stale plans as historical
-- removes dead links
-- updates indexes
-- opens small cleanup PRs instead of large rewrites
-
-## How to Fight Documentation Bloat
-
-### Use progressive disclosure
-
-Keep each layer narrow:
-
-- `README.md`: product overview and entrypoint
-- `AGENTS.md`: architecture map and navigation
-- `.github/copilot-instructions.md`: execution policy
-- scoped instructions: file-family rules
-- playbooks: stage execution guidance
-- ADRs: stable architectural decisions
-- examples: concrete evidence
-
-### Split by question, not by enthusiasm
-
-Each document should answer one dominant question.
-
-Good examples:
-
-- architecture: how the system is divided
-- usage guide: how to adopt and run it
-- collaboration: how results flow into GitHub
-- harness engineering: how to optimize the repo for AI agents
-
-### Archive aggressively
-
-Long-lived plan documents should move into a historical bucket once superseded.
-
-Suggested future structure:
-
-- `docs/plans/active/`
-- `docs/plans/completed/`
-- `docs/plans/historical/`
-
-Why:
-
-- active context should stay small
-- historical context should still be searchable without competing with current truth
-
-## Practical Next Steps
-
-Recommended order of operations:
-
-Completed in the current repository state:
-
-1. added `llms.txt` at the repository root
-2. added a short docs index and agent map
-3. created `docs/playbooks/` for the six workflow stages
-4. created `docs/adr/` for stable architectural decisions
-5. added document status and freshness markers to major docs
-
-Recommended next steps:
-
-1. add one or two repo-native skills instead of importing many generic ones
-
-Now implemented in the current repository state:
-
-- `npm run validate:docs` validates active docs plus canonical machine-critical docs
-- it checks metadata headers, source-of-truth paths, referenced `npm run` scripts, and local markdown links
-- the validation scope stays intentionally narrow so historical and design docs do not create noisy failures
-- completed and superseded plans now live under `docs/plans/historical/` instead of the primary docs root
-- `docs/plans/index.md` defines where plan docs belong so the docs root stays focused on active source-of-truth material
-
-## Bottom Line
-
-The best optimization for AI collaboration is not more prompt text.
-
-It is a repository that is easier to read, easier to verify, and harder to misunderstand.
-
-For Spec2Flow, that means:
-
-- stronger document indexing
-- clearer separation of active versus historical guidance
-- stage-scoped playbooks
-- ADRs for stable decisions
-- selective skill adoption
-- more mechanical freshness checks
-
-That is the harness. Better prompts help, but better repository structure scales further.
+That is the real anti-drift posture: not trust in good intentions, but a repository that makes lying documentation expensive.
