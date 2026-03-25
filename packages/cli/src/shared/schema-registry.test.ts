@@ -210,6 +210,33 @@ describe('schema-registry', () => {
       ]
     })).toBe(true);
 
+    expect(validators.executionArtifactCatalog({
+      taskId: 'frontend-smoke--automated-execution',
+      stage: 'automated-execution',
+      summary: 'Artifact catalog with explicit local-fs descriptors.',
+      store: {
+        mode: 'local',
+        provider: 'local-fs',
+        publicBaseUrl: 'http://127.0.0.1:4310/artifacts/',
+        keyPrefix: 'frontend-smoke/',
+        uploadConfigured: false
+      },
+      artifacts: [
+        {
+          id: 'execution-report',
+          path: 'spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+          kind: 'report',
+          category: 'artifact-index',
+          storage: {
+            mode: 'local',
+            provider: 'local-fs',
+            objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+            remoteUrl: 'http://127.0.0.1:4310/artifacts/frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json'
+          }
+        }
+      ]
+    })).toBe(true);
+
     expect(validators.defectSummary({
       taskId: 'frontend-smoke--defect-feedback',
       stage: 'defect-feedback',
@@ -233,6 +260,30 @@ describe('schema-registry', () => {
         required: true,
         reviewAgentCount: 1,
         requireHumanApproval: true
+      }
+    })).toBe(true);
+
+    expect(validators.topology({
+      topology: {
+        services: [
+          {
+            name: 'frontend',
+            kind: 'frontend'
+          }
+        ],
+        workflowRoutes: [
+          {
+            name: 'frontend-smoke',
+            entryServices: ['frontend'],
+            verifyCommands: ['./scripts/run-smoke.sh'],
+            artifactStore: {
+              mode: 'local',
+              provider: 'local-fs',
+              publicBaseUrl: 'http://127.0.0.1:4310/artifacts/',
+              keyPrefix: 'frontend-smoke/'
+            }
+          }
+        ]
       }
     })).toBe(true);
 

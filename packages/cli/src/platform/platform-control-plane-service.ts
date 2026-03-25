@@ -1,7 +1,9 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { buildPlatformObservabilityReadModel } from './platform-observability-service.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT, getPlatformRunState } from './platform-scheduler-service.js';
-import { readStructuredFileFrom } from '../shared/fs-utils.js';
+import { readStructuredFileFrom, resolveFromBaseDir } from '../shared/fs-utils.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import type {
   PlatformControlPlaneTaskArtifactCatalog,
@@ -33,6 +35,14 @@ interface PlatformControlPlaneRunRepositoryRow extends Record<string, unknown> {
   root_path: string;
 }
 
+interface PlatformControlPlaneArtifactCatalogRow extends Record<string, unknown> {
+  run_id: string;
+  task_id: string | null;
+  artifact_id: string;
+  path: string;
+  root_path: string;
+}
+
 export interface ListPlatformRunsOptions {
   limit?: number;
   repositoryId?: string;
@@ -42,6 +52,15 @@ export interface ListPlatformRunsOptions {
 export interface GetPlatformControlPlaneRunOptions {
   runId: string;
   eventLimit?: number;
+}
+
+export interface PlatformControlPlaneLocalArtifactContent {
+  objectKey: string;
+  artifactId: string;
+  runId: string;
+  taskId: string;
+  localPath: string;
+  contentType: string;
 }
 
 function normalizeTimestamp(value: Date | string | null | undefined): string | null {
@@ -231,4 +250,104 @@ export async function getPlatformControlPlaneTaskArtifactCatalog(
     path: catalogArtifact.path,
     catalog
   };
+}
+
+function inferContentType(filePath: string, declaredContentType: string | undefined): string {
+  if (declaredContentType) {
+    return declaredContentType;
+  }
+
+  if (filePath.endsWith('.json')) {
+    return 'application/json; charset=utf-8';
+  }
+  if (filePath.endsWith('.html')) {
+    return 'text/html; charset=utf-8';
+  }
+  if (filePath.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (filePath.endsWith('.zip')) {
+    return 'application/zip';
+  }
+  if (filePath.endsWith('.webm')) {
+    return 'video/webm';
+  }
+  if (filePath.endsWith('.log') || filePath.endsWith('.txt')) {
+    return 'text/plain; charset=utf-8';
+  }
+
+  return 'application/octet-stream';
+}
+
+function isPathInsideRoot(rootPath: string, candidatePath: string): boolean {
+  const normalizedRoot = path.resolve(rootPath);
+  const normalizedCandidate = path.resolve(candidatePath);
+  return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}${path.sep}`);
+}
+
+export async function getPlatformControlPlaneLocalArtifactContent(
+  executor: SqlExecutor,
+  schema: string,
+  options: { objectKey: string }
+): Promise<PlatformControlPlaneLocalArtifactContent | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const rows = await executor.query<PlatformControlPlaneArtifactCatalogRow>(
+    `
+      SELECT
+        artifacts.run_id,
+        artifacts.task_id,
+        artifacts.artifact_id,
+        artifacts.path,
+        repositories.root_path
+      FROM ${quotedSchema}.artifacts AS artifacts
+      INNER JOIN ${quotedSchema}.runs AS runs
+        ON runs.run_id = artifacts.run_id
+      INNER JOIN ${quotedSchema}.repositories AS repositories
+        ON repositories.repository_id = runs.repository_id
+      WHERE (artifacts.metadata ->> 'originalArtifactId') = 'execution-artifact-catalog'
+         OR artifacts.path LIKE '%execution-artifact-catalog%'
+      ORDER BY artifacts.created_at DESC, artifacts.artifact_id DESC
+    `
+  );
+
+  const validators = getSchemaValidators();
+
+  for (const row of rows.rows) {
+    let catalog: PlatformControlPlaneTaskArtifactCatalog['catalog'];
+    try {
+      catalog = readStructuredFileFrom(row.root_path, row.path) as PlatformControlPlaneTaskArtifactCatalog['catalog'];
+    } catch {
+      continue;
+    }
+
+    if (!validators.executionArtifactCatalog(catalog)) {
+      continue;
+    }
+
+    const artifact = catalog.artifacts.find((entry) =>
+      entry.storage?.mode === 'local'
+      && entry.storage?.provider === 'local-fs'
+      && entry.storage?.objectKey === options.objectKey
+    );
+
+    if (!artifact || !row.task_id) {
+      continue;
+    }
+
+    const resolvedPath = resolveFromBaseDir(row.root_path, artifact.path);
+    if (!isPathInsideRoot(row.root_path, resolvedPath) || !fs.existsSync(resolvedPath)) {
+      continue;
+    }
+
+    return {
+      objectKey: options.objectKey,
+      artifactId: artifact.id,
+      runId: row.run_id,
+      taskId: row.task_id,
+      localPath: resolvedPath,
+      contentType: inferContentType(artifact.path, artifact.contentType)
+    };
+  }
+
+  return null;
 }

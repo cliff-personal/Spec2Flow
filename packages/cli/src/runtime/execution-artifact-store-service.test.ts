@@ -31,6 +31,38 @@ afterEach(() => {
 });
 
 describe('execution-artifact-store-service', () => {
+  it('registers explicit local-fs storage descriptors without upload lifecycle', () => {
+    const tempDir = createTempDir();
+    const store = createExecutionArtifactStore(tempDir, {
+      mode: 'local',
+      provider: 'local-fs',
+      publicBaseUrl: 'http://127.0.0.1:4310/artifacts/',
+      keyPrefix: 'frontend-smoke/'
+    });
+
+    store.writeJsonArtifact({
+      id: 'report',
+      path: 'spec2flow/outputs/execution/report.json',
+      kind: 'report',
+      category: 'other',
+      contentType: 'application/json',
+      payload: { ok: true }
+    });
+
+    expect(store.listArtifacts()).toEqual([
+      expect.objectContaining({
+        id: 'report',
+        storage: expect.objectContaining({
+          mode: 'local',
+          provider: 'local-fs',
+          objectKey: 'frontend-smoke/spec2flow/outputs/execution/report.json',
+          remoteUrl: 'http://127.0.0.1:4310/artifacts/frontend-smoke/spec2flow/outputs/execution/report.json'
+        })
+      })
+    ]);
+    expect(store.listArtifacts()[0]?.upload).toBeUndefined();
+  });
+
   it('writes, uploads, and registers artifacts through one store abstraction', async () => {
     const tempDir = createTempDir();
     const uploads: Array<{ url: string; body: string }> = [];

@@ -74,6 +74,7 @@ Docs governance quick path:
 ### How should Spec2Flow evolve into an agent orchestration platform?
 
 - [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
+- [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
 - [docs/synapse-integration-automation-design.md](/Users/cliff/workspace/Spec2Flow/docs/synapse-integration-automation-design.md)
 
@@ -84,6 +85,18 @@ Docs governance quick path:
 - [docs/playbooks/index.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/index.md)
 - [docs/collaboration.md](/Users/cliff/workspace/Spec2Flow/docs/collaboration.md)
 - [docs/examples/synapse-network/README.md](/Users/cliff/workspace/Spec2Flow/docs/examples/synapse-network/README.md)
+
+### How should local artifact storage and the MinIO upgrade path work?
+
+- [docs/object-store-local-first-design.md](/Users/cliff/workspace/Spec2Flow/docs/object-store-local-first-design.md)
+- [docs/playbooks/automated-execution.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/automated-execution.md)
+- [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
+
+### How should one project, one workspace, and one autonomous delivery run fit together?
+
+- [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
+- [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
+- [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
 
 ### Where did the older plans go?
 
@@ -124,6 +137,11 @@ Docs governance quick path:
 - primary: [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
 - supporting: [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
 
+### Project workspace autonomous delivery
+
+- primary: [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
+- supporting: [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
+
 ### Copilot operating policy
 
 - primary: [.github/copilot-instructions.md](/Users/cliff/workspace/Spec2Flow/.github/copilot-instructions.md)
@@ -147,6 +165,11 @@ Docs governance quick path:
 
 - primary: [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
 - supporting: [docs/runtime-config-reference.md](/Users/cliff/workspace/Spec2Flow/docs/runtime-config-reference.md)
+
+### Artifact storage and retrieval
+
+- primary: [docs/object-store-local-first-design.md](/Users/cliff/workspace/Spec2Flow/docs/object-store-local-first-design.md)
+- supporting: [docs/playbooks/automated-execution.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/automated-execution.md)
 
 ### Stage-scoped execution guidance
 

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  getPlatformControlPlaneLocalArtifactContent,
   getPlatformControlPlaneTaskArtifactCatalog,
   getPlatformControlPlaneRunDetail,
   listPlatformRuns
@@ -389,6 +390,72 @@ describe('platform-control-plane-service', () => {
         ])
       })
     }));
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('resolves local-fs artifact content by object key', async () => {
+    const tempDir = createTempDir();
+    const reportPath = path.join('spec2flow', 'outputs', 'execution', 'frontend-smoke', 'execution-report.json');
+    const catalogPath = path.join('spec2flow', 'outputs', 'execution', 'frontend-smoke', 'execution-artifact-catalog.json');
+    fs.mkdirSync(path.join(tempDir, 'spec2flow', 'outputs', 'execution', 'frontend-smoke'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, reportPath), JSON.stringify({ status: 'ok' }, null, 2));
+    fs.writeFileSync(path.join(tempDir, catalogPath), JSON.stringify({
+      generatedAt: '2026-03-25T01:00:00.000Z',
+      taskId: 'frontend-smoke--automated-execution',
+      stage: 'automated-execution',
+      summary: 'catalog',
+      store: {
+        mode: 'local',
+        provider: 'local-fs',
+        publicBaseUrl: 'http://127.0.0.1:4310/artifacts/',
+        keyPrefix: 'frontend-smoke/'
+      },
+      artifacts: [
+        {
+          id: 'execution-report',
+          path: reportPath,
+          kind: 'report',
+          category: 'other',
+          contentType: 'application/json; charset=utf-8',
+          storage: {
+            mode: 'local',
+            provider: 'local-fs',
+            objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+            remoteUrl: 'http://127.0.0.1:4310/artifacts/frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json'
+          }
+        }
+      ]
+    }, null, 2));
+
+    const executor = new SequentialExecutor([
+      {
+        match: 'FROM "spec2flow_platform".artifacts AS artifacts',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--automated-execution',
+            artifact_id: 'artifact-catalog-1',
+            path: catalogPath,
+            root_path: tempDir
+          }],
+          rowCount: 1
+        }
+      }
+    ]);
+
+    const result = await getPlatformControlPlaneLocalArtifactContent(executor, 'spec2flow_platform', {
+      objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json'
+    });
+
+    expect(result).toEqual({
+      objectKey: 'frontend-smoke/spec2flow/outputs/execution/frontend-smoke/execution-report.json',
+      artifactId: 'execution-report',
+      runId: 'run-1',
+      taskId: 'frontend-smoke--automated-execution',
+      localPath: path.join(tempDir, reportPath),
+      contentType: 'application/json; charset=utf-8'
+    });
 
     fs.rmSync(tempDir, { recursive: true, force: true });
   });

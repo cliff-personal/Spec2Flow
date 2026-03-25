@@ -60,6 +60,8 @@ Spec2Flow/
 │  ├─ architecture.md
 │  ├─ agent-orchestration-platform-design.md
 │  ├─ collaboration.md
+│  ├─ object-store-local-first-design.md
+│  ├─ project-workspace-autonomous-delivery-design.md
 │  ├─ runtime-config-reference.md
 │  ├─ usage-guide.md
 │  ├─ synapse-integration-automation-design.md
@@ -147,6 +149,8 @@ Recommended reading order:
 - `docs/plans/index.md` for plan placement and archive rules
 - `docs/architecture.md` for runtime boundaries
 - `docs/agent-orchestration-platform-design.md` for the target platform upgrade path
+- `docs/object-store-local-first-design.md` for local-first artifact storage and the MinIO upgrade path
+- `docs/project-workspace-autonomous-delivery-design.md` for the V1 local product shape built around projects, workspaces, worktrees, and review-ready autonomous runs
 - `docs/runtime-config-reference.md` for runtime field semantics and override rules
 - `docs/usage-guide.md` for adoption flow
 - `docs/synapse-integration-automation-design.md` for complex-system integration

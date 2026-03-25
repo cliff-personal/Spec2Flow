@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type {
   PlatformControlPlaneTaskArtifactCatalog,
@@ -45,6 +46,16 @@ export interface StartPlatformControlPlaneServerOptions {
     taskId: string;
     eventLimit: number;
   }) => Promise<PlatformControlPlaneTaskArtifactCatalog | null>;
+  getPlatformControlPlaneLocalArtifactContent: (options: {
+    objectKey: string;
+  }) => Promise<{
+    objectKey: string;
+    artifactId: string;
+    runId: string;
+    taskId: string;
+    localPath: string;
+    contentType: string;
+  } | null>;
   submitPlatformRun: (options: PlatformControlPlaneRunSubmissionRequest) => Promise<PlatformControlPlaneRunSubmissionResult>;
   retryPlatformTask: (options: {
     runId: string;
@@ -88,6 +99,7 @@ const RUN_TASK_ARTIFACT_CATALOG_ROUTE = /^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/
 const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
 const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume)$/u;
 const TASK_ACTION_ROUTE = /^\/api\/tasks\/([^/]+)\/actions\/(retry|approve|reject)$/u;
+const LOCAL_ARTIFACT_ROUTE_PREFIX = '/artifacts/';
 
 function writeJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.statusCode = statusCode;
@@ -436,6 +448,36 @@ async function handleRunTaskArtifactCatalogRequest(
   return true;
 }
 
+async function handleLocalArtifactRequest(
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  if (!pathname.startsWith(LOCAL_ARTIFACT_ROUTE_PREFIX)) {
+    return false;
+  }
+
+  const objectKeyParam = pathname.slice(LOCAL_ARTIFACT_ROUTE_PREFIX.length);
+  if (objectKeyParam.length === 0) {
+    writeError(response, 404, 'artifact-not-found', 'Missing artifact object key');
+    return true;
+  }
+
+  const objectKey = decodeURIComponent(objectKeyParam);
+  const artifact = await options.getPlatformControlPlaneLocalArtifactContent({ objectKey });
+  if (!artifact) {
+    writeError(response, 404, 'artifact-not-found', `Unknown artifact object key: ${objectKey}`, { objectKey });
+    return true;
+  }
+
+  const content = await fs.promises.readFile(artifact.localPath);
+  response.statusCode = 200;
+  response.setHeader('content-type', artifact.contentType);
+  response.setHeader('content-length', content.byteLength);
+  response.end(content);
+  return true;
+}
+
 async function handleRunActionRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -548,6 +590,10 @@ async function handleGetRequest(
   }
 
   if (await handleRunListRequest(response, url, options)) {
+    return true;
+  }
+
+  if (await handleLocalArtifactRequest(response, pathname, options)) {
     return true;
   }
 

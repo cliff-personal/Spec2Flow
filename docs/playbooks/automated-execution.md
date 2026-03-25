@@ -65,6 +65,8 @@ Execution hardening rules:
 - services that were already healthy before execution are observed but not torn down by Spec2Flow
 - services started by deterministic execution are torn down according to `executionPolicy.teardownPolicy`
 - long-running commands are stopped by the execution lifecycle guard when `executionPolicy.maxDurationSeconds` is exceeded
+- `artifactStore.mode: local` should now be written explicitly as `provider: local-fs` when local repository storage is intended
+- when `artifactStore.publicBaseUrl` points at `serve-platform-control-plane`, the task's catalog-backed `remoteUrl` can resolve through `/artifacts/<objectKey>` even in local mode
 - `artifactStore.mode: remote-catalog` can now push artifacts to a generic HTTP object store and expose retrieval metadata through the control plane
 
 ## Validation Path

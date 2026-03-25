@@ -53,6 +53,7 @@ describe('serve-platform-control-plane-command', () => {
       approvePlatformControlPlaneTask: vi.fn(async () => null),
       createPlatformPool,
       fail: vi.fn(),
+      getPlatformControlPlaneLocalArtifactContent: vi.fn(async () => null),
       getPlatformControlPlaneRunDetail: vi.fn(async () => null),
       getPlatformControlPlaneRunObservability: vi.fn(async () => null),
       getPlatformControlPlaneTaskArtifactCatalog: vi.fn(async () => null),

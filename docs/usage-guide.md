@@ -188,6 +188,7 @@ The PostgreSQL commands are:
 - `get-platform-run-state`: read one DB-backed run snapshot with tasks, events, and artifacts
 - `serve-platform-control-plane`: start the first HTTP backend for the future web control plane
 - `GET /api/runs/:runId/tasks/:taskId/artifact-catalog`: read one task-scoped execution artifact catalog from the control plane
+- `GET /artifacts/:objectKey`: serve one local-fs artifact through the control plane when `artifactStore.publicBaseUrl` points at `/artifacts/`
 - `run-platform-worker-task`: materialize one leased DB-backed task into a worker claim, execute it, and persist the result back to PostgreSQL
 - `run-platform-requirements-worker`: stage-locked wrapper for `requirements-analysis`
 - `run-platform-implementation-worker`: stage-locked wrapper for `code-implementation`
@@ -388,6 +389,34 @@ reporting:
 
 Route-scoped execution can also declare an artifact store for deterministic execution evidence:
 
+Local-first default:
+
+```yaml
+topology:
+  workflowRoutes:
+    - name: frontend-smoke
+      entryServices: [frontend]
+      verifyCommands:
+        - ./scripts/run-smoke.sh
+      artifactStore:
+        mode: local
+        provider: local-fs
+        publicBaseUrl: http://127.0.0.1:4310/artifacts/
+        keyPrefix: frontend-smoke/
+```
+
+This is the recommended V1 shape for local deployments. It keeps repository-local writes as the source of truth, makes the local provider explicit, and lets the task's `execution-artifact-catalog` carry stable retrieval metadata.
+
+When the control plane is running on `http://127.0.0.1:4310`, that `publicBaseUrl` now maps to a real built-in route:
+
+```text
+http://127.0.0.1:4310/artifacts/<objectKey>
+```
+
+That means Web artifact panels can open catalog-backed local evidence without introducing MinIO or a remote object store.
+
+Remote-catalog upgrade path:
+
 ```yaml
 topology:
   workflowRoutes:
@@ -406,7 +435,9 @@ topology:
           authTokenEnv: SPEC2FLOW_ARTIFACT_TOKEN
 ```
 
-`publicBaseUrl` defines retrieval links that end up in the task's `execution-artifact-catalog`. `upload.endpointTemplate` turns `remote-catalog` from metadata-only into a real upload lifecycle, and the control plane can now read that catalog back through `GET /api/runs/:runId/tasks/:taskId/artifact-catalog`.
+For `mode: local`, `provider: local-fs` is the explicit V1 provider and `publicBaseUrl` is optional. If it is present and points at `serve-platform-control-plane`, control-plane artifact views can show a stable local retrieval URL and the backend can serve the file bytes directly from `/artifacts/<objectKey>`.
+
+For `mode: remote-catalog`, `publicBaseUrl` defines retrieval links that end up in the task's `execution-artifact-catalog`. `upload.endpointTemplate` turns `remote-catalog` from metadata-only into a real upload lifecycle, and the control plane can now read that catalog back through `GET /api/runs/:runId/tasks/:taskId/artifact-catalog`.
 
 ## External Project Onboarding Steps
 

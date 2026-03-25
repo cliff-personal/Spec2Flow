@@ -160,6 +160,35 @@
     "artifactStore": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": { "const": "local" }
+            }
+          },
+          "then": {
+            "properties": {
+              "provider": { "type": "string", "enum": ["local-fs"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": { "const": "remote-catalog" }
+            }
+          },
+          "then": {
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["generic-http", "s3", "gcs", "azure-blob"]
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "mode": {
           "type": "string",
@@ -168,7 +197,7 @@
         },
         "provider": {
           "type": "string",
-          "enum": ["generic-http", "s3", "gcs", "azure-blob"]
+          "enum": ["local-fs", "generic-http", "s3", "gcs", "azure-blob"]
         },
         "publicBaseUrl": { "type": "string", "minLength": 1 },
         "keyPrefix": { "type": "string", "minLength": 1 },

@@ -38,6 +38,7 @@ import { runSimulateModelRun, type SimulatedModelRunDocument } from './simulate-
 import { runSubmitTaskResult } from './submit-task-result-command.js';
 import { runValidateOnboarding, type ValidateOnboardingResultDocument } from './validate-onboarding-command.js';
 import {
+  getPlatformControlPlaneLocalArtifactContent,
   getPlatformControlPlaneRunDetail,
   getPlatformControlPlaneRunObservability,
   getPlatformControlPlaneTaskArtifactCatalog,
@@ -184,6 +185,7 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         approvePlatformControlPlaneTask,
         createPlatformPool,
         fail: dependencies.fail,
+        getPlatformControlPlaneLocalArtifactContent,
         getPlatformControlPlaneRunDetail,
         getPlatformControlPlaneRunObservability,
         getPlatformControlPlaneTaskArtifactCatalog,

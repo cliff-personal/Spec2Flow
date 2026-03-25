@@ -4,7 +4,7 @@ import { ensureDirForFile, resolveFromBaseDir, writeJsonFrom } from '../shared/f
 
 export type ExecutionArtifactKind = 'log' | 'trace' | 'screenshot' | 'video' | 'report' | 'other';
 export type ExecutionArtifactStoreMode = 'local' | 'remote-catalog';
-export type ExecutionArtifactStoreProvider = 'generic-http' | 's3' | 'gcs' | 'azure-blob';
+export type ExecutionArtifactStoreProvider = 'local-fs' | 'generic-http' | 's3' | 'gcs' | 'azure-blob';
 export type ExecutionArtifactUploadMethod = 'PUT' | 'POST';
 export type ExecutionArtifactUploadStatus = 'pending' | 'uploaded' | 'skipped' | 'failed';
 export type ExecutionArtifactCategory =
@@ -100,12 +100,22 @@ function renderUploadEndpoint(template: string, objectKey: string): string {
     : template;
 }
 
+function normalizeObjectKey(pathValue: string, config: ExecutionArtifactStoreConfig): string {
+  return `${config.keyPrefix ?? ''}${pathValue}`.replaceAll(/\\/g, '/').replaceAll(/^\/+/g, '');
+}
+
 function buildStorageReference(pathValue: string, config: ExecutionArtifactStoreConfig): ExecutionArtifactStorageReference | undefined {
+  const objectKey = normalizeObjectKey(pathValue, config);
+
   if (config.mode === 'local') {
-    return undefined;
+    return {
+      mode: config.mode,
+      ...(config.provider ? { provider: config.provider } : {}),
+      objectKey,
+      ...(config.publicBaseUrl ? { remoteUrl: joinRemoteUrl(config.publicBaseUrl, objectKey) } : {})
+    };
   }
 
-  const objectKey = `${config.keyPrefix ?? ''}${pathValue}`.replaceAll(/\\/g, '/').replaceAll(/^\/+/g, '');
   return {
     mode: config.mode,
     ...(config.provider ? { provider: config.provider } : {}),
@@ -192,9 +202,11 @@ function updateArtifactRecord(
 }
 
 export function createExecutionArtifactStore(cwd: string, config: Partial<ExecutionArtifactStoreConfig> = {}): ExecutionArtifactStore {
+  const resolvedMode = config.mode ?? 'local';
+  const resolvedProvider = config.provider ?? (resolvedMode === 'local' ? 'local-fs' : undefined);
   const resolvedConfig: ExecutionArtifactStoreConfig = {
-    mode: config.mode ?? 'local',
-    ...(config.provider ? { provider: config.provider } : {}),
+    mode: resolvedMode,
+    ...(resolvedProvider ? { provider: resolvedProvider } : {}),
     ...(config.publicBaseUrl ? { publicBaseUrl: config.publicBaseUrl } : {}),
     ...(config.keyPrefix ? { keyPrefix: config.keyPrefix } : {}),
     ...(config.catalogPath ? { catalogPath: config.catalogPath } : {}),

@@ -29,9 +29,11 @@ Mandatory repository intake rule for AI agents:
 
 - [docs/architecture.md](docs/architecture.md): Runtime model, orchestration boundaries, and specialist-agent overlay.
 - [docs/agent-orchestration-platform-design.md](docs/agent-orchestration-platform-design.md): Target design for PostgreSQL-backed scheduling, auto-repair, and a web control plane.
+- [docs/project-workspace-autonomous-delivery-design.md](docs/project-workspace-autonomous-delivery-design.md): V1 product design for project registration, workspace boundaries, run worktrees, and review-ready autonomous delivery.
 - [docs/structure.md](docs/structure.md): Current repository map and reading order.
 - [docs/adr/index.md](docs/adr/index.md): Stable architectural decisions and their enforcing surfaces.
 - [docs/Harness_engineering.md](docs/Harness_engineering.md): How this repository should evolve to be easier for AI agents to navigate and verify.
+- [docs/object-store-local-first-design.md](docs/object-store-local-first-design.md): Local-first artifact storage design and the MinIO upgrade path.
 - [docs/playbooks/index.md](docs/playbooks/index.md): Stage-scoped execution guidance for claimed route tasks.
 - [docs/plans/index.md](docs/plans/index.md): Planning-doc layout rules and archive boundaries.
 
@@ -47,7 +49,7 @@ Mandatory repository intake rule for AI agents:
 
 - [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
 - PostgreSQL worker runtime commands now include `run-platform-worker-task` plus stage-locked worker entrypoints for requirements, implementation, test design, execution, defect, and collaboration.
-- `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, run list, run detail, task list, observability endpoints, task-level retry/approval operator actions, and real run-level pause/resume actions.
+- `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, run list, run detail, task list, observability endpoints, task-level retry/approval operator actions, real run-level pause/resume actions, and `/artifacts/<objectKey>` serving for local-fs execution evidence.
 - `packages/web` now contains the first React-based frontend shell for the web control plane, and `web:dev` starts that shell against the control-plane HTTP API.
 - `run-platform-worker-task` now renews its own lease during execution and stops when lease ownership is lost or heartbeat failures exceed the configured threshold.
 - Auto-repair policy fields now flow from `risk-policy.schema.json` into task `reviewPolicy`; downstream rerun invalidation and repair escalation are decided by `packages/cli/src/runtime/auto-repair-policy-service.ts`, and PostgreSQL-backed runs persist repair attempts plus escalation events through `packages/cli/src/platform/platform-auto-repair-service.ts`.
