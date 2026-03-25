@@ -1,3 +1,6 @@
+@tailwind components;
+@tailwind utilities;
+
 :root {
   color-scheme: dark;
   --bg-0: #07111f;
