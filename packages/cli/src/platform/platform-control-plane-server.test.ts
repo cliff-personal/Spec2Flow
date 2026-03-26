@@ -407,7 +407,7 @@ describe('platform-control-plane-server', () => {
             defaultBranch: 'main',
             branchPrefix: 'spec2flow/',
             adapterProfile: {
-              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json'
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/runtime/model-adapter-runtime.json'
             },
             workspacePolicy: {
               allowedReadGlobs: ['**/*'],
@@ -530,7 +530,7 @@ describe('platform-control-plane-server', () => {
         repositoryRootPath: '/workspace/Spec2Flow',
         projectName: 'Spec2Flow Local',
         adapterProfile: {
-          runtimePath: '.spec2flow/model-adapter-runtime.json'
+          runtimePath: '.spec2flow/runtime/model-adapter-runtime.json'
         }
       })
     });
@@ -542,7 +542,7 @@ describe('platform-control-plane-server', () => {
     }));
     expect(registrationRequests).toEqual([expect.objectContaining({
       adapterProfile: {
-        runtimePath: '.spec2flow/model-adapter-runtime.json'
+        runtimePath: '.spec2flow/runtime/model-adapter-runtime.json'
       }
     })]);
 

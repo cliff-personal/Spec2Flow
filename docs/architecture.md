@@ -117,7 +117,7 @@ Primary contract files:
 Platform adapter selection rule:
 - registered projects persist an adapter profile in the control-plane store
 - operators can update that adapter profile through `PATCH /api/projects/:projectId/adapter-profile`
-- the auto-runner prefers the stored project adapter profile and only falls back to default `.spec2flow/model-adapter-runtime.json` discovery for backward compatibility
+- the auto-runner prefers the stored project adapter profile and only falls back to default `.spec2flow/runtime/model-adapter-runtime.json` discovery for backward compatibility
 
 Runtime configuration reference:
 - [docs/runtime-config-reference.md](runtime-config-reference.md)

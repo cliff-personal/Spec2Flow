@@ -65,9 +65,11 @@ describe('scaffold-spec2flow', () => {
 
     const projectYaml = fs.readFileSync(path.join(repositoryRoot, '.spec2flow', 'project.yaml'), 'utf8');
     const topologyYaml = fs.readFileSync(path.join(repositoryRoot, '.spec2flow', 'topology.yaml'), 'utf8');
+    const runtimeJson = fs.readFileSync(path.join(repositoryRoot, '.spec2flow', 'runtime', 'model-adapter-runtime.json'), 'utf8');
 
     expect(projectYaml).toContain('type: single-app');
     expect(projectYaml).toContain('app:');
     expect(topologyYaml).toContain('name: default');
+    expect(runtimeJson).toContain('example-command-adapter.mjs');
   });
 });

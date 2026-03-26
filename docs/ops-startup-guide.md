@@ -191,7 +191,7 @@ Without an adapter the run enters `blocked` status. The web UI shows:
    npm run preflight:copilot-cli
    ```
 
-3. Ensure `.spec2flow/model-adapter-runtime.json` exists in the target project. The scaffold (`scaffoldSpec2flowFiles`) writes a minimal version automatically. It must point at the Copilot CLI adapter command:
+3. Ensure `.spec2flow/runtime/model-adapter-runtime.json` exists in the target project. The scaffold (`scaffoldSpec2flowFiles`) writes a minimal version automatically. It must point at the Copilot CLI adapter command:
 
    ```json
    {
@@ -241,7 +241,7 @@ npm run run:platform-worker-task -- \
   --run-id <runId> \
   --task-id <taskId> \
   --worker-id debug-worker-1 \
-  --adapter-runtime .spec2flow/model-adapter-runtime.json
+  --adapter-runtime .spec2flow/runtime/model-adapter-runtime.json
 ```
 
 ---

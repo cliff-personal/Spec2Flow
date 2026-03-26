@@ -4,7 +4,10 @@ packages/cli/dist/
 packages/web/dist/
 .tmp/
 .spec2flow/generated/
-.spec2flow/runtime/
+.spec2flow/runtime/**
+!.spec2flow/runtime/
+!.spec2flow/runtime/model-adapter-runtime.json
+!.spec2flow/runtime/model-adapter-runtime.deterministic.json
 spec2flow/outputs/
 .env.local
 .env.prod

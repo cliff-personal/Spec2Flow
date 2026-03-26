@@ -172,7 +172,7 @@ async function executeAutoRunnerTask(
     .join(', ');
   return buildStoppedPlatformWorkerExecutionResult({
     materialization,
-    message: `Stage "${stage}" requires an AI adapter. Register a project adapter profile or add .spec2flow/model-adapter-runtime.json to your project root. Searched: ${searchedPaths || 'no project path resolved'}`,
+    message: `Stage "${stage}" requires an AI adapter. Register a project adapter profile or add .spec2flow/runtime/model-adapter-runtime.json under your project root. Searched: ${searchedPaths || 'no project path resolved'}`,
     code: 'no-adapter-configured',
     recoverable: true
   });

@@ -2,7 +2,7 @@ import { getSchemaValidators } from '../shared/schema-registry.js';
 import { fileExists, readStructuredFile, resolveFromBaseDir } from '../shared/fs-utils.js';
 import type { AdapterRuntimeDocument, PlatformProjectAdapterProfile } from '../types/index.js';
 
-export const DEFAULT_PLATFORM_PROJECT_ADAPTER_RUNTIME_PATH = '.spec2flow/model-adapter-runtime.json';
+export const DEFAULT_PLATFORM_PROJECT_ADAPTER_RUNTIME_PATH = '.spec2flow/runtime/model-adapter-runtime.json';
 export const DEFAULT_PLATFORM_PROJECT_ADAPTER_CAPABILITY_PATH = '.spec2flow/model-adapter-capability.json';
 
 export interface PlatformProjectAdapterProfileInput {

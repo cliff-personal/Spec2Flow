@@ -557,7 +557,7 @@ describe('platform-scheduler-service', () => {
             project_default_branch: 'main',
             project_branch_prefix: 'spec2flow/',
             project_adapter_profile: {
-              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/runtime/model-adapter-runtime.json',
               capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
             },
             project_workspace_policy: {
@@ -632,7 +632,7 @@ describe('platform-scheduler-service', () => {
       projectId: 'spec2flow-local',
       name: 'Spec2Flow Local',
       adapterProfile: {
-        runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+        runtimePath: '/workspace/Spec2Flow/.spec2flow/runtime/model-adapter-runtime.json',
         capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
       }
     });

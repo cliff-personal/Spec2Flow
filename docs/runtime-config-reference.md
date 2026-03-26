@@ -1,7 +1,7 @@
 # Runtime Configuration Reference
 
 - Status: active
-- Source of truth: `.spec2flow/model-adapter-runtime.json`, `docs/examples/synapse-network/model-adapter-runtime.json`, `packages/cli/src/adapters/adapter-runtime-resolver.ts`, `packages/cli/src/adapters/copilot-preflight.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `schemas/model-adapter-runtime.schema.json`
+- Source of truth: `.spec2flow/runtime/model-adapter-runtime.json`, `docs/examples/synapse-network/model-adapter-runtime.json`, `packages/cli/src/adapters/adapter-runtime-resolver.ts`, `packages/cli/src/adapters/copilot-preflight.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `schemas/model-adapter-runtime.schema.json`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
 - Last verified: 2026-03-25
 
@@ -182,7 +182,7 @@ Default guidance:
 
 ## Bundled Runtime Defaults
 
-The repository's default self-dogfood runtime is `.spec2flow/model-adapter-runtime.json`.
+The repository's default self-dogfood runtime is `.spec2flow/runtime/model-adapter-runtime.json`.
 
 Its operating model is:
 - provider-backed by default through Copilot CLI
@@ -198,7 +198,7 @@ The example runtime at `docs/examples/synapse-network/model-adapter-runtime.json
 
 ## Bundled Runtime Comparison
 
-Use the self-dogfood runtime at `.spec2flow/model-adapter-runtime.json` when you want the repository's full operating model:
+Use the self-dogfood runtime at `.spec2flow/runtime/model-adapter-runtime.json` when you want the repository's full operating model:
 - deterministic delegation for `environment-preparation` and `automated-execution`
 - repository policy flags for writes, test runs, git writes, and PR creation
 - the exact runtime shape used by Spec2Flow to dogfood itself

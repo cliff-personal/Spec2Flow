@@ -59,7 +59,7 @@ describe('platform-project-service', () => {
             default_branch: 'main',
             branch_prefix: 'spec2flow/',
             adapter_profile: {
-              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/runtime/model-adapter-runtime.json',
               capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
             },
             workspace_policy: {
@@ -82,7 +82,7 @@ describe('platform-project-service', () => {
       repositoryName: 'Spec2Flow',
       branchPrefix: 'spec2flow/',
       adapterProfile: {
-        runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+        runtimePath: '/workspace/Spec2Flow/.spec2flow/runtime/model-adapter-runtime.json',
         capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
       }
     })]);
@@ -90,7 +90,8 @@ describe('platform-project-service', () => {
 
   it('registers a project by upserting repository and project records', async () => {
     const repositoryRootPath = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-project-'));
-    const adapterDir = path.join(repositoryRootPath, '.spec2flow');
+    const adapterDir = path.join(repositoryRootPath, '.spec2flow', 'runtime');
+    const spec2flowDir = path.join(repositoryRootPath, '.spec2flow');
 
     fs.mkdirSync(adapterDir, { recursive: true });
     fs.writeFileSync(path.join(adapterDir, 'model-adapter-runtime.json'), JSON.stringify({
@@ -101,7 +102,7 @@ describe('platform-project-service', () => {
         outputMode: 'stdout'
       }
     }));
-    fs.writeFileSync(path.join(adapterDir, 'model-adapter-capability.json'), JSON.stringify({
+    fs.writeFileSync(path.join(spec2flowDir, 'model-adapter-capability.json'), JSON.stringify({
       adapter: {
         name: 'github-copilot',
         provider: 'github',
@@ -143,7 +144,7 @@ describe('platform-project-service', () => {
       defaultBranch: 'main',
       branchPrefix: 'spec2flow/',
       adapterProfile: {
-        runtimePath: '.spec2flow/model-adapter-runtime.json',
+        runtimePath: '.spec2flow/runtime/model-adapter-runtime.json',
         capabilityPath: '.spec2flow/model-adapter-capability.json'
       },
       workspacePolicy: {
@@ -160,7 +161,7 @@ describe('platform-project-service', () => {
         repositoryId: 'spec2flow',
         workspaceRootPath: repositoryRootPath,
         adapterProfile: {
-          runtimePath: path.join(repositoryRootPath, '.spec2flow', 'model-adapter-runtime.json'),
+          runtimePath: path.join(repositoryRootPath, '.spec2flow', 'runtime', 'model-adapter-runtime.json'),
           capabilityPath: path.join(repositoryRootPath, '.spec2flow', 'model-adapter-capability.json')
         }
       })
@@ -185,7 +186,7 @@ describe('platform-project-service', () => {
             default_branch: 'main',
             branch_prefix: 'spec2flow/',
             adapter_profile: {
-              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json'
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/runtime/model-adapter-runtime.json'
             },
             workspace_policy: {
               allowedReadGlobs: ['**/*'],

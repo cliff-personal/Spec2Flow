@@ -65,7 +65,7 @@ What already fits the target:
 - The task graph already expands one request into stage-scoped subtasks.
 - The runtime already persists execution state outside model memory.
 - The result pipeline already supports defect routing and stage-specific specialists.
-- Project registration now persists adapter runtime and capability references so the scheduler can reuse durable project truth instead of depending only on late `.spec2flow/model-adapter-runtime.json` discovery.
+- Project registration now persists adapter runtime and capability references so the scheduler can reuse durable project truth instead of depending only on late `.spec2flow/runtime/model-adapter-runtime.json` discovery.
 - Control-plane operators can now update or clear a registered project's adapter profile without re-registering the project, so scheduler truth is operationally mutable through the API instead of only at registration time.
 - The planner and runtime already model an evaluator stage, which is the right control-plane boundary for final acceptance.
 - Evaluator `needs-repair` decisions now re-enter the controller loop automatically, and `evaluation-summary.repairTargetStage` gives the controller an explicit schema-backed reroute target. `findings` and `nextActions` remain as compatibility signals when older adapters do not emit the explicit field.

@@ -96,9 +96,9 @@ Route topology can now also declare an optional `executionPolicy` block with:
 
 That policy is routed into the `automated-execution` task input so deterministic execution can stop long-running commands and clean up only the services it started.
 
-The repository's self-dogfood runtime for that path lives at `.spec2flow/model-adapter-runtime.deterministic.json`.
+The repository's self-dogfood runtime for that path lives at `.spec2flow/runtime/model-adapter-runtime.deterministic.json`.
 
-If one workflow needs both deterministic and provider-backed stages, keep one top-level runtime file and use `adapterRuntime.stageRuntimeRefs` to delegate specific stages. The repository's `.spec2flow/model-adapter-runtime.json` now does exactly that: it keeps Copilot CLI as the default runtime while routing `environment-preparation` and `automated-execution` to `.spec2flow/model-adapter-runtime.deterministic.json`.
+If one workflow needs both deterministic and provider-backed stages, keep one top-level runtime file and use `adapterRuntime.stageRuntimeRefs` to delegate specific stages. The repository's `.spec2flow/runtime/model-adapter-runtime.json` now does exactly that: it keeps Copilot CLI as the default runtime while routing `environment-preparation` and `automated-execution` to `.spec2flow/runtime/model-adapter-runtime.deterministic.json`.
 
 Runtime configuration details now live in [docs/runtime-config-reference.md](runtime-config-reference.md).
 
