@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { applyCollaborationPublicationPolicy } from './collaboration-publication-service.js';
-import type { ArtifactRef, TaskState } from '../types/execution-state.js';
+import type { TaskState } from '../types/execution-state.js';
 import type { Task, TaskRoleProfile } from '../types/task-graph.js';
 
 const tempDirs: string[] = [];
@@ -95,10 +95,10 @@ function createCollaborationTask(allowAutoCommit: boolean, requireHumanApproval 
   };
 }
 
-function createTaskState(): TaskState {
+function createTaskState(status: TaskState['status'] = 'completed'): TaskState {
   return {
     taskId: 'frontend-smoke--collaboration',
-    status: 'completed',
+    status,
     notes: []
   };
 }
@@ -205,6 +205,54 @@ describe('collaboration-publication-service', () => {
     expect(decision.reason).toBe('auto-commit-disabled');
     const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
     expect(currentBranch).not.toMatch(/^spec2flow\//);
+    expect(decision.generatedArtifacts.map((artifact) => artifact.id)).toEqual(expect.arrayContaining(['publication-record', 'pr-draft']));
+  });
+
+  it('force-publishes through the real branch and commit flow when publication is blocked by policy gates', () => {
+    const repoRoot = initGitRepo();
+    const implementationSummaryPath = writeImplementationSummary(repoRoot);
+    const collaborationHandoffPath = writeCollaborationHandoff(repoRoot, true);
+    fs.writeFileSync(path.join(repoRoot, 'src', 'app.ts'), 'export const value = 2;\n', 'utf8');
+
+    const decision = applyCollaborationPublicationPolicy({
+      taskGraphTask: createCollaborationTask(false, true),
+      taskState: createTaskState('blocked'),
+      artifacts: [
+        {
+          id: 'collaboration-handoff',
+          kind: 'report',
+          path: collaborationHandoffPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ],
+      allArtifacts: [
+        {
+          id: 'implementation-summary',
+          kind: 'report',
+          path: implementationSummaryPath,
+          taskId: 'frontend-smoke--code-implementation'
+        },
+        {
+          id: 'collaboration-handoff',
+          kind: 'report',
+          path: collaborationHandoffPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ],
+      artifactBaseDir: repoRoot,
+      forcePublish: true
+    });
+
+    expect(decision.status).toBe('published');
+    if (decision.status !== 'published') {
+      throw new Error('expected forced publication to publish');
+    }
+
+    expect(decision.publication.publishMode).toBe('auto-commit');
+    expect(decision.publication.autoCommitEnabled).toBe(true);
+    expect(decision.publication.approvalRequired).toBe(true);
+    expect(decision.publication.branchName).toMatch(/^spec2flow\//);
+    expect(decision.publication.commitSha).toBeTruthy();
     expect(decision.generatedArtifacts.map((artifact) => artifact.id)).toEqual(expect.arrayContaining(['publication-record', 'pr-draft']));
   });
 });

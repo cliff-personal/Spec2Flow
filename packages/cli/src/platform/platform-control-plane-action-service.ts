@@ -1,13 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { insertPlatformEvents } from './platform-repository.js';
+import { insertPlatformArtifacts, insertPlatformEvents } from './platform-repository.js';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
-import { DEFAULT_PLATFORM_MAX_RETRIES } from './platform-scheduler-service.js';
+import { reconcilePlatformPublications } from './platform-publication-service.js';
+import { DEFAULT_PLATFORM_MAX_RETRIES, getPlatformRunState } from './platform-scheduler-service.js';
 import { PLATFORM_EVENT_TYPES } from './platform-event-taxonomy.js';
+import { applyCollaborationPublicationPolicy } from '../runtime/collaboration-publication-service.js';
 import type {
+  ArtifactRef,
   PlatformControlPlaneRunActionResult,
   PlatformControlPlaneTaskActionResult,
   PlatformEventRecord,
   PlatformRunRecord,
+  PlatformRunStateSnapshot,
   PlatformTaskRecord
 } from '../types/index.js';
 
@@ -220,6 +224,60 @@ function getPublicationTaskId(publication: PlatformPublicationActionRow): string
   return typeof taskId === 'string' && taskId.trim().length > 0 ? taskId.trim() : null;
 }
 
+function buildExecutionArtifactRef(
+  artifact: PlatformRunStateSnapshot['artifacts'][number]
+): ArtifactRef {
+  const originalArtifactId = typeof artifact.metadata?.originalArtifactId === 'string'
+    && artifact.metadata.originalArtifactId.trim().length > 0
+    ? artifact.metadata.originalArtifactId.trim()
+    : artifact.artifactId;
+
+  return {
+    id: originalArtifactId,
+    kind: artifact.kind,
+    path: artifact.path,
+    ...(artifact.taskId ? { taskId: artifact.taskId } : {})
+  };
+}
+
+function buildPlatformArtifactsForRun(runId: string, artifacts: ArtifactRef[]): Array<{
+  artifactId: string;
+  runId: string;
+  taskId?: string | null;
+  kind: ArtifactRef['kind'];
+  path: string;
+  metadata: Record<string, unknown>;
+}> {
+  return artifacts.map((artifact) => ({
+    artifactId: randomUUID(),
+    runId,
+    taskId: artifact.taskId ?? null,
+    kind: artifact.kind,
+    path: artifact.path,
+    metadata: {
+      originalArtifactId: artifact.id
+    }
+  }));
+}
+
+function resolvePublicationArtifactBaseDir(snapshot: PlatformRunStateSnapshot, runId: string): string {
+  const artifactBaseDir = snapshot.workspace?.worktreePath
+    ?? snapshot.workspace?.workspaceRootPath
+    ?? snapshot.project?.workspaceRootPath
+    ?? snapshot.project?.repositoryRootPath;
+
+  if (!artifactBaseDir) {
+    throw new PlatformControlPlaneActionError(
+      'publication-context-missing',
+      `Run ${runId} is missing workspace context for publication execution`,
+      409,
+      { runId }
+    );
+  }
+
+  return artifactBaseDir;
+}
+
 function buildRerouteRunAction(stage: PlatformRerouteTargetStage): PlatformRerouteRunAction {
   return REROUTE_ACTION_BY_STAGE[stage];
 }
@@ -280,6 +338,7 @@ async function getLatestRunPublicationActionRow(
       FROM ${quotedSchema}.publications
       WHERE run_id = $1
         AND status = ANY($2::text[])
+        AND (metadata ->> 'supersededByPublicationId') IS NULL
       ORDER BY updated_at DESC, publication_id DESC
       LIMIT 1
     `,
@@ -929,13 +988,16 @@ async function resolvePublicationRunAction(
     );
   }
 
+  if (action === 'force-publish') {
+    return resolveForcedPublicationRunAction(executor, schema, options, run, publication, taskId);
+  }
+
   const metadata = {
     ...publication.metadata,
-    approvalStatus: action === 'approve-publication' ? 'approved' : 'forced-published',
+    approvalStatus: 'approved',
     approvalActionAt: new Date().toISOString(),
     ...(options.actor ? { approvalActor: options.actor } : {}),
-    ...(options.note ? { approvalNote: options.note } : {}),
-    ...(action === 'force-publish' ? { forcePublished: true, forcePublishedAt: new Date().toISOString() } : {})
+    ...(options.note ? { approvalNote: options.note } : {})
   };
 
   await updatePublication(executor, schema, publication.publication_id, options.runId, 'published', metadata);
@@ -955,7 +1017,7 @@ async function resolvePublicationRunAction(
             publicationId: publication.publication_id,
             publishMode: publication.publish_mode,
             previousStatus: publication.status,
-            forced: action === 'force-publish',
+            forced: false,
             gateReason: publication.metadata?.gateReason ?? null
           })
         }]
@@ -970,7 +1032,7 @@ async function resolvePublicationRunAction(
         publishMode: publication.publish_mode,
         previousStatus: publication.status,
         status: 'published',
-        forced: action === 'force-publish'
+        forced: false
       })
     },
     {
@@ -981,7 +1043,7 @@ async function resolvePublicationRunAction(
       payload: buildRunActionPayload(options, {
         publicationId: publication.publication_id,
         publicationStatus: 'published',
-        forced: action === 'force-publish'
+        forced: false
       })
     }
   ];
@@ -995,6 +1057,186 @@ async function resolvePublicationRunAction(
     paused: isRunPaused(run.metadata),
     publicationId: publication.publication_id,
     publicationStatus: 'published'
+  };
+}
+
+async function resolveForcedPublicationRunAction(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions,
+  run: PlatformRunActionRow,
+  publication: PlatformPublicationActionRow,
+  taskId: string
+): Promise<PlatformControlPlaneRunActionResult> {
+  const snapshot = await getPlatformRunState(executor, schema, { runId: options.runId });
+  const task = snapshot.tasks.find((candidate) => candidate.taskId === taskId);
+  if (!task) {
+    throw new PlatformControlPlaneActionError(
+      'task-not-found',
+      `Run ${options.runId} is missing collaboration task ${taskId} for force-publish`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        publicationId: publication.publication_id,
+        action: 'force-publish'
+      }
+    );
+  }
+
+  if (task.stage !== 'collaboration') {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot force-publish task ${taskId} because it is ${task.stage}`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        taskStage: task.stage,
+        publicationId: publication.publication_id,
+        action: 'force-publish'
+      }
+    );
+  }
+
+  const artifactBaseDir = resolvePublicationArtifactBaseDir(snapshot, options.runId);
+  const allArtifacts = snapshot.artifacts.map((artifact) => buildExecutionArtifactRef(artifact));
+  const taskArtifacts = allArtifacts.filter((artifact) => artifact.taskId === taskId);
+  const taskStateStatus = task.status === 'blocked' || task.status === 'completed'
+    ? task.status
+    : null;
+  if (!taskStateStatus) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot force-publish task ${taskId} while it is ${task.status}`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        taskStatus: task.status,
+        publicationId: publication.publication_id,
+        action: 'force-publish'
+      }
+    );
+  }
+
+  const decision = applyCollaborationPublicationPolicy({
+    taskGraphTask: {
+      id: task.taskId,
+      stage: task.stage,
+      ...(task.reviewPolicy ? { reviewPolicy: task.reviewPolicy } : {})
+    },
+    taskState: {
+      taskId,
+      status: taskStateStatus,
+      notes: []
+    },
+    artifacts: taskArtifacts,
+    allArtifacts,
+    artifactBaseDir,
+    forcePublish: true
+  });
+
+  if (decision.status === 'not-applicable') {
+    throw new PlatformControlPlaneActionError(
+      'publication-context-missing',
+      `Run ${options.runId} could not rehydrate publication context for ${taskId}`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        publicationId: publication.publication_id,
+        action: 'force-publish'
+      }
+    );
+  }
+
+  if (decision.generatedArtifacts.length > 0) {
+    await insertPlatformArtifacts(executor, schema, buildPlatformArtifactsForRun(options.runId, decision.generatedArtifacts));
+  }
+  await reconcilePlatformPublications(executor, schema, {
+    runId: options.runId,
+    taskId,
+    artifactBaseDir,
+    newArtifacts: decision.generatedArtifacts
+  });
+
+  const timestamp = new Date().toISOString();
+  const attemptMetadata = {
+    ...publication.metadata,
+    forcePublishAttemptedAt: timestamp,
+    ...(options.actor ? { forcePublishActor: options.actor } : {}),
+    ...(options.note ? { forcePublishNote: options.note } : {}),
+    forcePublishResult: decision.status,
+    forcePublishAttemptPublicationId: decision.publication.publicationId,
+    ...(decision.status === 'published'
+      ? {
+          forcePublished: true,
+          forcePublishedAt: timestamp,
+          supersededByPublicationId: decision.publication.publicationId
+        }
+      : {
+          forcePublishGateReason: decision.reason
+        })
+  };
+  await updatePublication(executor, schema, publication.publication_id, options.runId, publication.status, attemptMetadata);
+
+  if (decision.status !== 'published') {
+    return {
+      action: 'force-publish',
+      runId: options.runId,
+      runStatus: run.status,
+      currentStage: run.current_stage,
+      paused: isRunPaused(run.metadata),
+      publicationId: decision.publication.publicationId,
+      publicationStatus: decision.publication.status
+    };
+  }
+
+  await updateTaskStatus(executor, schema, { runId: options.runId, taskId }, 'completed');
+  const progress = await getUpdatedRunProgress(executor, schema, options.runId);
+  await updateRunProgress(executor, schema, options.runId, progress);
+
+  const events: PlatformEventRecord[] = [
+    ...(publication.status === 'approval-required'
+      ? [{
+          eventId: randomUUID(),
+          runId: options.runId,
+          taskId,
+          eventType: PLATFORM_EVENT_TYPES.APPROVAL_APPROVED,
+          payload: buildRunActionPayload(options, {
+            publicationId: decision.publication.publicationId,
+            sourcePublicationId: publication.publication_id,
+            publishMode: decision.publication.publishMode,
+            previousStatus: publication.status,
+            forced: true,
+            gateReason: publication.metadata?.gateReason ?? null
+          })
+        }]
+      : []),
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId,
+      eventType: PLATFORM_EVENT_TYPES.TASK_COMPLETED,
+      payload: buildRunActionPayload(options, {
+        publicationId: decision.publication.publicationId,
+        sourcePublicationId: publication.publication_id,
+        publicationStatus: decision.publication.status,
+        forced: true
+      })
+    }
+  ];
+  await insertPlatformEvents(executor, schema, events);
+
+  return {
+    action: 'force-publish',
+    runId: options.runId,
+    runStatus: progress.status,
+    currentStage: progress.currentStage,
+    paused: isRunPaused(run.metadata),
+    publicationId: decision.publication.publicationId,
+    publicationStatus: decision.publication.status
   };
 }
 
