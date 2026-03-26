@@ -88,7 +88,12 @@ export function ProjectTreeSidebar({ projects, runs, selectedProjectId, selected
     if (typeof picker === 'function') {
       try {
         const handle = await picker({ mode: 'read' });
-        onRegisterProject(handle.name);
+        // The File System Access API only provides the folder name, not the full
+        // absolute path (browser security constraint). Pre-fill the text input
+        // with the name so the operator can complete the absolute path manually
+        // before submitting. The server-side requires a full absolute path.
+        setFallbackPath(handle.name);
+        setFallbackOpen(true);
         return;
       } catch (e) {
         if ((e as { name?: string })?.name === 'AbortError') return;

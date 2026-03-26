@@ -50,6 +50,7 @@ It is a monitor-first, evidence-first, review-ready delivery console.
 - evidence and code deltas matter more than decorative charts
 - approval and intervention controls stay available, but not visually dominant during healthy runs
 - final human sign-off must render as an explicit review decision state, not as leaked backend status jargon
+- when evaluator requests repair, run detail and task detail should expose the explicit reroute target stage directly instead of forcing operators to infer it from raw artifacts or event payloads
 
 ## Information Architecture
 
@@ -102,6 +103,8 @@ Global queue requirement:
 
 - the `/runs` surface must render an attention deck above the full queue
 - each attention card must compress one run into headline, blocker detail, and next action
+- when evaluator requests repair, the attention deck headline and next action must name the exact reroute target stage directly, using controller-persisted task state instead of frontend artifact parsing
+- when evaluator requests repair, the full queue row itself should also show the persisted reroute target stage so operators can scan the backlog without depending only on the top attention deck
 - when a final review decision exists, the `/runs` attention deck should surface that decision and its operator rationale directly instead of collapsing everything back to generic `review-ready` copy
 - the full queue remains available below as the audit and navigation list
 

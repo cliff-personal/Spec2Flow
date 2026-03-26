@@ -116,6 +116,34 @@ export interface StartPlatformControlPlaneServerOptions {
     actor?: string;
     note?: string;
   }) => Promise<PlatformControlPlaneRunActionResult | null>;
+  resumePlatformRunFromTargetStage: (options: {
+    runId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneRunActionResult | null>;
+  approvePlatformRunPublication: (options: {
+    runId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneRunActionResult | null>;
+  forcePublishPlatformRun: (options: {
+    runId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneRunActionResult | null>;
+  reroutePlatformRunToStage: (
+    options: {
+      runId: string;
+      actor?: string;
+      note?: string;
+    },
+    targetStage: 'requirements-analysis' | 'code-implementation' | 'test-design' | 'automated-execution'
+  ) => Promise<PlatformControlPlaneRunActionResult | null>;
+  cancelPlatformRunRoute: (options: {
+    runId: string;
+    actor?: string;
+    note?: string;
+  }) => Promise<PlatformControlPlaneRunActionResult | null>;
 }
 
 export interface StartedPlatformControlPlaneServer {
@@ -130,10 +158,27 @@ const PROJECT_ADAPTER_PROFILE_ROUTE = /^\/api\/projects\/([^/]+)\/adapter-profil
 const RUN_TASKS_ROUTE = /^\/api\/runs\/([^/]+)\/tasks$/u;
 const RUN_TASK_ARTIFACT_CATALOG_ROUTE = /^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/artifact-catalog$/u;
 const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
-const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume)$/u;
+const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume|resume-from-target-stage|approve-publication|force-publish|reroute-to-requirements-analysis|reroute-to-code-implementation|reroute-to-test-design|reroute-to-automated-execution|cancel-route)$/u;
 const TASK_ACTION_ROUTE = /^\/api\/tasks\/([^/]+)\/actions\/(retry|approve|reject)$/u;
 const ARTIFACT_CONTENT_ROUTE = /^\/api\/artifacts\/([^/]+)\/content$/u;
 const LOCAL_ARTIFACT_ROUTE_PREFIX = '/artifacts/';
+
+function parseRerouteTargetStage(
+  action: string
+): 'requirements-analysis' | 'code-implementation' | 'test-design' | 'automated-execution' | null {
+  switch (action) {
+    case 'reroute-to-requirements-analysis':
+      return 'requirements-analysis';
+    case 'reroute-to-code-implementation':
+      return 'code-implementation';
+    case 'reroute-to-test-design':
+      return 'test-design';
+    case 'reroute-to-automated-execution':
+      return 'automated-execution';
+    default:
+      return null;
+  }
+}
 
 function logRequest(method: string, pathname: string, statusCode: number, durationMs: number): void {
   const ts = new Date().toISOString();
@@ -818,9 +863,28 @@ async function handleRunActionRequest(
 
   const runId = decodeURIComponent(runIdParam);
   const actionRequest = parseRunActionBody(await readJsonBody(request));
-  const actionResult = action === 'pause'
-    ? await options.pausePlatformRun({ runId, ...actionRequest })
-    : await options.resumePlatformRun({ runId, ...actionRequest });
+  let actionResult: PlatformControlPlaneRunActionResult | null;
+  if (action === 'pause') {
+    actionResult = await options.pausePlatformRun({ runId, ...actionRequest });
+  } else if (action === 'resume') {
+    actionResult = await options.resumePlatformRun({ runId, ...actionRequest });
+  } else if (action === 'resume-from-target-stage') {
+    actionResult = await options.resumePlatformRunFromTargetStage({ runId, ...actionRequest });
+  } else if (action === 'approve-publication') {
+    actionResult = await options.approvePlatformRunPublication({ runId, ...actionRequest });
+  } else if (action === 'force-publish') {
+    actionResult = await options.forcePublishPlatformRun({ runId, ...actionRequest });
+  } else if (action === 'cancel-route') {
+    actionResult = await options.cancelPlatformRunRoute({ runId, ...actionRequest });
+  } else {
+    const targetStage = parseRerouteTargetStage(action);
+    if (!targetStage) {
+      writeError(response, 404, 'action-not-found', `Unknown run action: ${action}`, { runId, action });
+      return true;
+    }
+
+    actionResult = await options.reroutePlatformRunToStage({ runId, ...actionRequest }, targetStage);
+  }
 
   if (!actionResult) {
     writeError(response, 404, 'run-not-found', `Unknown run: ${runId}`, {

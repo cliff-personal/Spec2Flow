@@ -94,6 +94,11 @@ function buildTaskRow(overrides: Partial<Record<string, unknown>> = {}): Record<
     max_retries: 3,
     auto_repair_count: 0,
     max_auto_repair_attempts: 0,
+    evaluation_decision: null,
+    evaluation_summary: null,
+    requested_repair_target_stage: null,
+    evaluation_findings: [],
+    evaluation_next_actions: [],
     current_lease_id: null,
     leased_by_worker_id: null,
     lease_expires_at: null,
@@ -178,7 +183,10 @@ function buildPublicationRow(overrides: Partial<Record<string, unknown>> = {}): 
 function listInsertedEventTypes(executor: SequentialExecutor): string[] {
   return executor.calls
     .filter((call) => call.text.includes('INSERT INTO "spec2flow_platform".events'))
-    .map((call) => String(call.values?.[3] ?? ''));
+    .map((call) => {
+      const eventType = call.values?.[3];
+      return typeof eventType === 'string' ? eventType : '';
+    });
 }
 
 describe('platform-scheduler-service', () => {
@@ -521,6 +529,11 @@ describe('platform-scheduler-service', () => {
             attempts: 1,
             retry_count: 1,
             max_retries: 3,
+            evaluation_decision: 'needs-repair',
+            evaluation_summary: 'Evaluator requested another execution pass.',
+            requested_repair_target_stage: 'automated-execution',
+            evaluation_findings: ['Execution evidence is stale.'],
+            evaluation_next_actions: ['Rerun automated execution with a fresh environment.'],
             current_lease_id: 'lease-1',
             leased_by_worker_id: 'worker-1',
             lease_expires_at: '2026-03-24T10:05:00.000Z',
@@ -631,7 +644,11 @@ describe('platform-scheduler-service', () => {
       taskId: 'task-1',
       leasedByWorkerId: 'worker-1',
       retryCount: 1,
-      maxRetries: 3
+      maxRetries: 3,
+      evaluationDecision: 'needs-repair',
+      requestedRepairTargetStage: 'automated-execution',
+      evaluationFindings: ['Execution evidence is stale.'],
+      evaluationNextActions: ['Rerun automated execution with a fresh environment.']
     });
     expect(result.recentEvents[0]).toMatchObject({
       eventType: 'task.leased'

@@ -149,6 +149,7 @@ export interface EvaluationSummary {
   stage: 'evaluation';
   summary: string;
   decision: 'accepted' | 'rejected' | 'needs-repair';
+  repairTargetStage?: 'requirements-analysis' | 'code-implementation' | 'test-design' | 'automated-execution';
   artifactRefs: string[];
   findings?: string[];
   nextActions?: string[];

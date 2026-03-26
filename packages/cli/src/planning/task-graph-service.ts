@@ -681,7 +681,7 @@ function buildRouteTaskBundle(
       id: evaluationId,
       stage: 'evaluation',
       title: `Evaluate ${route.name} delivery`,
-      goal: `Accept or reject the published handoff for ${route.name} using the gathered evidence`,
+      goal: `Accept or reject the prepared handoff for ${route.name} using the gathered evidence before publication`,
       executorType: 'evaluator-agent',
       roleProfile: buildTaskRoleProfile('evaluation', 'evaluator-agent'),
       status: 'pending',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { RunOperatorAction } from '../lib/run-operator-actions';
-import type { TaskActionType } from '../lib/control-plane-ui-types';
+import type { RunActionType, TaskActionType } from '../lib/control-plane-ui-types';
 
 type NoteDraftMap = Record<string, string>;
 
@@ -12,7 +12,7 @@ type OperatorActionBarProps = Readonly<{
   isPending: boolean;
   errorMessage: string | null;
   onTaskAction: (taskId: string, action: TaskActionType, note?: string) => void;
-  onRunAction: (action: 'pause' | 'resume') => void;
+  onRunAction: (action: RunActionType) => void;
 }>;
 
 type TaskComposerControlProps = {
@@ -108,7 +108,7 @@ function renderTaskComposerControl(props: TaskComposerControlProps): JSX.Element
 function renderRunControl(
   action: RunOperatorAction,
   isPending: boolean,
-  onRunAction: (action: 'pause' | 'resume') => void
+  onRunAction: (action: RunActionType) => void
 ): JSX.Element | null {
   if (action.kind !== 'run' || !action.runAction) {
     return null;

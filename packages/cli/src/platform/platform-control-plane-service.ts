@@ -31,6 +31,7 @@ interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   status: PlatformRunStatus;
   metadata: Record<string, unknown> | null;
   current_stage: TaskStage | null;
+  reroute_target_stage: TaskStage | null;
   risk_level: RiskLevel | null;
   branch_name: string | null;
   base_branch: string | null;
@@ -41,10 +42,6 @@ interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   updated_at: TimestampValue;
   started_at: TimestampValue;
   completed_at: TimestampValue;
-}
-
-interface PlatformControlPlaneRunRepositoryRow extends Record<string, unknown> {
-  root_path: string;
 }
 
 interface PlatformControlPlaneArtifactCatalogRow extends Record<string, unknown> {
@@ -122,6 +119,7 @@ function mapRunRow(row: PlatformControlPlaneRunRow): PlatformControlPlaneRunList
     status: row.status,
     paused: isRunPaused(row.metadata),
     currentStage: row.current_stage,
+    rerouteTargetStage: row.reroute_target_stage,
     riskLevel: row.risk_level,
     branchName: row.branch_name,
     baseBranch: row.base_branch,
@@ -154,7 +152,7 @@ async function loadRepositoryRootPath(
   runId: string
 ): Promise<string | null> {
   const quotedSchema = quoteSqlIdentifier(schema);
-  const result = await executor.query<PlatformControlPlaneRunRepositoryRow>(
+  const result = await executor.query<{ root_path: string }>(
     `
       SELECT repositories.root_path
       FROM ${quotedSchema}.runs AS runs
@@ -207,6 +205,7 @@ export async function listPlatformRuns(
         runs.status,
         runs.metadata,
         runs.current_stage,
+        reroute.requested_repair_target_stage AS reroute_target_stage,
         runs.risk_level,
         run_workspaces.branch_name,
         run_workspaces.base_branch,
@@ -224,6 +223,16 @@ export async function listPlatformRuns(
         ON run_workspaces.run_id = runs.run_id
       LEFT JOIN ${quotedSchema}.projects AS projects
         ON projects.project_id = run_workspaces.project_id
+      LEFT JOIN LATERAL (
+        SELECT tasks.requested_repair_target_stage
+        FROM ${quotedSchema}.tasks AS tasks
+        WHERE tasks.run_id = runs.run_id
+          AND tasks.evaluation_decision = 'needs-repair'
+          AND tasks.requested_repair_target_stage IS NOT NULL
+        ORDER BY tasks.updated_at DESC, tasks.task_id DESC
+        LIMIT 1
+      ) AS reroute
+        ON TRUE
       ${whereSql}
       ORDER BY runs.created_at DESC, runs.run_id DESC
       LIMIT $${values.length}
@@ -256,7 +265,11 @@ export async function getPlatformControlPlaneRunTasks(
   options: GetPlatformControlPlaneRunOptions
 ): Promise<PlatformTaskRecord[] | null> {
   const snapshot = await loadRunSnapshot(executor, schema, options);
-  return snapshot?.tasks ?? null;
+  if (!snapshot) {
+    return null;
+  }
+
+  return snapshot.tasks;
 }
 
 export async function getPlatformControlPlaneRunObservability(

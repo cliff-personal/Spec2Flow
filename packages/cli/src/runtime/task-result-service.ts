@@ -11,11 +11,12 @@ import {
   validateExecutionStatePayload
 } from './execution-state-service.js';
 import { fail, readStructuredFileFrom, writeJson } from '../shared/fs-utils.js';
+import { resolveEvaluationRepairTargetStage, type EvaluationRepairTargetStage } from '../shared/evaluation-repair-target.js';
 import type { ArtifactRef, ErrorItem, ExecutionStateDocument, ExecutionStatus, TaskState } from '../types/execution-state.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import { validateSchemaBackedArtifacts } from './stage-deliverable-validation.js';
 import { applyAutoRepairPolicy } from './auto-repair-policy-service.js';
-import { applyCollaborationPublicationPolicy } from './collaboration-publication-service.js';
+import { applyCollaborationPublicationPolicy, type CollaborationPublicationDecision } from './collaboration-publication-service.js';
 import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
 import type { Task, TaskExecutorType, TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
 
@@ -25,6 +26,18 @@ type FailureClass =
   | 'missing-or-weak-test-coverage'
   | 'execution-environment-failure'
   | 'release-or-review-readiness-issue';
+
+type RepairableTaskStage = EvaluationRepairTargetStage;
+
+const REPAIRABLE_STAGE_ORDER: Record<RepairableTaskStage | 'defect-feedback' | 'collaboration' | 'evaluation', number> = {
+  'requirements-analysis': 1,
+  'code-implementation': 2,
+  'test-design': 3,
+  'automated-execution': 4,
+  'defect-feedback': 5,
+  'collaboration': 6,
+  'evaluation': 7
+};
 
 export interface ApplyTaskResultPayload {
   taskId: string;
@@ -106,6 +119,12 @@ function addTaskNotes(taskState: TaskState, notes: string[]): void {
   }
 }
 
+function resetTaskStateForReroute(taskState: TaskState, status: TaskStatus): void {
+  taskState.status = status;
+  delete taskState.startedAt;
+  delete taskState.completedAt;
+}
+
 function setTaskStateStatus(
   taskState: TaskState,
   status: TaskStatus,
@@ -134,6 +153,7 @@ function getFailureClassForStage(stage: TaskStage): FailureClass | null {
     case 'automated-execution':
       return 'execution-environment-failure';
     case 'collaboration':
+    case 'evaluation':
       return 'release-or-review-readiness-issue';
     default:
       return null;
@@ -267,6 +287,132 @@ function readEvaluationSummaryPayload(artifacts: ArtifactRef[], artifactBaseDir:
   }
 }
 
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    : [];
+}
+
+function inferEvaluationRepairTargetStage(evaluationPayload: Record<string, unknown> | null): RepairableTaskStage | null {
+  return resolveEvaluationRepairTargetStage({
+    explicitRepairTargetStage: typeof evaluationPayload?.repairTargetStage === 'string' ? evaluationPayload.repairTargetStage : null,
+    nextActions: readStringArray(evaluationPayload?.nextActions),
+    findings: readStringArray(evaluationPayload?.findings)
+  });
+}
+
+function rerouteEvaluationNeedsRepair(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskGraphTask: Task,
+  taskState: TaskState,
+  now: string,
+  targetStage: RepairableTaskStage
+): boolean {
+  const routePrefix = taskGraphTask.id.includes('--') ? (taskGraphTask.id.split('--')[0] ?? null) : null;
+  const targetTaskId = getRouteTaskId(taskGraphTask.id, targetStage);
+  const targetTask = targetTaskId ? taskGraphTaskIndex.get(targetTaskId) ?? null : null;
+  const targetTaskState = targetTaskId ? taskStateIndex.get(targetTaskId) ?? null : null;
+  const failureClass = getFailureClassForStage('evaluation');
+
+  if (!routePrefix || !targetTaskId || !targetTask || !targetTaskState || !failureClass) {
+    return false;
+  }
+
+  resetTaskStateForReroute(targetTaskState, 'ready');
+  addTaskNotes(targetTaskState, [
+    'route-trigger:evaluation',
+    `route-class:${failureClass}`,
+    'route-reason:evaluator-needs-repair',
+    `route-origin:${taskGraphTask.id}`
+  ]);
+
+  for (const [candidateTaskId, candidateTask] of taskGraphTaskIndex) {
+    if (!candidateTaskId.startsWith(`${routePrefix}--`) || candidateTaskId === targetTaskId || candidateTask.stage === 'environment-preparation') {
+      continue;
+    }
+
+    const candidateTaskState = taskStateIndex.get(candidateTaskId);
+    if (!candidateTaskState) {
+      continue;
+    }
+
+    const candidateStage = candidateTask.stage;
+    const candidateStageOrder = REPAIRABLE_STAGE_ORDER[candidateStage as keyof typeof REPAIRABLE_STAGE_ORDER];
+    const targetStageOrder = REPAIRABLE_STAGE_ORDER[targetStage];
+    if (candidateStageOrder > targetStageOrder) {
+      resetTaskStateForReroute(candidateTaskState, 'pending');
+      addTaskNotes(candidateTaskState, [
+        `evaluation-reset:${taskGraphTask.id}`,
+        `route-origin:${taskGraphTask.id}`
+      ]);
+    }
+  }
+
+  setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
+  addTaskNotes(taskState, [
+    'evaluation-gate:needs-repair-rerouted',
+    'evaluation-decision:needs-repair',
+    `route-target:${targetTaskId}`,
+    `route-target-stage:${targetStage}`
+  ]);
+
+  return true;
+}
+
+function applyEvaluationTriggeredPublication(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskId: string,
+  currentTaskStatus: TaskStatus,
+  allArtifacts: ArtifactRef[],
+  artifactBaseDir: string
+): CollaborationPublicationDecision | { status: 'not-applicable'; generatedArtifacts: ArtifactRef[]; notes: string[] } {
+  if (getRouteTaskId(taskId, 'evaluation') !== taskId || currentTaskStatus !== 'completed') {
+    return {
+      generatedArtifacts: [],
+      notes: [],
+      status: 'not-applicable' as const
+    };
+  }
+
+  const collaborationTaskId = getRouteTaskId(taskId, 'collaboration');
+  if (!collaborationTaskId) {
+    return {
+      generatedArtifacts: [],
+      notes: [],
+      status: 'not-applicable' as const
+    };
+  }
+
+  const collaborationTask = taskGraphTaskIndex.get(collaborationTaskId);
+  const collaborationTaskState = taskStateIndex.get(collaborationTaskId);
+
+  if (!collaborationTask || collaborationTaskState?.status !== 'completed') {
+    return {
+      generatedArtifacts: [],
+      notes: [],
+      status: 'not-applicable' as const
+    };
+  }
+
+  if (collaborationTask.reviewPolicy?.allowAutoCommit !== true) {
+    return {
+      generatedArtifacts: [],
+      notes: [],
+      status: 'not-applicable' as const
+    };
+  }
+
+  return applyCollaborationPublicationPolicy({
+    taskGraphTask: collaborationTask,
+    taskState: collaborationTaskState,
+    artifacts: allArtifacts,
+    allArtifacts,
+    artifactBaseDir
+  });
+}
+
 function enforceCollaborationApprovalGate(
   taskGraphTask: Task,
   taskState: TaskState,
@@ -301,6 +447,8 @@ function enforceCollaborationApprovalGate(
 }
 
 function enforceEvaluationAcceptanceGate(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
   taskGraphTask: Task,
   taskState: TaskState,
   artifacts: ArtifactRef[],
@@ -315,6 +463,51 @@ function enforceEvaluationAcceptanceGate(
   const evaluationPayload = readEvaluationSummaryPayload(artifacts, artifactBaseDir);
   const decision = typeof evaluationPayload?.decision === 'string' ? evaluationPayload.decision : null;
   const accepted = decision === 'accepted';
+
+  if (decision === 'needs-repair' && artifactContract.status !== 'missing') {
+    const preciseRepairTarget = inferEvaluationRepairTargetStage(evaluationPayload);
+
+    if (preciseRepairTarget && rerouteEvaluationNeedsRepair(
+      taskGraphTaskIndex,
+      taskStateIndex,
+      taskGraphTask,
+      taskState,
+      now,
+      preciseRepairTarget
+    )) {
+      return;
+    }
+
+    const defectTaskId = getRouteTaskId(taskGraphTask.id, 'defect-feedback');
+    const collaborationTaskId = getRouteTaskId(taskGraphTask.id, 'collaboration');
+    const defectTaskState = defectTaskId ? taskStateIndex.get(defectTaskId) ?? null : null;
+    const collaborationTaskState = collaborationTaskId ? taskStateIndex.get(collaborationTaskId) ?? null : null;
+    const failureClass = getFailureClassForStage('evaluation');
+
+    if (defectTaskId && collaborationTaskId && defectTaskState && collaborationTaskState && failureClass) {
+      resetTaskStateForReroute(defectTaskState, 'ready');
+      resetTaskStateForReroute(collaborationTaskState, 'pending');
+      setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
+
+      addTaskNotes(defectTaskState, [
+        'route-trigger:evaluation',
+        `route-class:${failureClass}`,
+        'route-reason:evaluator-needs-repair',
+        `route-origin:${taskGraphTask.id}`
+      ]);
+      addTaskNotes(collaborationTaskState, [
+        `evaluation-reset:${taskGraphTask.id}`,
+        `route-origin:${taskGraphTask.id}`
+      ]);
+      addTaskNotes(taskState, [
+        'evaluation-gate:needs-repair-rerouted',
+        'evaluation-decision:needs-repair',
+        `route-target:${defectTaskId}`,
+        'route-target-stage:defect-feedback'
+      ]);
+      return;
+    }
+  }
 
   if (artifactContract.status === 'missing' || !accepted) {
     setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
@@ -363,6 +556,126 @@ function routeAutomatedExecutionOutcome(
   }
 }
 
+function appendTaskResultPayload(
+  executionStatePayload: ExecutionStateDocument,
+  taskState: TaskState,
+  payload: ApplyTaskResultPayload
+): void {
+  const nextNotes = appendUniqueItems(taskState.notes, payload.notes);
+  if (nextNotes !== undefined) {
+    taskState.notes = nextNotes;
+  }
+
+  const nextArtifactRefs = appendUniqueItems(taskState.artifactRefs, payload.artifacts.map((artifact) => artifact.id));
+  if (nextArtifactRefs !== undefined) {
+    taskState.artifactRefs = nextArtifactRefs;
+  }
+
+  if (payload.executor !== undefined) {
+    taskState.executor = payload.executor;
+  }
+
+  if (payload.artifacts.length > 0) {
+    executionStatePayload.executionState.artifacts = [
+      ...(executionStatePayload.executionState.artifacts ?? []),
+      ...payload.artifacts
+    ];
+  }
+
+  if (payload.errors.length > 0) {
+    executionStatePayload.executionState.errors = [
+      ...(executionStatePayload.executionState.errors ?? []),
+      ...payload.errors
+    ];
+  }
+}
+
+function addMissingArtifactContractNotes(taskState: TaskState, artifactContract: ArtifactContractSummary): void {
+  if (artifactContract.status !== 'missing') {
+    return;
+  }
+
+  const contractNotes = appendUniqueItems(taskState.notes, [
+    'artifact-contract:missing',
+    `artifact-contract-missing:${artifactContract.missingArtifacts.join(',')}`
+  ]);
+  if (contractNotes !== undefined) {
+    taskState.notes = contractNotes;
+  }
+}
+
+function applyRouteOutcome(
+  taskGraphTaskIndex: Map<string, Task>,
+  taskStateIndex: Map<string, TaskState>,
+  taskId: string,
+  taskGraphTask: Task,
+  taskStatus: TaskStatus,
+  artifactContract: ArtifactContractSummary,
+  now: string
+): void {
+  if (['requirements-analysis', 'code-implementation', 'test-design'].includes(taskGraphTask.stage)) {
+    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, taskId, taskGraphTask.stage, taskStatus, artifactContract, now);
+  }
+
+  if (taskGraphTask.stage === 'automated-execution') {
+    routeAutomatedExecutionOutcome(taskGraphTaskIndex, taskStateIndex, taskId, taskStatus, artifactContract, now);
+  }
+}
+
+function applyPublicationDecision(
+  executionStatePayload: ExecutionStateDocument,
+  taskGraphTask: Task,
+  taskState: TaskState,
+  decision: CollaborationPublicationDecision | { status: 'not-applicable'; generatedArtifacts: ArtifactRef[]; notes: string[] },
+  generatedArtifacts: ArtifactRef[],
+  now: string
+): void {
+  if (decision.generatedArtifacts.length > 0) {
+    generatedArtifacts.push(...decision.generatedArtifacts);
+    const nextTaskArtifactRefs = appendUniqueItems(
+      taskState.artifactRefs,
+      decision.generatedArtifacts.map((artifact) => artifact.id)
+    );
+    if (nextTaskArtifactRefs !== undefined) {
+      taskState.artifactRefs = nextTaskArtifactRefs;
+    }
+    executionStatePayload.executionState.artifacts = [
+      ...(executionStatePayload.executionState.artifacts ?? []),
+      ...decision.generatedArtifacts
+    ];
+  }
+
+  if (decision.notes.length > 0) {
+    addTaskNotes(taskState, decision.notes);
+  }
+
+  if (decision.status === 'blocked') {
+    setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
+  }
+}
+
+function resolveNextCurrentStage(
+  payload: ApplyTaskResultPayload,
+  autoRepairDecision: ReturnType<typeof applyAutoRepairPolicy>,
+  taskGraphTaskIndex: Map<string, Task>,
+  taskGraphPayload: TaskGraphDocument,
+  executionStatePayload: ExecutionStateDocument
+): TaskStage | undefined {
+  if (payload.currentStage !== undefined) {
+    return payload.currentStage;
+  }
+
+  if (autoRepairDecision.status === 'triggered') {
+    return taskGraphTaskIndex.get(autoRepairDecision.targetTaskId)?.stage;
+  }
+
+  if (autoRepairDecision.status === 'escalated') {
+    return 'collaboration';
+  }
+
+  return inferCurrentStage(taskGraphPayload, executionStatePayload);
+}
+
 export function applyTaskResult(
   executionStatePayload: ExecutionStateDocument,
   taskGraphPayload: TaskGraphDocument,
@@ -382,85 +695,37 @@ export function applyTaskResult(
   }
 
   taskState.status = payload.taskStatus;
-  const nextNotes = appendUniqueItems(taskState.notes, payload.notes);
-  if (nextNotes !== undefined) {
-    taskState.notes = nextNotes;
-  }
-  const nextArtifactRefs = appendUniqueItems(taskState.artifactRefs, payload.artifacts.map((artifact) => artifact.id));
-  if (nextArtifactRefs !== undefined) {
-    taskState.artifactRefs = nextArtifactRefs;
-  }
-  if (payload.executor !== undefined) {
-    taskState.executor = payload.executor;
-  }
+  appendTaskResultPayload(executionStatePayload, taskState, payload);
   validateSchemaBackedArtifacts(payload.artifacts, { baseDir: artifactBaseDir });
   const artifactContract = buildArtifactContractSummary(taskGraphTask.roleProfile.expectedArtifacts, payload.artifacts);
   setTaskTerminalTimestamp(taskState, payload.taskStatus, now);
 
-  if (payload.artifacts.length > 0) {
-    executionStatePayload.executionState.artifacts = [
-      ...(executionStatePayload.executionState.artifacts ?? []),
-      ...payload.artifacts
-    ];
-  }
-
-  if (payload.errors.length > 0) {
-    executionStatePayload.executionState.errors = [
-      ...(executionStatePayload.executionState.errors ?? []),
-      ...payload.errors
-    ];
-  }
-
-  if (artifactContract.status === 'missing') {
-    const contractNotes = appendUniqueItems(taskState.notes, [
-      `artifact-contract:missing`,
-      `artifact-contract-missing:${artifactContract.missingArtifacts.join(',')}`
-    ]);
-    if (contractNotes !== undefined) {
-      taskState.notes = contractNotes;
-    }
-  }
-
-  if (['requirements-analysis', 'code-implementation', 'test-design'].includes(taskGraphTask.stage)) {
-    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, payload.taskId, taskGraphTask.stage, payload.taskStatus, artifactContract, now);
-  }
-
-  if (taskGraphTask.stage === 'automated-execution') {
-    routeAutomatedExecutionOutcome(taskGraphTaskIndex, taskStateIndex, payload.taskId, payload.taskStatus, artifactContract, now);
-  }
+  addMissingArtifactContractNotes(taskState, artifactContract);
+  applyRouteOutcome(taskGraphTaskIndex, taskStateIndex, payload.taskId, taskGraphTask, payload.taskStatus, artifactContract, now);
 
   enforceCollaborationApprovalGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
-  enforceEvaluationAcceptanceGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
-  const publicationDecision = applyCollaborationPublicationPolicy({
+  enforceEvaluationAcceptanceGate(
+    taskGraphTaskIndex,
+    taskStateIndex,
     taskGraphTask,
     taskState,
-    artifacts: payload.artifacts,
-    allArtifacts: [
+    payload.artifacts,
+    artifactContract,
+    now,
+    artifactBaseDir
+  );
+  const publicationDecision = applyEvaluationTriggeredPublication(
+    taskGraphTaskIndex,
+    taskStateIndex,
+    payload.taskId,
+    taskState.status,
+    [
       ...(executionStatePayload.executionState.artifacts ?? []),
       ...payload.artifacts
     ],
     artifactBaseDir
-  });
-  if (publicationDecision.generatedArtifacts.length > 0) {
-    generatedArtifacts.push(...publicationDecision.generatedArtifacts);
-    const nextTaskArtifactRefs = appendUniqueItems(
-      taskState.artifactRefs,
-      publicationDecision.generatedArtifacts.map((artifact) => artifact.id)
-    );
-    if (nextTaskArtifactRefs !== undefined) {
-      taskState.artifactRefs = nextTaskArtifactRefs;
-    }
-    executionStatePayload.executionState.artifacts = [
-      ...(executionStatePayload.executionState.artifacts ?? []),
-      ...publicationDecision.generatedArtifacts
-    ];
-  }
-  if (publicationDecision.notes.length > 0) {
-    addTaskNotes(taskState, publicationDecision.notes);
-  }
-  if (publicationDecision.status === 'blocked') {
-    setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
-  }
+  );
+  applyPublicationDecision(executionStatePayload, taskGraphTask, taskState, publicationDecision, generatedArtifacts, now);
   const autoRepairDecision = applyAutoRepairPolicy({
     taskGraphTaskIndex,
     taskStateIndex,
@@ -473,12 +738,13 @@ export function applyTaskResult(
 
   promoteReadyTasks(taskGraphPayload, executionStatePayload);
   executionStatePayload.executionState.status = payload.workflowStatus ?? inferExecutionStateStatus(executionStatePayload.executionState.tasks);
-  const nextCurrentStage = payload.currentStage
-    ?? (autoRepairDecision.status === 'triggered'
-      ? taskGraphTaskIndex.get(autoRepairDecision.targetTaskId)?.stage
-      : autoRepairDecision.status === 'escalated'
-        ? 'collaboration'
-        : inferCurrentStage(taskGraphPayload, executionStatePayload));
+  const nextCurrentStage = resolveNextCurrentStage(
+    payload,
+    autoRepairDecision,
+    taskGraphTaskIndex,
+    taskGraphPayload,
+    executionStatePayload
+  );
   if (nextCurrentStage !== undefined) {
     executionStatePayload.executionState.currentStage = nextCurrentStage;
   }

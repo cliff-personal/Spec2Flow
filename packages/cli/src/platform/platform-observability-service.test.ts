@@ -52,6 +52,39 @@ function createSnapshot(): PlatformRunStateSnapshot {
       },
       {
         runId: 'run-1',
+        taskId: 'frontend-smoke--evaluation',
+        stage: 'evaluation',
+        title: 'Evaluate',
+        goal: 'Evaluate',
+        executorType: 'evaluator-agent',
+        status: 'blocked',
+        dependsOn: [],
+        targetFiles: [],
+        verifyCommands: [],
+        inputs: {},
+        roleProfile: {
+          profileId: 'evaluation',
+          specialistRole: 'evaluator-agent',
+          commandPolicy: 'none',
+          canReadRepository: true,
+          canEditFiles: false,
+          canRunCommands: false,
+          canWriteArtifacts: true,
+          canOpenCollaboration: false,
+          requiredAdapterSupports: [],
+          expectedArtifacts: ['evaluation-summary']
+        },
+        attempts: 1,
+        retryCount: 0,
+        autoRepairCount: 0,
+        evaluationDecision: 'needs-repair',
+        evaluationSummary: 'Evaluator requested another automated execution pass before final handoff.',
+        requestedRepairTargetStage: 'automated-execution',
+        evaluationFindings: ['The latest execution evidence is incomplete.'],
+        evaluationNextActions: ['Rerun automated execution after refreshing the environment.']
+      },
+      {
+        runId: 'run-1',
         taskId: 'frontend-smoke--collaboration',
         stage: 'collaboration',
         title: 'Publish',
@@ -178,10 +211,10 @@ describe('platform-observability-service', () => {
       expect.objectContaining({ type: PLATFORM_EVENT_TYPES.PUBLICATION_APPROVAL_REQUIRED }),
       expect.objectContaining({ type: PLATFORM_EVENT_TYPES.APPROVAL_REQUESTED })
     ]));
-    expect(result.metrics.tasks.total).toBe(2);
+    expect(result.metrics.tasks.total).toBe(3);
     expect(result.metrics.repairs.blocked).toBe(1);
     expect(result.metrics.publications.approvalRequired).toBe(1);
-    expect(result.metrics.artifacts.tasksWithMissingExpectedArtifacts).toBe(1);
+    expect(result.metrics.artifacts.tasksWithMissingExpectedArtifacts).toBe(2);
     expect(result.metrics.events.byCategory.publication).toBe(1);
     expect(result.metrics.events.byCategory.approval).toBe(1);
     expect(result.metrics.events.byType).toEqual(expect.arrayContaining([
@@ -229,13 +262,25 @@ describe('platform-observability-service', () => {
     expect(result.attentionRequired).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'task',
-        taskId: 'frontend-smoke--collaboration'
+        taskId: 'frontend-smoke--collaboration',
+        type: 'task-blocked'
       }),
       expect.objectContaining({
         kind: 'publication',
-        message: 'Approval is requested for publication publication-1'
+        type: 'approval-requested',
+        description: 'Approval is requested for publication publication-1.'
+      }),
+      expect.objectContaining({
+        kind: 'task',
+        type: 'evaluator-reroute-requested',
+        repairTargetStage: 'automated-execution',
+        title: 'Evaluator requested reroute to Automated Execution'
       })
     ]));
+    expect(result.attentionRequired[0]).toMatchObject({
+      type: 'evaluator-reroute-requested',
+      repairTargetStage: 'automated-execution'
+    });
   });
 
   it('projects accepted and follow-up decisions from publication approval metadata', () => {

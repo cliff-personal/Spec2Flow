@@ -460,6 +460,48 @@ describe('platform-control-plane-server', () => {
         runStatus: 'running',
         currentStage: 'collaboration',
         paused: false
+      }),
+      approvePlatformRunPublication: async () => ({
+        action: 'approve-publication',
+        runId: 'run-1',
+        runStatus: 'completed',
+        currentStage: null,
+        paused: false,
+        publicationId: 'publication-1',
+        publicationStatus: 'published'
+      }),
+      forcePublishPlatformRun: async () => ({
+        action: 'force-publish',
+        runId: 'run-1',
+        runStatus: 'completed',
+        currentStage: null,
+        paused: false,
+        publicationId: 'publication-1',
+        publicationStatus: 'published'
+      }),
+      reroutePlatformRunToStage: async (_request, targetStage) => ({
+        action: `reroute-to-${targetStage}` as const,
+        runId: 'run-1',
+        runStatus: 'running',
+        currentStage: targetStage,
+        paused: false,
+        rerouteTargetStage: targetStage
+      }),
+      cancelPlatformRunRoute: async () => ({
+        action: 'cancel-route',
+        runId: 'run-1',
+        runStatus: 'running',
+        currentStage: 'evaluation',
+        paused: false,
+        rerouteTargetStage: null
+      }),
+      resumePlatformRunFromTargetStage: async () => ({
+        action: 'resume-from-target-stage',
+        runId: 'run-1',
+        runStatus: 'running',
+        currentStage: 'automated-execution',
+        paused: false,
+        rerouteTargetStage: 'automated-execution'
       })
     });
 
@@ -640,6 +682,70 @@ describe('platform-control-plane-server', () => {
     expect(await resumeResponse.json()).toEqual(expect.objectContaining({
       action: expect.objectContaining({ action: 'resume', paused: false })
     }));
+
+    const rerouteResumeResponse = await fetch(`${baseUrl}/api/runs/run-1/actions/resume-from-target-stage`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ actor: 'operator-1', note: 'resume reroute from queue' })
+    });
+    expect(rerouteResumeResponse.status).toBe(200);
+    expect(await rerouteResumeResponse.json()).toEqual(expect.objectContaining({
+      action: expect.objectContaining({
+        action: 'resume-from-target-stage',
+        currentStage: 'automated-execution',
+        rerouteTargetStage: 'automated-execution'
+      })
+    }));
+
+    const approvePublicationResponse = await fetch(`${baseUrl}/api/runs/run-1/actions/approve-publication`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ actor: 'operator-1', note: 'approve the publication gate' })
+    });
+    expect(approvePublicationResponse.status).toBe(200);
+    expect(await approvePublicationResponse.json()).toEqual(expect.objectContaining({
+      action: expect.objectContaining({
+        action: 'approve-publication',
+        publicationId: 'publication-1',
+        publicationStatus: 'published'
+      })
+    }));
+
+    const rerouteToTestDesignResponse = await fetch(`${baseUrl}/api/runs/run-1/actions/reroute-to-test-design`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ actor: 'operator-1', note: 'route repair back to tests' })
+    });
+    expect(rerouteToTestDesignResponse.status).toBe(200);
+    expect(await rerouteToTestDesignResponse.json()).toEqual(expect.objectContaining({
+      action: expect.objectContaining({
+        action: 'reroute-to-test-design',
+        currentStage: 'test-design',
+        rerouteTargetStage: 'test-design'
+      })
+    }));
+
+    const cancelRouteResponse = await fetch(`${baseUrl}/api/runs/run-1/actions/cancel-route`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ actor: 'operator-1', note: 'cancel the active reroute' })
+    });
+    expect(cancelRouteResponse.status).toBe(200);
+    expect(await cancelRouteResponse.json()).toEqual(expect.objectContaining({
+      action: expect.objectContaining({
+        action: 'cancel-route',
+        currentStage: 'evaluation',
+        rerouteTargetStage: null
+      })
+    }));
   });
 
   it('returns a request validation error when task actions omit runId', async () => {
@@ -701,7 +807,12 @@ describe('platform-control-plane-server', () => {
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null,
       pausePlatformRun: async () => null,
-      resumePlatformRun: async () => null
+      resumePlatformRun: async () => null,
+      approvePlatformRunPublication: async () => null,
+      forcePublishPlatformRun: async () => null,
+      reroutePlatformRunToStage: async () => null,
+      cancelPlatformRunRoute: async () => null,
+      resumePlatformRunFromTargetStage: async () => null
     });
 
     const baseUrl = `http://${startedServer.host}:${startedServer.port}`;
@@ -744,7 +855,12 @@ describe('platform-control-plane-server', () => {
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null,
       pausePlatformRun: async () => null,
-      resumePlatformRun: async () => null
+      resumePlatformRun: async () => null,
+      approvePlatformRunPublication: async () => null,
+      forcePublishPlatformRun: async () => null,
+      reroutePlatformRunToStage: async () => null,
+      cancelPlatformRunRoute: async () => null,
+      resumePlatformRunFromTargetStage: async () => null
     });
 
     const baseUrl = `http://${startedServer.host}:${startedServer.port}`;
@@ -789,7 +905,12 @@ describe('platform-control-plane-server', () => {
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null,
       pausePlatformRun: async () => null,
-      resumePlatformRun: async () => null
+      resumePlatformRun: async () => null,
+      approvePlatformRunPublication: async () => null,
+      forcePublishPlatformRun: async () => null,
+      reroutePlatformRunToStage: async () => null,
+      cancelPlatformRunRoute: async () => null,
+      resumePlatformRunFromTargetStage: async () => null
     });
 
     const baseUrl = `http://${startedServer.host}:${startedServer.port}`;

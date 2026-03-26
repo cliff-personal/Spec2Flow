@@ -19,6 +19,7 @@ export interface RunListItem {
   status: PlatformRunStatus;
   paused: boolean;
   currentStage: string | null;
+  rerouteTargetStage?: string | null;
   riskLevel: string | null;
   branchName?: string | null;
   baseBranch?: string | null;
@@ -75,6 +76,11 @@ export interface PlatformTaskRecord {
   leaseExpiresAt?: string | null;
   artifactsDir?: string | null;
   updatedAt?: string | null;
+  evaluationDecision?: 'accepted' | 'rejected' | 'needs-repair' | null;
+  evaluationSummary?: string | null;
+  requestedRepairTargetStage?: 'requirements-analysis' | 'code-implementation' | 'test-design' | 'automated-execution' | null;
+  evaluationFindings?: string[];
+  evaluationNextActions?: string[];
 }
 
 export interface PlatformArtifactRecord {
@@ -242,7 +248,11 @@ export interface PlatformObservability {
     };
   };
   attentionRequired: Array<{
+    kind: 'task' | 'repair' | 'publication';
     type: string;
+    severity: 'info' | 'warning' | 'error';
+    taskId?: string | null;
+    repairTargetStage?: 'requirements-analysis' | 'code-implementation' | 'test-design' | 'automated-execution' | null;
     title: string;
     description: string;
   }>;
@@ -404,11 +414,24 @@ export interface RunSubmissionResult {
 }
 
 export interface RunActionResult {
-  action: 'pause' | 'resume';
+  action:
+    | 'pause'
+    | 'resume'
+    | 'resume-from-target-stage'
+    | 'approve-publication'
+    | 'force-publish'
+    | 'reroute-to-requirements-analysis'
+    | 'reroute-to-code-implementation'
+    | 'reroute-to-test-design'
+    | 'reroute-to-automated-execution'
+    | 'cancel-route';
   runId: string;
   runStatus: PlatformRunStatus;
   currentStage: string | null;
   paused: boolean;
+  rerouteTargetStage?: string | null;
+  publicationId?: string;
+  publicationStatus?: string;
 }
 
 export interface ApiError {
@@ -557,7 +580,17 @@ export async function postTaskAction(
 
 export async function postRunAction(
   runId: string,
-  action: 'pause' | 'resume',
+  action:
+    | 'pause'
+    | 'resume'
+    | 'resume-from-target-stage'
+    | 'approve-publication'
+    | 'force-publish'
+    | 'reroute-to-requirements-analysis'
+    | 'reroute-to-code-implementation'
+    | 'reroute-to-test-design'
+    | 'reroute-to-automated-execution'
+    | 'cancel-route',
   note?: string
 ): Promise<RunActionResult> {
   const response = await requestJson<{ action: RunActionResult }>(`/api/runs/${encodeURIComponent(runId)}/actions/${action}`, {

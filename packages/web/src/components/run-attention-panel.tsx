@@ -59,6 +59,17 @@ function toneSurface(tone: RunAttentionItem['tone']): string {
   return 'rgba(0,240,255,0.08)';
 }
 
+function formatStageLabel(stage: string | null | undefined): string {
+  if (!stage) {
+    return 'requested stage';
+  }
+
+  return stage
+    .split('-')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 function baseRunPriority(run: RunListItem): number {
   if (run.status === 'blocked') {
     return 400;
@@ -167,6 +178,11 @@ function deriveRunAttentionDetail(run: RunListItem, observability?: PlatformObse
 }
 
 function deriveRunNextAction(run: RunListItem, observability?: PlatformObservability): string {
+  const firstAttention = observability?.attentionRequired[0];
+  if (firstAttention?.type === 'evaluator-reroute-requested') {
+    return `Resume loop from ${formatStageLabel(firstAttention.repairTargetStage)}`;
+  }
+
   if (observability?.approvals.some((approval) => approval.status === 'requested')) {
     return 'Await human approval';
   }

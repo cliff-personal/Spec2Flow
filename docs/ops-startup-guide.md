@@ -218,10 +218,17 @@ Replace `command` / `args` with any script that reads `--claim <claimPath>` and 
 ### How the auto-runner dispatches
 
 1. Polls every 6 seconds for runs with `pending` or `running` status.
-2. Leases the next `ready` task (`FOR UPDATE SKIP LOCKED`).
-3. For deterministic stages: runs in-process without an adapter.
-4. For AI stages: calls `executePlatformWorkerMaterialization` which invokes the configured adapter runtime command as a child process.
-5. Persists task result, promotes downstream tasks, and emits events back to PostgreSQL.
+2. **Expired lease sweep**: before leasing new tasks, runs `expirePlatformLeases` across all running runs. Any task whose lease TTL has elapsed (default 600 s) is reset to `ready` (up to `maxRetries`) or `blocked` (budget exhausted). This means a crashed adapter process can never permanently block a run.
+3. Leases the next `ready` task (`FOR UPDATE SKIP LOCKED`).
+4. For deterministic stages: runs in-process without an adapter.
+5. For AI stages: calls `executePlatformWorkerMaterialization` which invokes the configured adapter runtime command as a child process.
+6. Persists task result, promotes downstream tasks, and emits events back to PostgreSQL.
+
+When an expired lease is recovered you will see a log line like:
+
+```
+[auto-runner] recovered 1 expired lease(s) for run <runId> (requeued: 1, blocked: 0)
+```
 
 ---
 

@@ -4,6 +4,7 @@ import {
   pausePlatformControlPlaneRun,
   approvePlatformControlPlaneTask,
   resumePlatformControlPlaneRun,
+  resumePlatformControlPlaneRunFromTargetStage,
   retryPlatformControlPlaneTask
 } from './platform-control-plane-action-service.js';
 import type { SqlExecutor } from './platform-database.js';
@@ -19,10 +20,13 @@ type QueryStep = {
 };
 
 class SequentialExecutor implements SqlExecutor {
+  public readonly calls: Array<{ text: string; values?: readonly unknown[] }> = [];
+
   constructor(private readonly steps: QueryStep[]) {}
 
-  async query<Row extends Record<string, unknown> = Record<string, unknown>>(text: string): Promise<QueryResult<Row>> {
+  async query<Row extends Record<string, unknown> = Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<QueryResult<Row>> {
     const normalizedText = text.trim();
+    this.calls.push(values ? { text: normalizedText, values } : { text: normalizedText });
     const step = this.steps.shift();
     if (!step) {
       throw new Error(`Unexpected query: ${normalizedText}`);
@@ -102,6 +106,63 @@ describe('platform-control-plane-action-service', () => {
       runStatus: 'running',
       currentStage: 'code-implementation'
     }));
+  });
+
+  it('clears stale evaluator reroute fields when retrying an evaluation task', async () => {
+    const executor = new SequentialExecutor([
+      {
+        match: 'FROM "spec2flow_platform".tasks',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--evaluation',
+            stage: 'evaluation',
+            status: 'blocked',
+            retry_count: 0,
+            max_retries: 3,
+            created_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'UPDATE "spec2flow_platform".tasks',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'SELECT task_id, stage, status, created_at',
+        result: {
+          rows: [{
+            task_id: 'frontend-smoke--evaluation',
+            stage: 'evaluation',
+            status: 'ready',
+            created_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'UPDATE "spec2flow_platform".runs',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      }
+    ]);
+
+    await retryPlatformControlPlaneTask(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      taskId: 'frontend-smoke--evaluation',
+      actor: 'operator-1'
+    });
+
+    expect(executor.calls[1]?.values?.[4]).toBe(true);
+    expect(executor.calls[1]?.text).toContain('evaluation_decision = CASE WHEN $5 THEN NULL ELSE evaluation_decision END');
   });
 
   it('approves a pending publication gate and completes the run', async () => {
@@ -190,6 +251,96 @@ describe('platform-control-plane-action-service', () => {
       publicationId: 'publication-1',
       publicationStatus: 'published'
     }));
+  });
+
+  it('rearms the target stage when resuming from the latest evaluator reroute', async () => {
+    const executor = new SequentialExecutor([
+      {
+        match: 'SELECT run_id, status, current_stage, metadata',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            status: 'blocked',
+            current_stage: 'evaluation',
+            metadata: {
+              controlPlane: {
+                paused: true
+              }
+            }
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'SELECT task_id, requested_repair_target_stage',
+        result: {
+          rows: [{
+            task_id: 'frontend-smoke--evaluation',
+            requested_repair_target_stage: 'automated-execution'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'SELECT task_id, stage',
+        result: {
+          rows: [
+            { task_id: 'frontend-smoke--automated-execution', stage: 'automated-execution' },
+            { task_id: 'frontend-smoke--defect-feedback', stage: 'defect-feedback' },
+            { task_id: 'frontend-smoke--collaboration', stage: 'collaboration' },
+            { task_id: 'frontend-smoke--evaluation', stage: 'evaluation' }
+          ],
+          rowCount: 4
+        }
+      },
+      {
+        match: "SET status = 'ready'",
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: "SET status = 'pending'",
+        result: { rows: [], rowCount: 3 }
+      },
+      {
+        match: 'SET metadata = $2::jsonb',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'SELECT task_id, stage, status, created_at',
+        result: {
+          rows: [{
+            task_id: 'frontend-smoke--automated-execution',
+            stage: 'automated-execution',
+            status: 'ready',
+            created_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'SET status = $2,',
+        result: { rows: [], rowCount: 1 }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".events',
+        result: { rows: [], rowCount: 1 }
+      }
+    ]);
+
+    const result = await resumePlatformControlPlaneRunFromTargetStage(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      actor: 'operator-1',
+      note: 'Resume from queue reroute button'
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      action: 'resume-from-target-stage',
+      runStatus: 'running',
+      currentStage: 'automated-execution',
+      paused: false,
+      rerouteTargetStage: 'automated-execution'
+    }));
+    expect(executor.calls[4]?.text).toContain('evaluation_decision = CASE WHEN stage = \'evaluation\' THEN NULL ELSE evaluation_decision END');
   });
 
   it('keeps the run running when approval unblocks a route but another blocked task has a ready follow-up', async () => {

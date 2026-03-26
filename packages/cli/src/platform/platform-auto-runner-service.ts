@@ -9,6 +9,7 @@ import {
   persistPlatformWorkerResult
 } from './platform-worker-service.js';
 import {
+  expirePlatformLeases,
   getPlatformRunState,
   leaseNextPlatformTask,
   startPlatformTask
@@ -347,6 +348,24 @@ export function startPlatformAutoRunner(config: PlatformAutoRunnerConfig): Platf
       const runningRuns = await withPlatformTransaction(config.pool, (client) =>
         listPlatformRuns(client, config.schema, { limit: 20, status: 'running' })
       );
+
+      // Recover expired leases for all running runs before leasing new tasks.
+      // Without this, any run whose adapter crashes stays stuck forever in 'leased' status.
+      for (const run of runningRuns) {
+        try {
+          const expiry = await withPlatformTransaction(config.pool, (client) =>
+            expirePlatformLeases(client, config.schema, { runId: run.runId })
+          );
+          if (expiry.expiredLeaseCount > 0) {
+            console.log(
+              `[auto-runner] recovered ${expiry.expiredLeaseCount} expired lease(s) for run ${run.runId}` +
+              ` (requeued: ${expiry.requeuedTaskIds.length}, blocked: ${expiry.blockedTaskIds.length})`
+            );
+          }
+        } catch (expiryError) {
+          console.error(`[auto-runner] lease expiry sweep failed for run ${run.runId}:`, expiryError);
+        }
+      }
 
       const candidates = [...pendingRuns, ...runningRuns]
         .filter((r) => !inProgress.has(r.runId))

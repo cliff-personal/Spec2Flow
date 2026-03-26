@@ -17,3 +17,15 @@ export interface ProjectRegistrationFormState {
 }
 
 export type TaskActionType = 'retry' | 'approve' | 'reject';
+
+export type RunActionType =
+  | 'pause'
+  | 'resume'
+  | 'resume-from-target-stage'
+  | 'approve-publication'
+  | 'force-publish'
+  | 'reroute-to-requirements-analysis'
+  | 'reroute-to-code-implementation'
+  | 'reroute-to-test-design'
+  | 'reroute-to-automated-execution'
+  | 'cancel-route';

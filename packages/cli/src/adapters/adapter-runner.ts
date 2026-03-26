@@ -12,6 +12,7 @@ import {
   resolveFromCwd,
   writeJsonFrom
 } from '../shared/fs-utils.js';
+import { resolveEvaluationRepairTargetStage } from '../shared/evaluation-repair-target.js';
 import { applyTaskResult } from '../runtime/task-result-service.js';
 import { getSchemaValidators } from '../shared/schema-registry.js';
 import {
@@ -815,6 +816,12 @@ function buildEvaluationSummaryPayload(
   const artifactRefs = collectEvaluationArtifactRefs(normalizedSource, claim, runOutput);
   const findings = normalizeStringList(normalizedSource.findings);
   const nextActions = normalizeStringList(normalizedSource.nextActions);
+  const explicitRepairTargetStage = getObjectStringProperty(normalizedSource, 'repairTargetStage');
+  const repairTargetStage = resolveEvaluationRepairTargetStage({
+    ...(explicitRepairTargetStage ? { explicitRepairTargetStage } : {}),
+    ...(nextActions ? { nextActions } : {}),
+    ...(findings ? { findings } : {})
+  });
 
   if (!summary) {
     return null;
@@ -826,6 +833,7 @@ function buildEvaluationSummaryPayload(
     stage: 'evaluation',
     summary,
     decision: inferEvaluationDecision(normalizedSource, runOutput.adapterRun.status),
+    ...(repairTargetStage ? { repairTargetStage } : {}),
     artifactRefs,
     ...(findings ? { findings } : {}),
     ...(nextActions ? { nextActions } : {})

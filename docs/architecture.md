@@ -41,10 +41,14 @@ flowchart LR
 	Defect --> Collab[Collaboration Handoff + Publication]
 	Collab --> Eval[Evaluator Layer]
 	Eval -->|accepted| Complete[Run Completed]
-	Eval -->|rejected / needs-repair| Blocked[Run Blocked]
+	Eval -->|rejected| Blocked[Run Blocked]
+	Eval -->|needs-repair + repairTargetStage| RepairTarget[Precise Repair Target]
+	RepairTarget --> Impl
 	Defect -->|auto-repair policy| Impl
 	Plans -->|cross-plan gating| Eval
 ```
+
+When evaluator output includes `evaluation-summary.repairTargetStage`, the controller routes `needs-repair` directly to the owning stage, persists that reroute target on the evaluation task row, and invalidates downstream tasks. Observability and the `/runs` attention deck read that persisted task state directly. If the explicit field is absent, the runtime can still infer a repair target from `findings` and `nextActions` for backward compatibility.
 
 ## Runtime Orchestration Model
 

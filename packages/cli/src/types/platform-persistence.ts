@@ -1,5 +1,6 @@
 import type { ArtifactKind } from './execution-state.js';
 import type { ReviewPolicy } from './review-policy.js';
+import type { EvaluationSummary } from './stage-deliverables.js';
 import type { RiskLevel, TaskExecutorType, TaskRoleProfile, TaskStage, TaskStatus } from './task-graph.js';
 
 export type PlatformRunStatus = 'pending' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled';
@@ -115,6 +116,11 @@ export interface PlatformTaskRecord {
   updatedAt?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
+  evaluationDecision?: EvaluationSummary['decision'] | null;
+  evaluationSummary?: string | null;
+  requestedRepairTargetStage?: EvaluationSummary['repairTargetStage'] | null;
+  evaluationFindings?: string[];
+  evaluationNextActions?: string[];
 }
 
 export type PlatformRepairAttemptStatus = 'requested' | 'succeeded' | 'failed' | 'blocked';

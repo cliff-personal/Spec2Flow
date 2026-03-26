@@ -1,5 +1,5 @@
 import type { PlatformObservability, PlatformTaskRecord, RunDetail } from './control-plane-api';
-import type { TaskActionType } from './control-plane-ui-types';
+import type { RunActionType, TaskActionType } from './control-plane-ui-types';
 
 export type RunOperatorAction = {
   kind: 'task' | 'run' | 'link';
@@ -8,7 +8,7 @@ export type RunOperatorAction = {
   tone: 'primary' | 'secondary' | 'ghost';
   taskId?: string;
   taskAction?: TaskActionType;
-  runAction?: 'pause' | 'resume';
+  runAction?: RunActionType;
   href?: string;
   external?: boolean;
   notePrompt?: {
@@ -75,6 +75,8 @@ function firstBlockedTask(tasks: PlatformTaskRecord[]): PlatformTaskRecord | und
 function approvalActionCopy(surface: 'run-detail' | 'review-packet'): {
   approveLabel: string;
   approveDetail: string;
+  forcePublishLabel: string;
+  forcePublishDetail: string;
   rejectLabel: string;
   rejectDetail: string;
 } {
@@ -82,6 +84,8 @@ function approvalActionCopy(surface: 'run-detail' | 'review-packet'): {
     return {
       approveLabel: 'Accept Result',
       approveDetail: 'Record the final review decision as accepted and clear the handoff for completion.',
+      forcePublishLabel: 'Force Publish',
+      forcePublishDetail: 'Override the approval gate and publish the latest delivery package immediately.',
       rejectLabel: 'Needs Follow-up',
       rejectDetail: 'Record that the handoff needs follow-up work before it can be accepted.',
     };
@@ -90,9 +94,94 @@ function approvalActionCopy(surface: 'run-detail' | 'review-packet'): {
   return {
     approveLabel: 'Approve Publication',
     approveDetail: 'Clear the pending publication gate and let the collaboration stage continue.',
+    forcePublishLabel: 'Force Publish',
+    forcePublishDetail: 'Bypass the approval gate and publish the latest delivery package immediately.',
     rejectLabel: 'Reject Publication',
     rejectDetail: 'Stop the current handoff and send the publication request back for revision.',
   };
+}
+
+function formatStageLabel(stage: string): string {
+  return stage.split('-').map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1)).join(' ');
+}
+
+function buildPublicationActions(
+  surface: 'run-detail' | 'review-packet',
+  pendingApprovalTaskId: string
+): RunOperatorAction[] {
+  const copy = approvalActionCopy(surface);
+
+  return [
+    {
+      kind: 'run',
+      label: copy.approveLabel,
+      detail: copy.approveDetail,
+      tone: 'primary',
+      runAction: 'approve-publication',
+      notePrompt: surface === 'review-packet' ? buildDecisionNotePrompt('approve') : undefined,
+    },
+    {
+      kind: 'run',
+      label: copy.forcePublishLabel,
+      detail: copy.forcePublishDetail,
+      tone: 'secondary',
+      runAction: 'force-publish',
+    },
+    {
+      kind: 'task',
+      label: copy.rejectLabel,
+      detail: copy.rejectDetail,
+      tone: 'secondary',
+      taskId: pendingApprovalTaskId,
+      taskAction: 'reject',
+      notePrompt: surface === 'review-packet' ? buildDecisionNotePrompt('reject') : undefined,
+    },
+  ];
+}
+
+function buildRerouteActions(runDetail: RunDetail, rerouteTargetStage: NonNullable<PlatformTaskRecord['requestedRepairTargetStage']>): RunOperatorAction[] {
+  const actions: RunOperatorAction[] = [];
+
+  if (runDetail.runState.run.status === 'blocked' || runDetail.runState.run.status === 'running') {
+    actions.push({
+      kind: 'run',
+      label: `Resume from ${formatStageLabel(rerouteTargetStage)}`,
+      detail: 'Resume the active reroute route directly from the evaluator-selected target stage.',
+      tone: 'primary',
+      runAction: 'resume-from-target-stage',
+    });
+  }
+
+  const stageActions: Array<{ stage: NonNullable<PlatformTaskRecord['requestedRepairTargetStage']>; action: RunActionType }> = [
+    { stage: 'requirements-analysis', action: 'reroute-to-requirements-analysis' },
+    { stage: 'code-implementation', action: 'reroute-to-code-implementation' },
+    { stage: 'test-design', action: 'reroute-to-test-design' },
+    { stage: 'automated-execution', action: 'reroute-to-automated-execution' },
+  ];
+
+  for (const stageAction of stageActions) {
+    if (stageAction.stage === rerouteTargetStage) {
+      continue;
+    }
+
+    actions.push({
+      kind: 'run',
+      label: `Reroute to ${formatStageLabel(stageAction.stage)}`,
+      detail: `Override the evaluator route and restart repair from ${formatStageLabel(stageAction.stage)}.`,
+      tone: 'secondary',
+      runAction: stageAction.action,
+    });
+  }
+
+  actions.push({
+    kind: 'run',
+    label: 'Cancel Repair Route',
+    detail: 'Cancel the active reroute path and clear the queued repair tasks owned by that route.',
+    tone: 'ghost',
+    runAction: 'cancel-route',
+  });
+
+  return actions;
 }
 
 export function deriveRunOperatorActions(
@@ -113,28 +202,14 @@ export function deriveRunOperatorActions(
     (approval) => approval.status === 'requested' && typeof approval.taskId === 'string' && approval.taskId.length > 0
   );
   if (pendingApproval?.taskId) {
-    const copy = approvalActionCopy(surface);
+    return buildPublicationActions(surface, pendingApproval.taskId);
+  }
 
-    return [
-      {
-        kind: 'task',
-        label: copy.approveLabel,
-        detail: copy.approveDetail,
-        tone: 'primary',
-        taskId: pendingApproval.taskId,
-        taskAction: 'approve',
-        notePrompt: surface === 'review-packet' ? buildDecisionNotePrompt('approve') : undefined,
-      },
-      {
-        kind: 'task',
-        label: copy.rejectLabel,
-        detail: copy.rejectDetail,
-        tone: 'secondary',
-        taskId: pendingApproval.taskId,
-        taskAction: 'reject',
-        notePrompt: surface === 'review-packet' ? buildDecisionNotePrompt('reject') : undefined,
-      },
-    ];
+  const evaluatorRepairRoute = [...tasks]
+    .filter((task) => task.stage === 'evaluation' && task.evaluationDecision === 'needs-repair' && task.requestedRepairTargetStage)
+    .sort((left, right) => new Date(right.updatedAt ?? 0).valueOf() - new Date(left.updatedAt ?? 0).valueOf())[0];
+  if (evaluatorRepairRoute?.requestedRepairTargetStage) {
+    return buildRerouteActions(runDetail, evaluatorRepairRoute.requestedRepairTargetStage);
   }
 
   const blockedRepair = observability?.repairSummaries.find(

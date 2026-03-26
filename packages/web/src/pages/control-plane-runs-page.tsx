@@ -55,8 +55,12 @@ export function ControlPlaneRunsPage(): JSX.Element {
           runs={runsPage.runsQuery.data ?? []}
           selectedRunId={null}
           onOpenRun={(runId) => runsPage.openRun(`/runs/${runId}`)}
-          errorMessage={runsPage.runsQuery.isError ? runsPage.runsQuery.error.message : null}
+          onRunAction={runsPage.triggerRunAction}
+          errorMessage={runsPage.runActionMutation.isError
+            ? runsPage.runActionMutation.error.message
+            : (runsPage.runsQuery.isError ? runsPage.runsQuery.error.message : null)}
           isSuccess={runsPage.runsQuery.isSuccess}
+          isActionPending={runsPage.runActionMutation.isPending}
         />
       </section>
     </div>

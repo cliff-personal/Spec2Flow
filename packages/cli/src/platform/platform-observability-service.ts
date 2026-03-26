@@ -41,6 +41,13 @@ function countArtifactsByTask(artifacts: PlatformArtifactRecord[]): Map<string, 
   return counts;
 }
 
+function formatStageLabel(stage: string): string {
+  return stage
+    .split('-')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 function sortTimelineEntriesAscending(left: PlatformObservabilityTimelineEntry, right: PlatformObservabilityTimelineEntry): number {
   const leftTimestamp = Date.parse(left.createdAt ?? '');
   const rightTimestamp = Date.parse(right.createdAt ?? '');
@@ -438,18 +445,22 @@ function collectTaskAttentionItems(taskSummaries: PlatformTaskObservabilitySumma
     if (task.status === 'blocked' || task.status === 'failed') {
       items.push({
         kind: 'task',
+        type: task.status === 'failed' ? 'task-failed' : 'task-blocked',
         severity: task.status === 'failed' ? 'error' : 'warning',
         taskId: task.taskId,
-        message: `${task.taskId} is ${task.status}`
+        title: task.status === 'failed' ? `Task failed: ${task.taskId}` : `Task blocked: ${task.taskId}`,
+        description: `${task.taskId} is ${task.status}.`,
       });
     }
 
     if (task.missingExpectedArtifactCount > 0) {
       items.push({
         kind: 'task',
+        type: 'task-missing-artifacts',
         severity: 'warning',
         taskId: task.taskId,
-        message: `${task.taskId} is missing ${task.missingExpectedArtifactCount} expected artifact(s)`
+        title: `Missing artifacts: ${task.taskId}`,
+        description: `${task.taskId} is missing ${task.missingExpectedArtifactCount} expected artifact(s).`,
       });
     }
   }
@@ -457,14 +468,47 @@ function collectTaskAttentionItems(taskSummaries: PlatformTaskObservabilitySumma
   return items;
 }
 
+function collectEvaluatorRerouteAttentionItems(tasks: PlatformRunStateSnapshot['tasks']): PlatformObservabilityAttentionItem[] {
+  return [...tasks]
+    .filter((task) => task.evaluationDecision === 'needs-repair' && typeof task.requestedRepairTargetStage === 'string')
+    .sort((left, right) => {
+      const leftTimestamp = Date.parse(left.updatedAt ?? left.completedAt ?? left.createdAt ?? '');
+      const rightTimestamp = Date.parse(right.updatedAt ?? right.completedAt ?? right.createdAt ?? '');
+      if (!Number.isNaN(leftTimestamp) && !Number.isNaN(rightTimestamp) && leftTimestamp !== rightTimestamp) {
+        return rightTimestamp - leftTimestamp;
+      }
+
+      return right.taskId.localeCompare(left.taskId);
+    })
+    .map((task) => {
+      const repairTargetStage = task.requestedRepairTargetStage ?? null;
+      const stageLabel = repairTargetStage ? formatStageLabel(repairTargetStage) : 'Requested stage';
+      const summary = task.evaluationSummary?.trim();
+
+      return {
+        kind: 'task' as const,
+        type: 'evaluator-reroute-requested' as const,
+        severity: 'warning' as const,
+        taskId: task.taskId,
+        ...(repairTargetStage ? { repairTargetStage } : {}),
+        title: `Evaluator requested reroute to ${stageLabel}`,
+        description: summary
+          ? `${task.taskId} asked the controller to flow back to ${stageLabel}. ${summary}`
+          : `${task.taskId} asked the controller to flow back to ${stageLabel}.`
+      };
+    });
+}
+
 function collectRepairAttentionItems(repairSummaries: PlatformRepairObservabilitySummary[]): PlatformObservabilityAttentionItem[] {
   return repairSummaries
     .filter((attempt) => attempt.status === 'blocked' || attempt.status === 'failed')
     .map((attempt) => ({
       kind: 'repair' as const,
+      type: attempt.status === 'failed' ? 'repair-failed' as const : 'repair-blocked' as const,
       severity: attempt.status === 'failed' ? 'error' : 'warning',
       taskId: attempt.taskId,
-      message: `Repair attempt ${attempt.attemptNumber} for ${attempt.taskId} is ${attempt.status}`
+      title: `Repair ${attempt.status}: ${attempt.taskId}`,
+      description: `Repair attempt ${attempt.attemptNumber} for ${attempt.taskId} is ${attempt.status}.`
     }));
 }
 
@@ -473,35 +517,81 @@ function collectPublicationAttentionItems(publicationSummaries: PlatformPublicat
     .filter((publication) => publication.status === 'blocked')
     .map((publication) => ({
       kind: 'publication' as const,
+      type: 'publication-blocked' as const,
       severity: 'warning' as const,
       taskId: publication.taskId ?? null,
-      message: `Publication ${publication.publicationId} is ${publication.status}`
+      title: `Publication blocked: ${publication.publicationId}`,
+      description: `Publication ${publication.publicationId} is ${publication.status}.`
     }));
 }
 
 function collectApprovalAttentionItems(approvals: PlatformObservabilityApprovalItem[]): PlatformObservabilityAttentionItem[] {
   return approvals
     .filter((approval) => approval.status !== 'approved')
-    .map((approval) => ({
-      kind: 'publication' as const,
-      severity: approval.status === 'rejected' || approval.status === 'blocked' ? 'warning' as const : 'info' as const,
-      taskId: approval.taskId ?? null,
-      message: `Approval is ${approval.status} for publication ${approval.publicationId ?? 'unknown'}`
-    }));
+    .map((approval) => {
+      let type: PlatformObservabilityAttentionItem['type'] = 'approval-requested';
+      let title = 'Approval requested';
+
+      if (approval.status === 'rejected') {
+        type = 'approval-rejected';
+        title = 'Approval rejected';
+      } else if (approval.status === 'blocked') {
+        type = 'approval-blocked';
+        title = 'Approval blocked';
+      }
+
+      return {
+        kind: 'publication' as const,
+        type,
+        severity: approval.status === 'rejected' || approval.status === 'blocked' ? 'warning' as const : 'info' as const,
+        taskId: approval.taskId ?? null,
+        title,
+        description: `Approval is ${approval.status} for publication ${approval.publicationId ?? 'unknown'}.`
+      };
+    });
+}
+
+function getAttentionPriority(item: PlatformObservabilityAttentionItem): number {
+  switch (item.type) {
+    case 'evaluator-reroute-requested':
+      return 400;
+    case 'task-failed':
+      return 300;
+    case 'task-blocked':
+      return 250;
+    case 'repair-failed':
+      return 220;
+    case 'repair-blocked':
+      return 210;
+    case 'publication-blocked':
+      return 180;
+    case 'approval-rejected':
+      return 170;
+    case 'approval-blocked':
+      return 160;
+    case 'approval-requested':
+      return 150;
+    case 'task-missing-artifacts':
+      return 120;
+    default:
+      return 0;
+  }
 }
 
 function buildAttentionRequired(
+  tasks: PlatformRunStateSnapshot['tasks'],
   taskSummaries: PlatformTaskObservabilitySummary[],
   repairSummaries: PlatformRepairObservabilitySummary[],
   publicationSummaries: PlatformPublicationObservabilitySummary[],
   approvals: PlatformObservabilityApprovalItem[]
 ): PlatformObservabilityAttentionItem[] {
   return [
+    ...collectEvaluatorRerouteAttentionItems(tasks),
     ...collectTaskAttentionItems(taskSummaries),
     ...collectRepairAttentionItems(repairSummaries),
     ...collectPublicationAttentionItems(publicationSummaries),
     ...collectApprovalAttentionItems(approvals)
-  ];
+  ].sort((left, right) => getAttentionPriority(right) - getAttentionPriority(left));
 }
 
 export function buildPlatformObservabilityReadModel(
@@ -528,7 +618,7 @@ export function buildPlatformObservabilityReadModel(
     recentEvents: snapshot.recentEvents,
     repairs: snapshot.repairAttempts,
     publications: snapshot.publications,
-    attentionRequired: buildAttentionRequired(taskSummaries, repairSummaries, publicationSummaries, approvals)
+    attentionRequired: buildAttentionRequired(snapshot.tasks, taskSummaries, repairSummaries, publicationSummaries, approvals)
   };
 }
 

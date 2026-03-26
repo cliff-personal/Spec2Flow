@@ -25,6 +25,8 @@ export const DEFAULT_PLATFORM_HEARTBEAT_INTERVAL_SECONDS = 20;
 export const DEFAULT_PLATFORM_MAX_RETRIES = 3;
 export const DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT = 20;
 
+type DbTimestampValue = Date | string | null;
+
 interface PlatformTaskRow extends Record<string, unknown> {
   run_id: string;
   task_id: string;
@@ -46,14 +48,19 @@ interface PlatformTaskRow extends Record<string, unknown> {
   max_retries: number;
   auto_repair_count: number;
   max_auto_repair_attempts: number;
+  evaluation_decision: PlatformTaskRecord['evaluationDecision'];
+  evaluation_summary: string | null;
+  requested_repair_target_stage: PlatformTaskRecord['requestedRepairTargetStage'];
+  evaluation_findings: unknown;
+  evaluation_next_actions: unknown;
   current_lease_id: string | null;
   leased_by_worker_id: string | null;
-  lease_expires_at: Date | string | null;
-  last_heartbeat_at: Date | string | null;
-  created_at: Date | string | null;
-  updated_at: Date | string | null;
-  started_at: Date | string | null;
-  completed_at: Date | string | null;
+  lease_expires_at: DbTimestampValue;
+  last_heartbeat_at: DbTimestampValue;
+  created_at: DbTimestampValue;
+  updated_at: DbTimestampValue;
+  started_at: DbTimestampValue;
+  completed_at: DbTimestampValue;
 }
 
 interface PlatformRunRow extends Record<string, unknown> {
@@ -66,10 +73,10 @@ interface PlatformRunRow extends Record<string, unknown> {
   risk_level: PlatformRunRecord['riskLevel'];
   request_payload: Record<string, unknown>;
   metadata: Record<string, unknown>;
-  created_at: Date | string | null;
-  updated_at: Date | string | null;
-  started_at: Date | string | null;
-  completed_at: Date | string | null;
+  created_at: DbTimestampValue;
+  updated_at: DbTimestampValue;
+  started_at: DbTimestampValue;
+  completed_at: DbTimestampValue;
 }
 
 interface PlatformEventRow extends Record<string, unknown> {
@@ -78,7 +85,7 @@ interface PlatformEventRow extends Record<string, unknown> {
   task_id: string | null;
   event_type: string;
   payload: Record<string, unknown>;
-  created_at: Date | string | null;
+  created_at: DbTimestampValue;
 }
 
 interface PlatformArtifactRow extends Record<string, unknown> {
@@ -89,7 +96,7 @@ interface PlatformArtifactRow extends Record<string, unknown> {
   path: string;
   schema_type: string | null;
   metadata: Record<string, unknown>;
-  created_at: Date | string | null;
+  created_at: DbTimestampValue;
 }
 
 interface PlatformRepairAttemptRow extends Record<string, unknown> {
@@ -103,9 +110,9 @@ interface PlatformRepairAttemptRow extends Record<string, unknown> {
   attempt_number: number;
   status: PlatformRepairAttemptRecord['status'];
   metadata: Record<string, unknown>;
-  created_at: Date | string | null;
-  updated_at: Date | string | null;
-  completed_at: Date | string | null;
+  created_at: DbTimestampValue;
+  updated_at: DbTimestampValue;
+  completed_at: DbTimestampValue;
 }
 
 interface PlatformPublicationRow extends Record<string, unknown> {
@@ -117,8 +124,8 @@ interface PlatformPublicationRow extends Record<string, unknown> {
   publish_mode: string;
   status: string;
   metadata: Record<string, unknown>;
-  created_at: Date | string | null;
-  updated_at: Date | string | null;
+  created_at: DbTimestampValue;
+  updated_at: DbTimestampValue;
 }
 
 interface PlatformRunProjectWorkspaceRow extends Record<string, unknown> {
@@ -135,8 +142,8 @@ interface PlatformRunProjectWorkspaceRow extends Record<string, unknown> {
   project_adapter_profile?: PlatformProjectAdapterProfile | null;
   project_workspace_policy: PlatformWorkspacePolicy | null;
   project_metadata: Record<string, unknown> | null;
-  project_created_at: Date | string | null;
-  project_updated_at: Date | string | null;
+  project_created_at: DbTimestampValue;
+  project_updated_at: DbTimestampValue;
   workspace_run_id: string | null;
   workspace_repository_id: string | null;
   worktree_mode: PlatformRunWorkspaceRecord['worktreeMode'] | null;
@@ -147,8 +154,8 @@ interface PlatformRunProjectWorkspaceRow extends Record<string, unknown> {
   worktree_path: string | null;
   workspace_policy: PlatformWorkspacePolicy | null;
   workspace_metadata: Record<string, unknown> | null;
-  workspace_created_at: Date | string | null;
-  workspace_updated_at: Date | string | null;
+  workspace_created_at: DbTimestampValue;
+  workspace_updated_at: DbTimestampValue;
 }
 
 export interface LeaseNextPlatformTaskOptions extends PlatformWorkerIdentity {
@@ -234,7 +241,16 @@ function normalizeTimestamp(value: unknown): string | null {
   return null;
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    : [];
+}
+
 function mapPlatformTaskRow(row: PlatformTaskRow): PlatformTaskRecord {
+  const evaluationFindings = normalizeStringArray(row.evaluation_findings);
+  const evaluationNextActions = normalizeStringArray(row.evaluation_next_actions);
+
   return {
     runId: row.run_id,
     taskId: row.task_id,
@@ -256,6 +272,11 @@ function mapPlatformTaskRow(row: PlatformTaskRow): PlatformTaskRecord {
     maxRetries: row.max_retries,
     autoRepairCount: row.auto_repair_count,
     maxAutoRepairAttempts: row.max_auto_repair_attempts,
+    evaluationDecision: row.evaluation_decision ?? null,
+    evaluationSummary: row.evaluation_summary ?? null,
+    requestedRepairTargetStage: row.requested_repair_target_stage ?? null,
+    ...(evaluationFindings.length > 0 ? { evaluationFindings } : {}),
+    ...(evaluationNextActions.length > 0 ? { evaluationNextActions } : {}),
     currentLeaseId: row.current_lease_id,
     leasedByWorkerId: row.leased_by_worker_id,
     leaseExpiresAt: normalizeTimestamp(row.lease_expires_at),
@@ -485,12 +506,21 @@ function inferLeaseRejectionReason(taskRow: PlatformTaskRow | null, workerId: st
   return 'lease-expired';
 }
 
-function buildRejectedHeartbeatResult(
-  options: HeartbeatPlatformTaskOptions,
+function buildRejectedTaskResult<TReason extends string>(
+  options: { runId: string; taskId: string; workerId: string },
   leaseTtlSeconds: number,
   heartbeatIntervalSeconds: number,
-  reason: NonNullable<HeartbeatPlatformTaskResult['reason']>
-): HeartbeatPlatformTaskResult {
+  reason: TReason
+): {
+  status: 'rejected';
+  runId: string;
+  taskId: string;
+  workerId: string;
+  leaseTtlSeconds: number;
+  heartbeatIntervalSeconds: number;
+  reason: TReason;
+  lease: null;
+} {
   return {
     status: 'rejected',
     runId: options.runId,
@@ -503,22 +533,22 @@ function buildRejectedHeartbeatResult(
   };
 }
 
-function buildRejectedStartResult(
-  options: StartPlatformTaskOptions,
+function buildRejectedHeartbeatResult(
+  options: Pick<HeartbeatPlatformTaskOptions, 'runId' | 'taskId' | 'workerId'>,
+  leaseTtlSeconds: number,
+  heartbeatIntervalSeconds: number,
+  reason: NonNullable<HeartbeatPlatformTaskResult['reason']>
+): HeartbeatPlatformTaskResult {
+  return buildRejectedTaskResult(options, leaseTtlSeconds, heartbeatIntervalSeconds, reason);
+}
+
+function buildRejectedTaskLifecycleResult(
+  options: Pick<StartPlatformTaskOptions, 'runId' | 'taskId' | 'workerId'>,
   leaseTtlSeconds: number,
   heartbeatIntervalSeconds: number,
   reason: NonNullable<StartPlatformTaskResult['reason']>
 ): StartPlatformTaskResult {
-  return {
-    status: 'rejected',
-    runId: options.runId,
-    taskId: options.taskId,
-    workerId: options.workerId,
-    leaseTtlSeconds,
-    heartbeatIntervalSeconds,
-    reason,
-    lease: null
-  };
+  return buildRejectedTaskResult(options, leaseTtlSeconds, heartbeatIntervalSeconds, reason);
 }
 
 export async function leaseNextPlatformTask(
@@ -752,7 +782,7 @@ export async function startPlatformTask(
   const updatedRow = updateResult.rows[0] ?? null;
   if (!updatedRow) {
     const currentTask = await getPlatformTaskRow(executor, schema, options.runId, options.taskId);
-    return buildRejectedStartResult(
+    return buildRejectedTaskLifecycleResult(
       options,
       leaseTtlSeconds,
       heartbeatIntervalSeconds,

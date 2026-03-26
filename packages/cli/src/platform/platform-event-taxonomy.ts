@@ -7,6 +7,9 @@ export const PLATFORM_EVENT_TYPES = {
   RUN_CREATED: 'run.created',
   RUN_PAUSED: 'run.paused',
   RUN_RESUMED: 'run.resumed',
+  RUN_RESUMED_FROM_TARGET_STAGE: 'run.resumed-from-target-stage',
+  RUN_REROUTED_TO_STAGE: 'run.rerouted-to-stage',
+  RUN_ROUTE_CANCELLED: 'run.route-cancelled',
   PLANNING_COMPLETED: 'planning.completed',
   TASKS_PERSISTED: 'tasks.persisted',
   TASK_LEASED: 'task.leased',
@@ -60,6 +63,27 @@ const platformEventDescriptors: Record<string, PlatformEventTaxonomyDescriptor> 
     action: 'resumed',
     title: 'Run resumed',
     severity: 'info'
+  },
+  [PLATFORM_EVENT_TYPES.RUN_RESUMED_FROM_TARGET_STAGE]: {
+    type: PLATFORM_EVENT_TYPES.RUN_RESUMED_FROM_TARGET_STAGE,
+    category: 'run',
+    action: 'resumed-from-target-stage',
+    title: 'Run resumed from target stage',
+    severity: 'warning'
+  },
+  [PLATFORM_EVENT_TYPES.RUN_REROUTED_TO_STAGE]: {
+    type: PLATFORM_EVENT_TYPES.RUN_REROUTED_TO_STAGE,
+    category: 'run',
+    action: 'rerouted-to-stage',
+    title: 'Run rerouted to stage',
+    severity: 'warning'
+  },
+  [PLATFORM_EVENT_TYPES.RUN_ROUTE_CANCELLED]: {
+    type: PLATFORM_EVENT_TYPES.RUN_ROUTE_CANCELLED,
+    category: 'run',
+    action: 'route-cancelled',
+    title: 'Run route cancelled',
+    severity: 'warning'
   },
   [PLATFORM_EVENT_TYPES.PLANNING_COMPLETED]: {
     type: PLATFORM_EVENT_TYPES.PLANNING_COMPLETED,

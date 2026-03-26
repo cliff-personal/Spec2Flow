@@ -106,7 +106,7 @@ function makeTask(overrides: Partial<PlatformTaskRecord> = {}): PlatformTaskReco
 }
 
 describe('deriveRunOperatorActions', () => {
-  it('prioritizes pending approval with approve and reject actions', () => {
+  it('prioritizes pending approval with run-level publication actions', () => {
     const actions = deriveRunOperatorActions(
       makeRunDetail('running'),
       makeObservability({
@@ -123,9 +123,10 @@ describe('deriveRunOperatorActions', () => {
       [makeTask({ taskId: 'task-9', status: 'blocked' })],
     );
 
-    expect(actions).toHaveLength(2);
-    expect(actions[0]).toMatchObject({ kind: 'task', taskAction: 'approve', taskId: 'task-9' });
-    expect(actions[1]).toMatchObject({ kind: 'task', taskAction: 'reject', taskId: 'task-9' });
+    expect(actions).toHaveLength(3);
+    expect(actions[0]).toMatchObject({ kind: 'run', runAction: 'approve-publication' });
+    expect(actions[1]).toMatchObject({ kind: 'run', runAction: 'force-publish' });
+    expect(actions[2]).toMatchObject({ kind: 'task', taskAction: 'reject', taskId: 'task-9' });
   });
 
   it('uses review decision language inside the review packet surface', () => {
@@ -147,7 +148,8 @@ describe('deriveRunOperatorActions', () => {
     );
 
     expect(actions).toEqual([
-      expect.objectContaining({ label: 'Accept Result', taskAction: 'approve' }),
+      expect.objectContaining({ label: 'Accept Result', runAction: 'approve-publication' }),
+      expect.objectContaining({ label: 'Force Publish', runAction: 'force-publish' }),
       expect.objectContaining({ label: 'Needs Follow-up', taskAction: 'reject' }),
     ]);
     expect(actions[0]).toMatchObject({
@@ -156,13 +158,36 @@ describe('deriveRunOperatorActions', () => {
         required: false,
       }),
     });
-    expect(actions[1]).toMatchObject({
+    expect(actions[2]).toMatchObject({
       notePrompt: expect.objectContaining({
         confirmLabel: 'Record Follow-up',
         required: true,
       }),
     });
-    expect(actions[1]?.notePrompt?.initialValue).toContain('Decision: needs-follow-up');
+    expect(actions[2]?.notePrompt?.initialValue).toContain('Decision: needs-follow-up');
+  });
+
+  it('surfaces reroute override actions when the evaluator requests a repair target', () => {
+    const actions = deriveRunOperatorActions(
+      makeRunDetail('blocked'),
+      makeObservability(),
+      [makeTask({
+        taskId: 'task-eval',
+        stage: 'evaluation',
+        status: 'blocked',
+        evaluationDecision: 'needs-repair',
+        requestedRepairTargetStage: 'code-implementation',
+        updatedAt: '2026-03-26T10:05:00.000Z',
+      })],
+    );
+
+    expect(actions).toEqual([
+      expect.objectContaining({ kind: 'run', runAction: 'resume-from-target-stage' }),
+      expect.objectContaining({ kind: 'run', runAction: 'reroute-to-requirements-analysis' }),
+      expect.objectContaining({ kind: 'run', runAction: 'reroute-to-test-design' }),
+      expect.objectContaining({ kind: 'run', runAction: 'reroute-to-automated-execution' }),
+      expect.objectContaining({ kind: 'run', runAction: 'cancel-route' }),
+    ]);
   });
 
   it('offers retry when a repair path is blocked', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveRunReadinessSignal } from './run-detail-panel';
+import { deriveEvaluatorRepairRoute, deriveRunReadinessSignal } from './run-detail-panel';
 import type { PlatformObservability, PlatformTaskRecord, RunDetail } from '../lib/control-plane-api';
 
 function makeRunDetail(status: RunDetail['runState']['run']['status'] = 'completed'): RunDetail {
@@ -167,6 +167,35 @@ describe('deriveRunReadinessSignal', () => {
     expect(signal).toMatchObject({
       status: 'attention-required',
       nextAction: 'Inspect evidence gaps',
+    });
+  });
+
+  it('derives the latest evaluator repair target for run detail surfaces', () => {
+    const route = deriveEvaluatorRepairRoute([
+      makeTask({
+        taskId: 'route-a--evaluation',
+        stage: 'evaluation',
+        status: 'blocked',
+        updatedAt: '2026-03-26T10:00:00.000Z',
+        evaluationDecision: 'needs-repair',
+        requestedRepairTargetStage: 'test-design',
+        evaluationSummary: 'Expand coverage before rerunning.'
+      }),
+      makeTask({
+        taskId: 'route-b--evaluation',
+        stage: 'evaluation',
+        status: 'blocked',
+        updatedAt: '2026-03-26T11:00:00.000Z',
+        evaluationDecision: 'needs-repair',
+        requestedRepairTargetStage: 'automated-execution',
+        evaluationSummary: 'Rerun execution under a fresh environment.'
+      })
+    ]);
+
+    expect(route).toEqual({
+      taskId: 'route-b--evaluation',
+      targetStage: 'automated-execution',
+      summary: 'Rerun execution under a fresh environment.'
     });
   });
 });

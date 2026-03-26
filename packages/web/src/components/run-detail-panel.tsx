@@ -1,5 +1,6 @@
 import type { PlatformObservability, PlatformTaskRecord, RunDetail } from '../lib/control-plane-api';
 import { formatStage } from '../lib/control-plane-formatters';
+import type { RunActionType } from '../lib/control-plane-ui-types';
 import type { RunOperatorAction } from '../lib/run-operator-actions';
 import { OperatorActionBar } from './operator-action-bar';
 import { StatusPill } from './status-pill';
@@ -10,6 +11,12 @@ export type RunReadinessSignal = {
   headline: string;
   detail: string;
   nextAction: string;
+};
+
+export type EvaluatorRepairRouteSignal = {
+  taskId: string;
+  summary: string | null;
+  targetStage: NonNullable<PlatformTaskRecord['requestedRepairTargetStage']>;
 };
 
 function clampScore(value: number): number {
@@ -34,6 +41,31 @@ function readinessTone(status: RunReadinessSignal['status']): { color: string; b
   }
 
   return { color: 'rgba(0,240,255,0.86)', background: 'rgba(0,240,255,0.08)' };
+}
+
+function toTimestamp(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = new Date(value).valueOf();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+export function deriveEvaluatorRepairRoute(tasks: PlatformTaskRecord[]): EvaluatorRepairRouteSignal | null {
+  const candidate = [...tasks]
+    .filter((task) => task.stage === 'evaluation' && task.evaluationDecision === 'needs-repair' && task.requestedRepairTargetStage)
+    .sort((left, right) => toTimestamp(right.updatedAt) - toTimestamp(left.updatedAt))[0];
+
+  if (!candidate?.requestedRepairTargetStage) {
+    return null;
+  }
+
+  return {
+    taskId: candidate.taskId,
+    summary: candidate.evaluationSummary ?? null,
+    targetStage: candidate.requestedRepairTargetStage
+  };
 }
 
 export function deriveRunReadinessSignal(
@@ -144,10 +176,11 @@ export function RunDetailPanel(
     isActionPending: boolean;
     errorMessage: string | null;
     onTaskAction: (taskId: string, action: 'retry' | 'approve' | 'reject', note?: string) => void;
-    onRunAction: (action: 'pause' | 'resume') => void;
+    onRunAction: (action: RunActionType) => void;
   }>
 ): JSX.Element {
   const readiness = deriveRunReadinessSignal(props.runDetail, props.observability, props.tasks);
+  const evaluatorRepairRoute = deriveEvaluatorRepairRoute(props.tasks);
   const tone = readinessTone(readiness.status);
 
   return (
@@ -178,6 +211,18 @@ export function RunDetailPanel(
           <p className="text-[11px] mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.46)' }}>{readiness.detail}</p>
         </div>
       </div>
+
+      {evaluatorRepairRoute ? (
+        <div className="rounded-3xl px-4 py-3 mb-4" style={{ background: 'rgba(255,196,98,0.08)', border: '1px solid rgba(255,196,98,0.22)' }}>
+          <p className="text-[10px] tracking-[0.18em] uppercase" style={{ color: 'rgba(255,255,255,0.24)' }}>Evaluator Repair Route</p>
+          <p className="text-[18px] font-medium mt-2" style={{ color: 'rgba(255,196,98,0.92)' }}>
+            needs-repair {'->'} {formatStage(evaluatorRepairRoute.targetStage)}
+          </p>
+          <p className="text-[11px] mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.46)' }}>
+            {evaluatorRepairRoute.summary ?? `Task ${evaluatorRepairRoute.taskId} asked the controller to route repair back to ${formatStage(evaluatorRepairRoute.targetStage)}.`}
+          </p>
+        </div>
+      ) : null}
 
       {props.runDetail ? (
         <dl className="detail-list">
@@ -216,6 +261,10 @@ export function RunDetailPanel(
           <div>
             <dt>Provisioning</dt>
             <dd>{props.runDetail.runState.workspace?.provisioningStatus ?? 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>Evaluator Route</dt>
+            <dd>{evaluatorRepairRoute ? `needs-repair -> ${formatStage(evaluatorRepairRoute.targetStage)}` : 'n/a'}</dd>
           </div>
           <div>
             <dt>Write Scope</dt>

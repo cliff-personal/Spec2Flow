@@ -14,10 +14,15 @@ import {
   updatePlatformProjectAdapterProfile as updatePlatformProjectAdapterProfileService
 } from '../platform/platform-project-service.js';
 import {
+  approvePlatformControlPlaneRunPublication as approvePlatformControlPlaneRunPublicationAction,
   approvePlatformControlPlaneTask as approvePlatformControlPlaneTaskAction,
+  cancelPlatformControlPlaneRunRoute as cancelPlatformControlPlaneRunRouteAction,
+  forcePublishPlatformControlPlaneRun as forcePublishPlatformControlPlaneRunAction,
   pausePlatformControlPlaneRun as pausePlatformControlPlaneRunAction,
   rejectPlatformControlPlaneTask as rejectPlatformControlPlaneTaskAction,
+  reroutePlatformControlPlaneRunToStage as reroutePlatformControlPlaneRunToStageAction,
   resumePlatformControlPlaneRun as resumePlatformControlPlaneRunAction,
+  resumePlatformControlPlaneRunFromTargetStage as resumePlatformControlPlaneRunFromTargetStageAction,
   retryPlatformControlPlaneTask as retryPlatformControlPlaneTaskAction
 } from '../platform/platform-control-plane-action-service.js';
 import { submitPlatformControlPlaneRun as submitPlatformControlPlaneRunService } from '../platform/platform-control-plane-run-submission-service.js';
@@ -29,8 +34,11 @@ export type CliOptions = Record<string, string | boolean | undefined>;
 
 export interface ServePlatformControlPlaneDependencies {
   createPlatformPool: typeof createPlatformPool;
+  approvePlatformControlPlaneRunPublication: typeof approvePlatformControlPlaneRunPublicationAction;
   approvePlatformControlPlaneTask: typeof approvePlatformControlPlaneTaskAction;
+  cancelPlatformControlPlaneRunRoute: typeof cancelPlatformControlPlaneRunRouteAction;
   fail: (message: string) => void;
+  forcePublishPlatformControlPlaneRun: typeof forcePublishPlatformControlPlaneRunAction;
   getPlatformControlPlaneArtifactContent?: typeof getPlatformControlPlaneArtifactContent;
   getPlatformControlPlaneLocalArtifactContent: typeof getPlatformControlPlaneLocalArtifactContent;
   getPlatformControlPlaneRunDetail: typeof getPlatformControlPlaneRunDetail;
@@ -42,7 +50,9 @@ export interface ServePlatformControlPlaneDependencies {
   pausePlatformControlPlaneRun: typeof pausePlatformControlPlaneRunAction;
   rejectPlatformControlPlaneTask: typeof rejectPlatformControlPlaneTaskAction;
   resolvePlatformDatabaseConfig: typeof resolvePlatformDatabaseConfig;
+  reroutePlatformControlPlaneRunToStage: typeof reroutePlatformControlPlaneRunToStageAction;
   resumePlatformControlPlaneRun: typeof resumePlatformControlPlaneRunAction;
+  resumePlatformControlPlaneRunFromTargetStage: typeof resumePlatformControlPlaneRunFromTargetStageAction;
   retryPlatformControlPlaneTask: typeof retryPlatformControlPlaneTaskAction;
   registerPlatformProject: typeof registerPlatformProjectService;
   updatePlatformProjectAdapterProfile: typeof updatePlatformProjectAdapterProfileService;
@@ -136,6 +146,15 @@ export async function runServePlatformControlPlane(
     approvePlatformTask: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.approvePlatformControlPlaneTask(client, config.schema, request)),
+    approvePlatformRunPublication: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.approvePlatformControlPlaneRunPublication(client, config.schema, request)),
+    cancelPlatformRunRoute: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.cancelPlatformControlPlaneRunRoute(client, config.schema, request)),
+    forcePublishPlatformRun: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.forcePublishPlatformControlPlaneRun(client, config.schema, request)),
     pausePlatformRun: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.pausePlatformControlPlaneRun(client, config.schema, request)),
@@ -144,7 +163,13 @@ export async function runServePlatformControlPlane(
         dependencies.rejectPlatformControlPlaneTask(client, config.schema, request)),
     resumePlatformRun: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
-        dependencies.resumePlatformControlPlaneRun(client, config.schema, request))
+        dependencies.resumePlatformControlPlaneRun(client, config.schema, request)),
+    resumePlatformRunFromTargetStage: async (request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.resumePlatformControlPlaneRunFromTargetStage(client, config.schema, request)),
+    reroutePlatformRunToStage: async (request, targetStage) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.reroutePlatformControlPlaneRunToStage(client, config.schema, request, targetStage))
   });
 
   console.log(`Platform control plane listening on http://${startedServer.host}:${startedServer.port}`);

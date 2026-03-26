@@ -49,10 +49,15 @@ import {
 } from '../platform/platform-control-plane-service.js';
 import { listPlatformProjects, registerPlatformProject, updatePlatformProjectAdapterProfile } from '../platform/platform-project-service.js';
 import {
+  approvePlatformControlPlaneRunPublication,
   approvePlatformControlPlaneTask,
+  cancelPlatformControlPlaneRunRoute,
+  forcePublishPlatformControlPlaneRun,
   pausePlatformControlPlaneRun,
   rejectPlatformControlPlaneTask,
+  reroutePlatformControlPlaneRunToStage,
   resumePlatformControlPlaneRun,
+  resumePlatformControlPlaneRunFromTargetStage,
   retryPlatformControlPlaneTask
 } from '../platform/platform-control-plane-action-service.js';
 import { submitPlatformControlPlaneRun } from '../platform/platform-control-plane-run-submission-service.js';
@@ -196,9 +201,12 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
       }),
     'serve-platform-control-plane': (options) =>
       runServePlatformControlPlane(options, {
+        approvePlatformControlPlaneRunPublication,
         approvePlatformControlPlaneTask,
+        cancelPlatformControlPlaneRunRoute,
         createPlatformPool,
         fail: dependencies.fail,
+        forcePublishPlatformControlPlaneRun,
         getPlatformControlPlaneArtifactContent,
         getPlatformControlPlaneLocalArtifactContent,
         getPlatformControlPlaneRunDetail,
@@ -211,7 +219,9 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         rejectPlatformControlPlaneTask,
         registerPlatformProject,
         resolvePlatformDatabaseConfig,
+        reroutePlatformControlPlaneRunToStage,
         resumePlatformControlPlaneRun,
+        resumePlatformControlPlaneRunFromTargetStage,
         retryPlatformControlPlaneTask,
         submitPlatformControlPlaneRun,
         startPlatformControlPlaneServer,

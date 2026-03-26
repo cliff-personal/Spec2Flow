@@ -65,9 +65,12 @@ describe('serve-platform-control-plane-command', () => {
       host: '127.0.0.1',
       port: '4310'
     }, {
+      approvePlatformControlPlaneRunPublication: vi.fn(async () => null),
       approvePlatformControlPlaneTask: vi.fn(async () => null),
+      cancelPlatformControlPlaneRunRoute: vi.fn(async () => null),
       createPlatformPool,
       fail: vi.fn(),
+      forcePublishPlatformControlPlaneRun: vi.fn(async () => null),
       getPlatformControlPlaneLocalArtifactContent: vi.fn(async () => null),
       getPlatformControlPlaneRunDetail: vi.fn(async () => null),
       getPlatformControlPlaneRunObservability: vi.fn(async () => null),
@@ -103,7 +106,9 @@ describe('serve-platform-control-plane-command', () => {
         connectionString: 'postgresql://local/spec2flow',
         schema: 'spec2flow_platform'
       })),
+      reroutePlatformControlPlaneRunToStage: vi.fn(async () => null),
       resumePlatformControlPlaneRun: vi.fn(async () => null),
+      resumePlatformControlPlaneRunFromTargetStage: vi.fn(async () => null),
       retryPlatformControlPlaneTask: vi.fn(async () => null),
       submitPlatformControlPlaneRun: vi.fn(async () => runSubmissionResult),
       startPlatformControlPlaneServer,

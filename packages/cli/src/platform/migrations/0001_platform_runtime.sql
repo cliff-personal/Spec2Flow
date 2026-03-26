@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS __SPEC2FLOW_SCHEMA__.tasks (
   attempts INTEGER NOT NULL DEFAULT 0,
   retry_count INTEGER NOT NULL DEFAULT 0,
   max_retries INTEGER NOT NULL DEFAULT 3,
+  evaluation_decision TEXT,
+  evaluation_summary TEXT,
+  requested_repair_target_stage TEXT,
+  evaluation_findings JSONB NOT NULL DEFAULT '[]'::jsonb,
+  evaluation_next_actions JSONB NOT NULL DEFAULT '[]'::jsonb,
   current_lease_id TEXT,
   leased_by_worker_id TEXT,
   lease_expires_at TIMESTAMPTZ,
@@ -51,6 +56,19 @@ CREATE TABLE IF NOT EXISTS __SPEC2FLOW_SCHEMA__.tasks (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
+  CONSTRAINT tasks_evaluation_decision_check CHECK (
+    evaluation_decision IS NULL
+    OR evaluation_decision IN ('accepted', 'rejected', 'needs-repair')
+  ),
+  CONSTRAINT tasks_requested_repair_target_stage_check CHECK (
+    requested_repair_target_stage IS NULL
+    OR requested_repair_target_stage IN (
+      'requirements-analysis',
+      'code-implementation',
+      'test-design',
+      'automated-execution'
+    )
+  ),
   PRIMARY KEY (run_id, task_id)
 );
 

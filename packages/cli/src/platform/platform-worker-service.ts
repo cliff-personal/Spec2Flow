@@ -12,7 +12,8 @@ import {
 } from '../runtime/execution-state-service.js';
 import { applyTaskResult } from '../runtime/task-result-service.js';
 import { runDeterministicTaskAsync } from '../runtime/deterministic-execution-service.js';
-import { loadOptionalStructuredFile, readStructuredFile, writeJson } from '../shared/fs-utils.js';
+import { loadOptionalStructuredFile, readStructuredFile, readStructuredFileFrom, writeJson } from '../shared/fs-utils.js';
+import { getSchemaValidators } from '../shared/schema-registry.js';
 import { insertPlatformArtifacts, insertPlatformEvents } from './platform-repository.js';
 import { reconcilePlatformAutoRepair } from './platform-auto-repair-service.js';
 import { reconcilePlatformPublications } from './platform-publication-service.js';
@@ -36,6 +37,7 @@ import type {
   TaskStage,
   TaskStatus
 } from '../types/index.js';
+import type { EvaluationSummary } from '../types/stage-deliverables.js';
 
 const DEFAULT_PLATFORM_WORKER_EVENT_LIMIT = 20;
 
@@ -813,6 +815,79 @@ function inferArtifactBaseDir(statePath: string): string {
   return stateDir;
 }
 
+function normalizeArtifactSearchValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isEvaluationSummaryArtifactRef(artifact: ArtifactRef): boolean {
+  const searchableValues = [artifact.id, artifact.kind, artifact.path]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => normalizeArtifactSearchValue(value));
+
+  return searchableValues.some((value) => value.includes('evaluation-summary'));
+}
+
+function readPersistedEvaluationSummary(
+  stage: TaskStage,
+  artifactBaseDir: string,
+  artifacts: ArtifactRef[]
+): EvaluationSummary | null {
+  if (stage !== 'evaluation') {
+    return null;
+  }
+
+  const validators = getSchemaValidators();
+
+  for (const artifact of artifacts) {
+    if (!isEvaluationSummaryArtifactRef(artifact)) {
+      continue;
+    }
+
+    try {
+      const payload = readStructuredFileFrom(artifactBaseDir, artifact.path) as EvaluationSummary;
+      if (validators.evaluationSummary(payload)) {
+        return payload;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function updatePlatformTaskEvaluationState(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  taskId: string,
+  evaluationSummary: EvaluationSummary | null
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  await executor.query(
+    `
+      UPDATE ${quotedSchema}.tasks
+      SET evaluation_decision = $3,
+          evaluation_summary = $4,
+          requested_repair_target_stage = $5,
+          evaluation_findings = $6::jsonb,
+          evaluation_next_actions = $7::jsonb,
+          updated_at = NOW()
+      WHERE run_id = $1
+        AND task_id = $2
+    `,
+    [
+      runId,
+      taskId,
+      evaluationSummary?.decision ?? null,
+      evaluationSummary?.summary ?? null,
+      evaluationSummary?.repairTargetStage ?? null,
+      JSON.stringify(evaluationSummary?.findings ?? []),
+      JSON.stringify(evaluationSummary?.nextActions ?? [])
+    ]
+  );
+}
+
 export async function persistPlatformWorkerResult(
   executor: SqlExecutor,
   schema: string,
@@ -837,6 +912,12 @@ export async function persistPlatformWorkerResult(
   const changedTasks = collectChangedTaskStates(previousState, nextState);
   const newArtifacts = collectNewArtifacts(previousState, nextState);
   const newErrors = collectNewErrors(previousState, nextState, options.taskId);
+  const artifactBaseDir = inferArtifactBaseDir(options.materialization.executionStatePath);
+  const persistedEvaluationSummary = readPersistedEvaluationSummary(
+    options.materialization.stage,
+    artifactBaseDir,
+    options.receipt.artifacts
+  );
 
   for (const changedTask of changedTasks) {
     await updatePlatformTaskFromExecutionState(
@@ -846,6 +927,16 @@ export async function persistPlatformWorkerResult(
       changedTask.taskId,
       changedTask.nextTaskState,
       changedTask.taskId === options.taskId && ['completed', 'failed', 'blocked', 'skipped'].includes(changedTask.nextStatus)
+    );
+  }
+
+  if (options.materialization.stage === 'evaluation') {
+    await updatePlatformTaskEvaluationState(
+      executor,
+      schema,
+      options.runId,
+      options.taskId,
+      persistedEvaluationSummary
     );
   }
 
@@ -865,7 +956,7 @@ export async function persistPlatformWorkerResult(
   const publicationResult = await reconcilePlatformPublications(executor, schema, {
     runId: options.runId,
     taskId: options.taskId,
-    artifactBaseDir: inferArtifactBaseDir(options.materialization.executionStatePath),
+    artifactBaseDir,
     newArtifacts
   });
 

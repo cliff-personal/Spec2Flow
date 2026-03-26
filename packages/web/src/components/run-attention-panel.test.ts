@@ -82,7 +82,13 @@ describe('deriveRunAttentionItems', () => {
     const run = makeRun({ runId: 'approval-run', status: 'blocked' });
     const items = deriveRunAttentionItems([run], {
       'approval-run': makeObservability({
-        attentionRequired: [{ type: 'approval', title: 'Release gate waiting', description: 'Need human approval before publication.' }],
+        attentionRequired: [{
+          kind: 'publication',
+          type: 'approval-requested',
+          severity: 'info',
+          title: 'Release gate waiting',
+          description: 'Need human approval before publication.'
+        }],
         approvals: [{ taskId: 'task-1', publicationId: 'pub-1', createdAt: '2026-03-26T10:06:00.000Z', status: 'requested', reason: 'PR needs sign-off' }],
       }),
     });
@@ -184,5 +190,28 @@ describe('deriveRunAttentionItems', () => {
     });
 
     expect(items[0].nextAction).toBe('Inspect blocked repair');
+  });
+
+  it('surfaces evaluator reroute targets directly in the attention deck', () => {
+    const run = makeRun({ runId: 'reroute-run', status: 'running', currentStage: 'evaluation' });
+    const items = deriveRunAttentionItems([run], {
+      'reroute-run': makeObservability({
+        attentionRequired: [{
+          kind: 'task',
+          type: 'evaluator-reroute-requested',
+          severity: 'warning',
+          taskId: 'frontend-smoke--evaluation',
+          repairTargetStage: 'automated-execution',
+          title: 'Evaluator requested reroute to Automated Execution',
+          description: 'frontend-smoke--evaluation asked the controller to flow back to Automated Execution.',
+        }],
+      }),
+    });
+
+    expect(items[0]).toMatchObject({
+      headline: 'Evaluator requested reroute to Automated Execution',
+      nextAction: 'Resume loop from Automated Execution',
+      tone: 'warning',
+    });
   });
 });

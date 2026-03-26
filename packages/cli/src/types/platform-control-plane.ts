@@ -22,6 +22,7 @@ export interface PlatformControlPlaneRunListItem {
   status: PlatformRunRecord['status'];
   paused: boolean;
   currentStage: PlatformRunRecord['currentStage'];
+  rerouteTargetStage?: PlatformRunRecord['currentStage'];
   riskLevel: PlatformRunRecord['riskLevel'];
   branchName?: string | null;
   baseBranch?: string | null;
@@ -165,11 +166,24 @@ export interface PlatformControlPlaneTaskActionResult {
 }
 
 export interface PlatformControlPlaneRunActionResult {
-  action: 'pause' | 'resume';
+  action:
+    | 'pause'
+    | 'resume'
+    | 'resume-from-target-stage'
+    | 'approve-publication'
+    | 'force-publish'
+    | 'reroute-to-requirements-analysis'
+    | 'reroute-to-code-implementation'
+    | 'reroute-to-test-design'
+    | 'reroute-to-automated-execution'
+    | 'cancel-route';
   runId: string;
   runStatus: PlatformRunRecord['status'];
   currentStage: PlatformRunRecord['currentStage'];
   paused: boolean;
+  rerouteTargetStage?: PlatformRunRecord['currentStage'];
+  publicationId?: string | null;
+  publicationStatus?: string | null;
 }
 
 export interface PlatformControlPlaneRunSubmissionRequest {

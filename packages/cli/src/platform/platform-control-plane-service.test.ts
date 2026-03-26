@@ -8,6 +8,7 @@ import {
   getPlatformControlPlaneLocalArtifactContent,
   getPlatformControlPlaneTaskArtifactCatalog,
   getPlatformControlPlaneRunDetail,
+  getPlatformControlPlaneRunTasks,
   listPlatformRuns
 } from './platform-control-plane-service.js';
 import type { SqlExecutor } from './platform-database.js';
@@ -72,6 +73,7 @@ describe('platform-control-plane-service', () => {
               },
             },
             current_stage: 'collaboration',
+            reroute_target_stage: 'automated-execution',
             risk_level: 'high',
             branch_name: 'spec2flow/run-1',
             base_branch: 'main',
@@ -100,10 +102,13 @@ describe('platform-control-plane-service', () => {
       branchName: 'spec2flow/run-1',
       status: 'running',
       paused: true,
+      rerouteTargetStage: 'automated-execution',
     })]);
   });
 
   it('builds a run detail view from the DB-backed snapshot', async () => {
+    const repositoryRootPath = createTempDir();
+
     const executor = new SequentialExecutor([
       {
         match: 'FROM "spec2flow_platform".runs',
@@ -114,7 +119,7 @@ describe('platform-control-plane-service', () => {
             workflow_name: 'platform-flow',
             request_text: 'Ship the control plane backend.',
             status: 'running',
-            current_stage: 'collaboration',
+            current_stage: 'evaluation',
             risk_level: 'high',
             request_payload: {},
             metadata: {},
@@ -131,11 +136,11 @@ describe('platform-control-plane-service', () => {
         result: {
           rows: [{
             run_id: 'run-1',
-            task_id: 'frontend-smoke--collaboration',
-            stage: 'collaboration',
-            title: 'Publish handoff',
-            goal: 'Publish the collaboration handoff',
-            executor_type: 'collaboration-agent',
+            task_id: 'frontend-smoke--evaluation',
+            stage: 'evaluation',
+            title: 'Evaluate delivery',
+            goal: 'Evaluate the collaboration handoff',
+            executor_type: 'evaluator-agent',
             status: 'blocked',
             risk_level: 'high',
             depends_on: [],
@@ -143,16 +148,16 @@ describe('platform-control-plane-service', () => {
             verify_commands: [],
             inputs: {},
             role_profile: {
-              profileId: 'collaboration',
-              specialistRole: 'collaboration-agent',
+              profileId: 'evaluation',
+              specialistRole: 'evaluation-agent',
               commandPolicy: 'none',
               canReadRepository: true,
               canEditFiles: false,
               canRunCommands: false,
               canWriteArtifacts: true,
-              canOpenCollaboration: true,
+              canOpenCollaboration: false,
               requiredAdapterSupports: [],
-              expectedArtifacts: ['publication-record']
+              expectedArtifacts: ['evaluation-summary']
             },
             review_policy: null,
             artifacts_dir: null,
@@ -161,6 +166,11 @@ describe('platform-control-plane-service', () => {
             max_retries: 3,
             auto_repair_count: 0,
             max_auto_repair_attempts: 0,
+            evaluation_decision: 'needs-repair',
+            evaluation_summary: 'Evaluator requests another execution pass before final handoff.',
+            requested_repair_target_stage: 'automated-execution',
+            evaluation_findings: ['The runtime evidence shows an execution failure under the current environment.'],
+            evaluation_next_actions: ['Rerun automated execution after refreshing the environment.'],
             current_lease_id: null,
             leased_by_worker_id: null,
             lease_expires_at: null,
@@ -180,11 +190,11 @@ describe('platform-control-plane-service', () => {
             project_id: 'spec2flow-local',
             project_repository_id: 'spec2flow',
             project_name: 'Spec2Flow Local',
-            project_repository_root_path: '/workspace/Spec2Flow',
-            project_workspace_root_path: '/workspace/Spec2Flow',
-            project_path: '/workspace/Spec2Flow/project.json',
-            topology_path: '/workspace/Spec2Flow/topology.yaml',
-            risk_path: '/workspace/Spec2Flow/risk.yaml',
+            project_repository_root_path: repositoryRootPath,
+            project_workspace_root_path: repositoryRootPath,
+            project_path: path.join(repositoryRootPath, 'project.json'),
+            topology_path: path.join(repositoryRootPath, 'topology.yaml'),
+            risk_path: path.join(repositoryRootPath, 'risk.yaml'),
             project_default_branch: 'main',
             project_branch_prefix: 'spec2flow/',
             project_workspace_policy: {
@@ -201,8 +211,8 @@ describe('platform-control-plane-service', () => {
             provisioning_status: 'provisioned',
             branch_name: 'spec2flow/run-1',
             base_branch: 'main',
-            workspace_root_path: '/workspace/Spec2Flow',
-            worktree_path: '/workspace/Spec2Flow/.spec2flow/worktrees/run-1',
+            workspace_root_path: repositoryRootPath,
+            worktree_path: path.join(repositoryRootPath, '.spec2flow/worktrees/run-1'),
             workspace_policy: {
               allowedReadGlobs: ['**/*'],
               allowedWriteGlobs: ['src/**'],
@@ -221,11 +231,11 @@ describe('platform-control-plane-service', () => {
           rows: [{
             event_id: 'event-1',
             run_id: 'run-1',
-            task_id: 'frontend-smoke--collaboration',
-            event_type: 'approval.requested',
+            task_id: 'frontend-smoke--evaluation',
+            event_type: 'task.blocked',
             payload: {
-              publicationId: 'publication-1',
-              gateReason: 'human-approval-required'
+              decision: 'needs-repair',
+              repairTargetStage: 'automated-execution'
             },
             created_at: '2026-03-24T12:05:00.000Z'
           }],
@@ -234,7 +244,21 @@ describe('platform-control-plane-service', () => {
       },
       {
         match: 'FROM "spec2flow_platform".artifacts',
-        result: { rows: [], rowCount: 0 }
+        result: {
+          rows: [{
+            artifact_id: 'artifact-1',
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--evaluation',
+            kind: 'report',
+            path: 'spec2flow/outputs/evaluation/evaluation-summary.json',
+            schema_type: 'evaluation-summary',
+            metadata: {
+              originalArtifactId: 'evaluation-summary'
+            },
+            created_at: '2026-03-24T12:05:00.000Z'
+          }],
+          rowCount: 1
+        }
       },
       {
         match: 'FROM "spec2flow_platform".repair_attempts',
@@ -273,7 +297,15 @@ describe('platform-control-plane-service', () => {
       runState: expect.objectContaining({
         run: expect.objectContaining({ runId: 'run-1' }),
         project: expect.objectContaining({ projectId: 'spec2flow-local' }),
-        workspace: expect.objectContaining({ branchName: 'spec2flow/run-1' })
+        workspace: expect.objectContaining({ branchName: 'spec2flow/run-1' }),
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            taskId: 'frontend-smoke--evaluation',
+            evaluationDecision: 'needs-repair',
+            requestedRepairTargetStage: 'automated-execution',
+            evaluationSummary: 'Evaluator requests another execution pass before final handoff.'
+          })
+        ])
       }),
       platformObservability: expect.objectContaining({
         approvals: expect.arrayContaining([
@@ -281,6 +313,169 @@ describe('platform-control-plane-service', () => {
         ])
       })
     }));
+  });
+
+  it('enriches task list responses with evaluator repair routing signals', async () => {
+    const repositoryRootPath = createTempDir();
+
+    const executor = new SequentialExecutor([
+      {
+        match: 'FROM "spec2flow_platform".runs',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            repository_id: 'spec2flow',
+            workflow_name: 'platform-flow',
+            request_text: 'Ship the control plane backend.',
+            status: 'running',
+            current_stage: 'evaluation',
+            risk_level: 'high',
+            request_payload: {},
+            metadata: {},
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:05:00.000Z',
+            started_at: '2026-03-24T12:00:10.000Z',
+            completed_at: null
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".tasks',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--evaluation',
+            stage: 'evaluation',
+            title: 'Evaluate delivery',
+            goal: 'Evaluate the collaboration handoff',
+            executor_type: 'evaluator-agent',
+            status: 'blocked',
+            risk_level: 'high',
+            depends_on: [],
+            target_files: [],
+            verify_commands: [],
+            inputs: {},
+            role_profile: {
+              profileId: 'evaluation',
+              specialistRole: 'evaluation-agent',
+              commandPolicy: 'none',
+              canReadRepository: true,
+              canEditFiles: false,
+              canRunCommands: false,
+              canWriteArtifacts: true,
+              canOpenCollaboration: false,
+              requiredAdapterSupports: [],
+              expectedArtifacts: ['evaluation-summary']
+            },
+            review_policy: null,
+            artifacts_dir: null,
+            attempts: 1,
+            retry_count: 0,
+            max_retries: 3,
+            auto_repair_count: 0,
+            max_auto_repair_attempts: 0,
+            evaluation_decision: 'needs-repair',
+            evaluation_summary: 'Evaluator requests another execution pass before final handoff.',
+            requested_repair_target_stage: 'automated-execution',
+            evaluation_findings: [],
+            evaluation_next_actions: ['Rerun automated execution after refreshing the environment.'],
+            current_lease_id: null,
+            leased_by_worker_id: null,
+            lease_expires_at: null,
+            last_heartbeat_at: null,
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:05:00.000Z',
+            started_at: '2026-03-24T12:00:20.000Z',
+            completed_at: null
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".runs AS runs',
+        result: {
+          rows: [{
+            project_id: 'spec2flow-local',
+            project_repository_id: 'spec2flow',
+            project_name: 'Spec2Flow Local',
+            project_repository_root_path: repositoryRootPath,
+            project_workspace_root_path: repositoryRootPath,
+            project_path: path.join(repositoryRootPath, 'project.json'),
+            topology_path: path.join(repositoryRootPath, 'topology.yaml'),
+            risk_path: path.join(repositoryRootPath, 'risk.yaml'),
+            project_default_branch: 'main',
+            project_branch_prefix: 'spec2flow/',
+            project_workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            project_metadata: {},
+            project_created_at: '2026-03-24T11:59:00.000Z',
+            project_updated_at: '2026-03-24T11:59:00.000Z',
+            workspace_run_id: 'run-1',
+            workspace_repository_id: 'spec2flow',
+            worktree_mode: 'managed',
+            provisioning_status: 'provisioned',
+            branch_name: 'spec2flow/run-1',
+            base_branch: 'main',
+            workspace_root_path: repositoryRootPath,
+            worktree_path: path.join(repositoryRootPath, '.spec2flow/worktrees/run-1'),
+            workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            workspace_metadata: {},
+            workspace_created_at: '2026-03-24T12:00:00.000Z',
+            workspace_updated_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".events',
+        result: { rows: [], rowCount: 0 }
+      },
+      {
+        match: 'FROM "spec2flow_platform".artifacts',
+        result: {
+          rows: [{
+            artifact_id: 'artifact-1',
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--evaluation',
+            kind: 'report',
+            path: 'spec2flow/outputs/evaluation/evaluation-summary.json',
+            schema_type: 'evaluation-summary',
+            metadata: {
+              originalArtifactId: 'evaluation-summary'
+            },
+            created_at: '2026-03-24T12:05:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'FROM "spec2flow_platform".repair_attempts',
+        result: { rows: [], rowCount: 0 }
+      },
+      {
+        match: 'FROM "spec2flow_platform".publications',
+        result: { rows: [], rowCount: 0 }
+      }
+    ]);
+
+    const result = await getPlatformControlPlaneRunTasks(executor, 'spec2flow_platform', {
+      runId: 'run-1'
+    });
+
+    expect(result).toEqual([expect.objectContaining({
+      taskId: 'frontend-smoke--evaluation',
+      evaluationDecision: 'needs-repair',
+      requestedRepairTargetStage: 'automated-execution',
+      evaluationNextActions: ['Rerun automated execution after refreshing the environment.']
+    })]);
   });
 
   it('loads an execution artifact catalog for one task', async () => {

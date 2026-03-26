@@ -291,7 +291,8 @@ describe('schema-registry', () => {
       taskId: 'frontend-smoke--evaluation',
       stage: 'evaluation',
       summary: 'The route-level delivery is accepted for completion.',
-      decision: 'accepted',
+      decision: 'needs-repair',
+      repairTargetStage: 'code-implementation',
       artifactRefs: ['implementation-summary', 'execution-report', 'collaboration-handoff'],
       findings: ['No open acceptance blockers remain.']
     })).toBe(true);

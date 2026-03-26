@@ -10,12 +10,50 @@
 
 Define how Spec2Flow should evolve from a file-backed CLI orchestration framework into a platform that can:
 
-1. accept one user task
-2. decompose it into workflow subtasks
-3. run the six-stage engineering loop
-4. automatically loop on defects when policy allows
-5. commit or hand off code changes through a governed collaboration stage
-6. expose run state through a web control plane backed by PostgreSQL
+1. accept one user task and persist it as durable runtime truth
+2. decompose it into stage-scoped workflow subtasks without manual orchestration
+3. execute the full engineering loop under scheduler and policy control without human babysitting
+4. automatically repair, reroute, retry, or escalate when defects appear in the middle of execution
+5. promote validated work into an evaluator-owned acceptance decision instead of worker self-certification
+6. automatically commit and submit a PR when validation passes and policy allows publication
+7. expose the entire run, task, artifact, and policy state through a PostgreSQL-backed web control plane
+
+The product target is clear:
+
+- unattended execution
+- fully autonomous closed-loop delivery
+- humans only enter the loop when policy, risk, or approval gates require intervention
+
+The target automation chain is explicit:
+
+1. UI or CLI submits one task
+2. the controller decomposes it into route-scoped tasks and execution steps
+3. implementation workers change code
+4. test-design and automated-execution workers run validation and unit tests
+5. evaluator-owned acceptance decides whether the result is accepted or sent back for repair
+6. when validation passes and policy allows publication, the system automatically commits and submits a PR
+
+## Autonomy Acceptance Criteria
+
+Spec2Flow does not meet the product goal just because it can run tasks automatically.
+It only qualifies as `无人值守，全自治闭环` when all of the following are true at the same time:
+
+1. intake is self-starting
+    A registered project can accept one user task and create a durable run without manual file surgery, ad-hoc shell recovery, or operator-written database patches.
+2. runtime truth is durable
+    Run state, task state, retries, approvals, publications, and artifacts are recoverable from controller-owned storage rather than hidden in model memory, terminal scrollback, or one local JSON file.
+3. forward progress is scheduler-driven
+    Ready work is leased, heartbeated, retried, expired, and resumed by platform logic rather than by a human repeatedly restarting commands or watching logs.
+4. defect handling is closed-loop
+    When execution fails, the controller can classify the failure, route repair back to the owning stage, rerun downstream dependents, and stop only when policy says to stop.
+5. publication is policy-governed
+    Collaboration outcomes such as auto-commit, PR draft, or blocked handoff are decided deterministically from risk and approval policy, not from operator improvisation.
+6. humans are exception handlers, not workflow drivers
+    Human intervention happens only at explicit gates such as approval, risk escalation, missing credentials, or irrecoverable platform faults.
+7. observability is reconstruction-grade
+    An operator can reconstruct why a run is blocked, retrying, published, or failed from the control-plane APIs and artifacts without attaching a debugger to the worker process.
+
+If any one of these criteria fails, the system is not yet at the target autonomy bar.
 
 ## Decision Summary
 
@@ -29,6 +67,8 @@ What already fits the target:
 - The result pipeline already supports defect routing and stage-specific specialists.
 - Project registration now persists adapter runtime and capability references so the scheduler can reuse durable project truth instead of depending only on late `.spec2flow/model-adapter-runtime.json` discovery.
 - Control-plane operators can now update or clear a registered project's adapter profile without re-registering the project, so scheduler truth is operationally mutable through the API instead of only at registration time.
+- The planner and runtime already model an evaluator stage, which is the right control-plane boundary for final acceptance.
+- Evaluator `needs-repair` decisions now re-enter the controller loop automatically, and `evaluation-summary.repairTargetStage` gives the controller an explicit schema-backed reroute target. `findings` and `nextActions` remain as compatibility signals when older adapters do not emit the explicit field.
 
 What is still missing:
 
@@ -36,7 +76,8 @@ What is still missing:
 - a scheduler that can lease work to many workers safely
 - a first-class intake surface for user-submitted tasks
 - a richer event model surfaced through operator APIs or streaming for progress, retries, artifacts, publication, and approvals
-- a governed publish path for commit or PR creation
+- an evaluator-owned acceptance layer that decides final completion instead of letting workers self-certify delivery
+- a governed publish path that can automatically commit and open a PR after evaluator acceptance
 - an auto-repair loop with explicit retry budgets and stop conditions
 
 Conclusion:
@@ -81,6 +122,53 @@ So the answer is precise:
 - the present design satisfies the orchestration philosophy
 - the present implementation does not yet satisfy the full autonomous platform requirement
 
+## Execution Plan From Gap Matrix
+
+The gap matrix only matters if it becomes a shipping plan.
+For this product, the correct unit of execution is not a giant phase but one narrowly-scoped commit slice that improves the autonomy bar without blurring module boundaries.
+
+### Priority Model
+
+- `P0`: blocks `无人值守，全自治闭环` directly; until these slices land, the product still needs human babysitting
+- `P1`: makes the closed loop reliable and operator-usable at real project scale
+- `P2`: improves scale, ergonomics, and product polish after the autonomy bar is functionally cleared
+
+### Commit-Slice Plan
+
+| Priority | Capability track | Primary modules | Commit slice | Expected outcome | Validation path |
+| --- | --- | --- | --- | --- | --- |
+| P0 | Durable runtime truth | `packages/cli/src/platform/platform-repository.ts`, `packages/cli/src/platform/platform-scheduler-service.ts`, `packages/cli/src/platform/platform-control-plane-service.ts`, `packages/cli/src/runtime/execution-state-service.ts` | move remaining runtime-critical fields from local JSON-only flow into PostgreSQL-backed controller records | run, task, approval, publication, and repair state can be reconstructed without reading mutable local runtime files | `npm run build`, `npm run test:unit` |
+| P0 | Shared scheduler hardening | `packages/cli/src/platform/platform-scheduler-service.ts`, `packages/cli/src/platform/platform-auto-runner-service.ts`, `packages/cli/src/platform/platform-worker-service.ts`, `packages/cli/src/platform/platform-database.ts` | add production-grade lease expiry recovery, dead-letter handling, and multi-worker-safe claim semantics | forward progress becomes scheduler-owned instead of terminal-owned | `npm run build`, targeted scheduler and worker tests |
+| P0 | Closed-loop repair enforcement | `packages/cli/src/runtime/auto-repair-policy-service.ts`, `packages/cli/src/platform/platform-auto-repair-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/platform/platform-scheduler-service.ts` | enforce repair budgets, downstream invalidation, and resumable rerun routing as default controller behavior | execution failures re-enter the owning stage automatically until policy budget is exhausted | `npm run build`, targeted auto-repair and task-result tests |
+| P0 | Evaluator-owned acceptance | `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/platform/platform-control-plane-service.ts`, `packages/cli/src/platform/platform-observability-service.ts`, evaluator adapter/runtime surfaces | make evaluator decisions the only authority for route acceptance, rejection, or repair re-entry | the system stops treating worker self-reporting as completion truth and gains a hard final acceptance layer before publish is considered finished | `npm run build`, targeted planning and task-result tests, smallest evaluator acceptance regression |
+| P0 | Governed publication execution | `packages/cli/src/runtime/collaboration-publication-service.ts`, `packages/cli/src/platform/platform-publication-service.ts`, `packages/cli/src/platform/platform-control-plane-action-service.ts`, git provider integration surfaces | turn publication from record-only behavior into deterministic commit / PR draft / blocked handoff execution | collaboration becomes a real autonomous endpoint instead of a documentation artifact | `npm run build`, targeted publication tests, smallest publish-path regression |
+| P0 | Human-on-exception control plane | `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/cli/src/platform/platform-control-plane-service.ts`, `packages/web/src/**` | move pause, resume, retry, approval, remediation, and recovery actions fully into API and operator UI | humans intervene through explicit control-plane actions instead of ad-hoc shell and SQL recovery | `npm run build`, `npm run test:unit`, smallest API/UI action regression |
+| P1 | Self-serve intake completion | `packages/cli/src/platform/platform-project-service.ts`, `packages/cli/src/platform/platform-control-plane-run-submission-service.ts`, `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/web/src/**` | add project detail, stronger intake validation, repository binding UX, and task submission ergonomics | one registered project can accept work cleanly through API or UI without operator improvisation | `npm run build`, targeted project/intake tests, `npm run validate:docs` |
+| P1 | Reconstruction-grade observability | `packages/cli/src/platform/platform-observability-service.ts`, `packages/cli/src/platform/platform-event-taxonomy.ts`, `packages/cli/src/platform/platform-control-plane-service.ts`, `packages/web/src/**` | close event taxonomy gaps and surface approval, publication, repair, and causal failure summaries | any blocked or failed run explains itself from the control plane without worker-process debugging | `npm run build`, targeted observability tests |
+| P1 | Project-scoped runtime isolation | `packages/cli/src/platform/platform-project-service.ts`, `packages/cli/src/platform/platform-control-plane-run-submission-service.ts`, `packages/cli/src/platform/platform-auto-runner-service.ts`, `packages/cli/src/platform/platform-project-adapter-profile.ts` | remove remaining single-repo assumptions and tighten project-scoped adapter/runtime resolution | many projects can run concurrently without hidden local-first coupling | `npm run build`, targeted multi-project regression tests |
+| P2 | Operator console productization | `packages/web/src/**`, `docs/ui/operator-console.md`, `docs/ui/visual-language.md`, `packages/cli/src/platform/platform-control-plane-server.ts` | promote the current web shell into a real operator console for intake, DAG inspection, approvals, and recovery | the autonomy layer becomes usable as a product, not just as backend plumbing | `npm run build`, web-specific tests, `npm run validate:docs` |
+| P2 | Policy and autonomy auditability | `packages/cli/src/runtime/review-policy-service.ts`, `packages/cli/src/platform/platform-control-plane-service.ts`, `packages/cli/src/platform/platform-observability-service.ts` | expose why policy allowed repair, blocked publish, or required human approval as first-class read models | autonomy decisions become auditable instead of implicit | `npm run build`, targeted policy and observability tests |
+
+### Recommended Shipping Order
+
+1. clear `P0` scheduler hardening and runtime-truth slices first
+2. land evaluator-owned acceptance before treating collaboration or publish success as final completion
+3. land closed-loop repair and governed publication next so the loop can finish without human babysitting
+4. eliminate shell-and-SQL recovery paths through API and UI control surfaces
+5. only then spend effort on P1 intake and observability completeness
+6. treat P2 as productization, not as the blocker for autonomy itself
+
+### Rule For Future Work
+
+Every future autonomy-facing change should answer four questions before it ships:
+
+1. which autonomy criterion does this slice raise?
+2. which module owns the behavior?
+3. what is the smallest commit that moves that behavior into controller truth?
+4. which validation path proves the slice actually reduced human babysitting?
+
+If a proposed change cannot answer those four questions, it is probably architecture theater rather than progress toward the product goal.
+
 ## Product Shape
 
 Spec2Flow should stay a control plane, not collapse into one giant autonomous coding agent.
@@ -88,12 +176,14 @@ Spec2Flow should stay a control plane, not collapse into one giant autonomous co
 The target product shape is:
 
 1. intake receives one user task
-2. planner generates one run and a stage-aware DAG
+2. planner generates one run, a stage-aware DAG, and explicit execution steps
 3. scheduler leases ready tasks to specialist workers
 4. workers write structured artifacts and execution evidence
 5. policy engine decides retry, reroute, block, or publish
-6. collaboration stage commits code or prepares a PR handoff
-7. web console shows the run, tasks, artifacts, and approval gates
+6. collaboration stage prepares the publishable delivery packet
+7. evaluator stage decides whether the run is accepted, rejected, or sent back for repair
+8. publication stage automatically commits code and submits a PR when evaluator acceptance and policy conditions are satisfied
+9. web console shows the run, tasks, artifacts, approval gates, evaluator decisions, and publication status
 
 The six-stage public workflow should stay stable:
 
@@ -120,12 +210,16 @@ flowchart TD
     E --> I["Execution Worker"]
     E --> J["Defect Worker"]
     E --> K["Collaboration Worker"]
+    E --> N["Evaluator Worker"]
+    E --> O["Publication Worker"]
     F --> D
     G --> D
     H --> D
     I --> D
     J --> D
     K --> D
+    N --> D
+    O --> D
     D --> L["Artifact Store"]
     D --> M["Web Control Plane"]
 ```
@@ -188,8 +282,13 @@ Workers remain stage-specialized:
 - `execution-agent`
 - `defect-agent`
 - `collaboration-agent`
+- `evaluator-agent`
+- `publication-agent`
 
 Each worker should receive only one leased task plus structured upstream artifacts.
+
+The evaluator is not optional garnish.
+It is the controller-owned acceptance layer that prevents implementation or collaboration workers from self-certifying completion.
 
 ### 5. Policy Engine
 
@@ -202,7 +301,17 @@ Responsibilities:
 
 This should remain deterministic and repository-driven.
 
-### 6. Artifact Service
+### 6. Publication Service
+
+Responsibilities:
+
+- convert evaluator acceptance plus publication policy into deterministic commit and PR actions
+- create commit metadata, branch metadata, PR body, and publication audit records
+- block publication when approval, credentials, or repository policy do not allow autonomous publish
+
+This service is what turns a successful autonomous run into a real delivery outcome instead of a local artifact.
+
+### 7. Artifact Service
 
 Responsibilities:
 
@@ -251,19 +360,63 @@ That should stay inside the collaboration stage rather than become a separate to
 Recommended collaboration-stage actions:
 
 1. write collaboration handoff artifact
-2. if policy allows, create or update a working branch
-3. create a deterministic `git commit`
-4. optionally create a PR draft
-5. block before merge when human approval is required
+2. prepare the publish-ready summary, change packet, and PR intent
+3. hand publication inputs to the evaluator and publication services
 
 Recommended rule:
 
-- low-risk tasks may auto-commit
-- medium-risk tasks may auto-commit but require PR review
-- high-risk and critical tasks should default to human approval before publish
+- low-risk tasks may auto-commit and auto-open a PR
+- medium-risk tasks may auto-open a PR but still require review gates
+- high-risk and critical tasks should default to human approval before autonomous publish
 
 Spec2Flow should own the decision and audit trail.
 The git provider should only execute the action.
+
+## Evaluation And Acceptance
+
+Autonomous delivery is not complete when collaboration finishes.
+It is complete only when an evaluator-owned decision turns the run into one of three controller-truth outcomes:
+
+1. `accepted`
+2. `rejected`
+3. `needs-repair`
+
+Recommended evaluator-stage responsibilities:
+
+- inspect execution evidence, defect history, collaboration output, and publication state
+- verify that required artifacts exist and are internally consistent
+- decide whether the route output meets acceptance criteria
+- send the run back into repair when quality is not yet sufficient, preferably by emitting an explicit `evaluation-summary.repairTargetStage`
+- prevent implementation or collaboration workers from marking the route done by self-assertion
+
+Evaluator acceptance is the gate in front of autonomous publication.
+Without an `accepted` decision, the system should not commit success to the publication layer.
+
+This is the critical distinction between a task runner and a real autonomous control plane.
+Without evaluator-owned completion, the system still leaks final judgment back into worker self-reporting.
+
+## Autonomous Publication
+
+The target system does not stop at "tests passed".
+It must convert successful autonomous execution into a real delivery action.
+
+Recommended publication-stage responsibilities:
+
+- verify evaluator outcome is `accepted`
+- verify publication policy permits autonomous publish for the current risk level
+- create or update the working branch
+- create a deterministic commit
+- submit a PR with run summary, evidence, and review metadata
+- persist commit SHA, branch name, PR URL, and publication status as controller truth
+
+This is the last mile of the full automatic chain:
+
+1. task submitted
+2. tasks decomposed
+3. code implemented
+4. tests executed
+5. evaluator accepts
+6. controller submits PR
 
 ## Web Console
 
@@ -286,7 +439,7 @@ The web console should support:
 - display approval gates
 - allow retry, pause, resume, or cancel
 - show generated requirement summaries, test plans, execution reports, and bug drafts
-- show commit SHA, branch, and PR link when collaboration runs
+- show evaluator decisions, commit SHA, branch, and PR link when autonomous publication runs
 
 Without this console, operators will be blind once many runs and workers exist.
 
@@ -418,6 +571,8 @@ Recommended minimal API:
 - `POST /api/tasks/:taskId/actions/retry`
 - `POST /api/tasks/:taskId/actions/approve`
 - `POST /api/tasks/:taskId/actions/reject`
+- `POST /api/runs/:runId/actions/publish`
+- `GET /api/runs/:runId/publication`
 
 The UI can start very small:
 

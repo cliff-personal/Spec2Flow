@@ -50,6 +50,7 @@ const PIPELINE_STAGES: { stageKey: string; label: string }[] = [
   { stageKey: 'automated-execution', label: '自动执行' },
   { stageKey: 'defect-feedback', label: '缺陷反馈' },
   { stageKey: 'collaboration', label: '协作流程' },
+  { stageKey: 'evaluation', label: '评估验收' },
 ];
 
 type StageAggStatus = 'pending' | 'running' | 'completed' | 'skipped' | 'blocked' | 'failed';

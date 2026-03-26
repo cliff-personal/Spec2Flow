@@ -155,9 +155,22 @@ export interface PlatformObservabilityMetrics {
 
 export interface PlatformObservabilityAttentionItem {
   kind: 'task' | 'repair' | 'publication';
+  type:
+    | 'evaluator-reroute-requested'
+    | 'task-blocked'
+    | 'task-failed'
+    | 'task-missing-artifacts'
+    | 'repair-blocked'
+    | 'repair-failed'
+    | 'publication-blocked'
+    | 'approval-requested'
+    | 'approval-rejected'
+    | 'approval-blocked';
   severity: PlatformEventSeverity;
   taskId?: string | null;
-  message: string;
+  repairTargetStage?: PlatformTaskRecord['requestedRepairTargetStage'] | null;
+  title: string;
+  description: string;
 }
 
 export interface PlatformObservabilityReadModel {

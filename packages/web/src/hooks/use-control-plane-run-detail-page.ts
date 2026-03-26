@@ -1,7 +1,32 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRunDetail, getRunObservability, getRunTasks, postRunAction, postTaskAction } from '../lib/control-plane-api';
-import type { TaskActionType } from '../lib/control-plane-ui-types';
+import type { RunActionType, TaskActionType } from '../lib/control-plane-ui-types';
+
+function formatRunActionMessage(action: RunActionType): string {
+  switch (action) {
+    case 'pause':
+      return 'Run paused';
+    case 'resume-from-target-stage':
+      return 'Run resumed from reroute target';
+    case 'approve-publication':
+      return 'Publication approved';
+    case 'force-publish':
+      return 'Publication forced through';
+    case 'cancel-route':
+      return 'Repair route cancelled';
+    case 'reroute-to-requirements-analysis':
+      return 'Repair rerouted to requirements analysis';
+    case 'reroute-to-code-implementation':
+      return 'Repair rerouted to code implementation';
+    case 'reroute-to-test-design':
+      return 'Repair rerouted to test design';
+    case 'reroute-to-automated-execution':
+      return 'Repair rerouted to automated execution';
+    default:
+      return 'Run resumed';
+  }
+}
 
 export function useControlPlaneRunDetailPage(runId: string) {
   const queryClient = useQueryClient();
@@ -51,9 +76,9 @@ export function useControlPlaneRunDetailPage(runId: string) {
   });
 
   const runActionMutation = useMutation({
-    mutationFn: async (action: 'pause' | 'resume') => postRunAction(runId, action),
+    mutationFn: async (action: RunActionType) => postRunAction(runId, action),
     onSuccess: async (_result, action) => {
-      setActionMessage(action === 'pause' ? 'Run paused' : 'Run resumed');
+      setActionMessage(formatRunActionMessage(action));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-detail', runId] }),
         queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-tasks', runId] }),
@@ -68,7 +93,7 @@ export function useControlPlaneRunDetailPage(runId: string) {
     actionMutation.mutate({ taskId, action, ...(note ? { note } : {}) });
   }
 
-  function triggerRunAction(action: 'pause' | 'resume'): void {
+  function triggerRunAction(action: RunActionType): void {
     setActionMessage(null);
     runActionMutation.mutate(action);
   }

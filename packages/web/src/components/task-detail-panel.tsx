@@ -35,6 +35,28 @@ function stringifyValue(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+export type TaskEvaluationSignal = {
+  decision: NonNullable<PlatformTaskRecord['evaluationDecision']>;
+  summary: string | null;
+  requestedRepairTargetStage: PlatformTaskRecord['requestedRepairTargetStage'];
+  findings: string[];
+  nextActions: string[];
+};
+
+export function deriveTaskEvaluationSignal(task: PlatformTaskRecord | null): TaskEvaluationSignal | null {
+  if (!task || task.stage !== 'evaluation' || !task.evaluationDecision) {
+    return null;
+  }
+
+  return {
+    decision: task.evaluationDecision,
+    summary: task.evaluationSummary ?? null,
+    requestedRepairTargetStage: task.requestedRepairTargetStage ?? null,
+    findings: task.evaluationFindings ?? [],
+    nextActions: task.evaluationNextActions ?? []
+  };
+}
+
 export function TaskDetailPanel(
   props: Readonly<{
     tasks: PlatformTaskRecord[];
@@ -64,6 +86,7 @@ export function TaskDetailPanel(
   const selectedTask = props.tasks.find((task) => task.taskId === selectedTaskId) ?? null;
   const selectedSummary = props.taskSummaries.find((summary) => summary.taskId === selectedTaskId) ?? null;
   const selectedArtifacts = props.artifacts.filter((artifact) => artifact.taskId === selectedTaskId);
+  const selectedEvaluation = deriveTaskEvaluationSignal(selectedTask);
   const chronologicalRecentEvents = [...(selectedSummary?.recentEvents ?? [])].sort(
     (left, right) => toTimestamp(left.createdAt) - toTimestamp(right.createdAt)
   );
@@ -141,6 +164,18 @@ export function TaskDetailPanel(
                     <dt>Lease Expiry</dt>
                     <dd>{formatTimestamp(selectedSummary?.leaseExpiresAt ?? selectedTask.leaseExpiresAt)}</dd>
                   </div>
+                  {selectedEvaluation ? (
+                    <>
+                      <div>
+                        <dt>Evaluation Decision</dt>
+                        <dd>{selectedEvaluation.decision}</dd>
+                      </div>
+                      <div>
+                        <dt>Repair Target</dt>
+                        <dd>{selectedEvaluation.requestedRepairTargetStage ? formatStage(selectedEvaluation.requestedRepairTargetStage) : 'n/a'}</dd>
+                      </div>
+                    </>
+                  ) : null}
                 </dl>
 
                 <div className="tab-strip" role="tablist" aria-label="Task detail tabs">
@@ -158,6 +193,41 @@ export function TaskDetailPanel(
 
                 {selectedTab === 'summary' ? (
                   <>
+                    {selectedEvaluation ? (
+                      <div className="panel-subsection">
+                        <h4>Evaluator routing</h4>
+                        <p className="panel-copy-muted">
+                          {selectedEvaluation.summary ?? 'This evaluation task did not include a summary.'}
+                        </p>
+                        <div className="chip-list">
+                          <span className="chip">decision: {selectedEvaluation.decision}</span>
+                          {selectedEvaluation.requestedRepairTargetStage ? (
+                            <span className="chip">repair target: {formatStage(selectedEvaluation.requestedRepairTargetStage)}</span>
+                          ) : null}
+                        </div>
+                        {selectedEvaluation.findings.length > 0 ? (
+                          <>
+                            <h4>Findings</h4>
+                            <div className="chip-list">
+                              {selectedEvaluation.findings.map((finding) => (
+                                <span key={finding} className="chip">{finding}</span>
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+                        {selectedEvaluation.nextActions.length > 0 ? (
+                          <>
+                            <h4>Next Actions</h4>
+                            <div className="chip-list">
+                              {selectedEvaluation.nextActions.map((action) => (
+                                <span key={action} className="chip">{action}</span>
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+
                     <div className="panel-subsection">
                       <h4>Target Files</h4>
                       <div className="chip-list">

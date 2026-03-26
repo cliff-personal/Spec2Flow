@@ -1,5 +1,6 @@
 import { getControlPlaneBaseUrl, type PlatformObservability, type PlatformReviewDecisionStatus, type PlatformTaskRecord, type RunDetail, type RunListItem } from '../lib/control-plane-api';
 import { formatStage, formatTimestamp } from '../lib/control-plane-formatters';
+import type { RunActionType } from '../lib/control-plane-ui-types';
 import { summarizeReviewDecision } from '../lib/review-decision-summary';
 import type { RunOperatorAction } from '../lib/run-operator-actions';
 import { OperatorActionBar } from './operator-action-bar';
@@ -38,7 +39,7 @@ type ReviewPacketPanelProps = Readonly<{
   isActionPending: boolean;
   errorMessage: string | null;
   onTaskAction: (taskId: string, action: 'retry' | 'approve' | 'reject', note?: string) => void;
-  onRunAction: (action: 'pause' | 'resume') => void;
+  onRunAction: (action: RunActionType) => void;
 }>;
 
 function unique(values: string[]): string[] {

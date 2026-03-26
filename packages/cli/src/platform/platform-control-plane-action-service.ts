@@ -45,6 +45,25 @@ interface PlatformRunActionRow extends Record<string, unknown> {
   metadata: Record<string, unknown>;
 }
 
+interface PlatformLatestRerouteRow extends Record<string, unknown> {
+  task_id: string;
+  requested_repair_target_stage: PlatformTaskRecord['requestedRepairTargetStage'];
+}
+
+interface PlatformRouteTaskStatusRow extends Record<string, unknown> {
+  task_id: string;
+  stage: PlatformTaskRecord['stage'];
+  status: PlatformTaskRecord['status'];
+}
+
+type PlatformRerouteTargetStage = NonNullable<PlatformTaskRecord['requestedRepairTargetStage']>;
+
+type PlatformRerouteRunAction =
+  | 'reroute-to-requirements-analysis'
+  | 'reroute-to-code-implementation'
+  | 'reroute-to-test-design'
+  | 'reroute-to-automated-execution';
+
 export interface PlatformControlPlaneTaskActionOptions {
   runId: string;
   taskId: string;
@@ -74,20 +93,20 @@ export class PlatformControlPlaneActionError extends Error {
   }
 }
 
-function buildActionPayload(options: PlatformControlPlaneTaskActionOptions, extra: Record<string, unknown>): Record<string, unknown> {
+function buildActorPayload(actor: string | undefined, note: string | undefined, extra: Record<string, unknown>): Record<string, unknown> {
   return {
     ...extra,
-    ...(options.actor ? { actor: options.actor } : {}),
-    ...(options.note ? { note: options.note } : {})
+    ...(actor ? { actor } : {}),
+    ...(note ? { note } : {})
   };
 }
 
+function buildActionPayload(options: PlatformControlPlaneTaskActionOptions, extra: Record<string, unknown>): Record<string, unknown> {
+  return buildActorPayload(options.actor, options.note, extra);
+}
+
 function buildRunActionPayload(options: PlatformControlPlaneRunActionOptions, extra: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...extra,
-    ...(options.actor ? { actor: options.actor } : {}),
-    ...(options.note ? { note: options.note } : {})
-  };
+  return buildActorPayload(options.actor, options.note, extra);
 }
 
 function isRunPaused(metadata: Record<string, unknown> | null | undefined): boolean {
@@ -173,6 +192,242 @@ function normalizeTimestamp(value: DbTimestamp): number {
 
 function getRoutePrefix(taskId: string): string | null {
   return taskId.includes('--') ? (taskId.split('--')[0] ?? null) : null;
+}
+
+const REROUTE_STAGE_ORDER: Record<NonNullable<PlatformTaskRecord['requestedRepairTargetStage']> | 'defect-feedback' | 'collaboration' | 'evaluation', number> = {
+  'requirements-analysis': 1,
+  'code-implementation': 2,
+  'test-design': 3,
+  'automated-execution': 4,
+  'defect-feedback': 5,
+  'collaboration': 6,
+  'evaluation': 7
+};
+
+const REROUTE_ACTION_BY_STAGE: Record<PlatformRerouteTargetStage, PlatformRerouteRunAction> = {
+  'requirements-analysis': 'reroute-to-requirements-analysis',
+  'code-implementation': 'reroute-to-code-implementation',
+  'test-design': 'reroute-to-test-design',
+  'automated-execution': 'reroute-to-automated-execution'
+};
+
+function getRouteTaskId(routePrefix: string, stage: NonNullable<PlatformTaskRecord['requestedRepairTargetStage']>): string {
+  return `${routePrefix}--${stage}`;
+}
+
+function getPublicationTaskId(publication: PlatformPublicationActionRow): string | null {
+  const taskId = publication.metadata?.taskId;
+  return typeof taskId === 'string' && taskId.trim().length > 0 ? taskId.trim() : null;
+}
+
+function buildRerouteRunAction(stage: PlatformRerouteTargetStage): PlatformRerouteRunAction {
+  return REROUTE_ACTION_BY_STAGE[stage];
+}
+
+async function getLatestRunRerouteTarget(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string
+): Promise<PlatformLatestRerouteRow | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformLatestRerouteRow>(
+    `
+      SELECT task_id, requested_repair_target_stage
+      FROM ${quotedSchema}.tasks
+      WHERE run_id = $1
+        AND evaluation_decision = 'needs-repair'
+        AND requested_repair_target_stage IS NOT NULL
+      ORDER BY updated_at DESC, task_id DESC
+      LIMIT 1
+    `,
+    [runId]
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getRouteTaskStatuses(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  routePrefix: string
+): Promise<PlatformRouteTaskStatusRow[]> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformRouteTaskStatusRow>(
+    `
+      SELECT task_id, stage, status
+      FROM ${quotedSchema}.tasks
+      WHERE run_id = $1
+        AND task_id LIKE $2
+      ORDER BY created_at ASC, task_id ASC
+    `,
+    [runId, `${routePrefix}--%`]
+  );
+
+  return result.rows;
+}
+
+async function getLatestRunPublicationActionRow(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  statuses: string[]
+): Promise<PlatformPublicationActionRow | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformPublicationActionRow>(
+    `
+      SELECT publication_id, run_id, publish_mode, status, metadata
+      FROM ${quotedSchema}.publications
+      WHERE run_id = $1
+        AND status = ANY($2::text[])
+      ORDER BY updated_at DESC, publication_id DESC
+      LIMIT 1
+    `,
+    [runId, statuses]
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function updateEvaluationRerouteTarget(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  taskId: string,
+  targetStage: PlatformRerouteTargetStage
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  await executor.query(
+    `
+      UPDATE ${quotedSchema}.tasks
+      SET requested_repair_target_stage = $3,
+          updated_at = NOW()
+      WHERE run_id = $1
+        AND task_id = $2
+        AND stage = 'evaluation'
+    `,
+    [runId, taskId, targetStage]
+  );
+}
+
+async function cancelRouteTasks(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  routePrefix: string
+): Promise<string[]> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const routeTaskRows = await getRouteTaskStatuses(executor, schema, runId, routePrefix);
+  const taskIdsToCancel = routeTaskRows
+    .filter((row) => !['completed', 'skipped', 'cancelled'].includes(row.status))
+    .map((row) => row.task_id);
+
+  if (taskIdsToCancel.length === 0) {
+    return [];
+  }
+
+  await executor.query(
+    `
+      UPDATE ${quotedSchema}.tasks
+      SET status = 'cancelled',
+          evaluation_decision = CASE WHEN stage = 'evaluation' THEN NULL ELSE evaluation_decision END,
+          evaluation_summary = CASE WHEN stage = 'evaluation' THEN NULL ELSE evaluation_summary END,
+          requested_repair_target_stage = CASE WHEN stage = 'evaluation' THEN NULL ELSE requested_repair_target_stage END,
+          evaluation_findings = CASE WHEN stage = 'evaluation' THEN '[]'::jsonb ELSE evaluation_findings END,
+          evaluation_next_actions = CASE WHEN stage = 'evaluation' THEN '[]'::jsonb ELSE evaluation_next_actions END,
+          current_lease_id = NULL,
+          leased_by_worker_id = NULL,
+          lease_expires_at = NULL,
+          last_heartbeat_at = NULL,
+          completed_at = COALESCE(completed_at, NOW()),
+          updated_at = NOW()
+      WHERE run_id = $1
+        AND task_id = ANY($2::text[])
+    `,
+    [runId, taskIdsToCancel]
+  );
+
+  return taskIdsToCancel;
+}
+
+async function rearmRunFromTargetStage(
+  executor: SqlExecutor,
+  schema: string,
+  runId: string,
+  routePrefix: string,
+  targetStage: NonNullable<PlatformTaskRecord['requestedRepairTargetStage']>
+): Promise<void> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const routeTaskRows = await getRouteTaskStatuses(executor, schema, runId, routePrefix);
+  const targetTaskId = getRouteTaskId(routePrefix, targetStage);
+
+  if (!routeTaskRows.some((row) => row.task_id === targetTaskId)) {
+    throw new PlatformControlPlaneActionError(
+      'reroute-target-not-found',
+      `Run ${runId} does not have a task for reroute target ${targetStage}`,
+      409,
+      {
+        runId,
+        routePrefix,
+        targetStage,
+        targetTaskId
+      }
+    );
+  }
+
+  const targetStageOrder = REROUTE_STAGE_ORDER[targetStage];
+  const taskIdsToReady = routeTaskRows
+    .filter((row) => row.stage === targetStage)
+    .map((row) => row.task_id);
+  const taskIdsToPending = routeTaskRows
+    .filter((row) => {
+      const stageOrder = REROUTE_STAGE_ORDER[row.stage as keyof typeof REROUTE_STAGE_ORDER];
+      return typeof stageOrder === 'number' && stageOrder > targetStageOrder;
+    })
+    .map((row) => row.task_id);
+
+  if (taskIdsToReady.length > 0) {
+    await executor.query(
+      `
+        UPDATE ${quotedSchema}.tasks
+        SET status = 'ready',
+            current_lease_id = NULL,
+            leased_by_worker_id = NULL,
+            lease_expires_at = NULL,
+            last_heartbeat_at = NULL,
+            started_at = NULL,
+            completed_at = NULL,
+            updated_at = NOW()
+        WHERE run_id = $1
+          AND task_id = ANY($2::text[])
+      `,
+      [runId, taskIdsToReady]
+    );
+  }
+
+  if (taskIdsToPending.length > 0) {
+    await executor.query(
+      `
+        UPDATE ${quotedSchema}.tasks
+        SET status = 'pending',
+            evaluation_decision = CASE WHEN stage = 'evaluation' THEN NULL ELSE evaluation_decision END,
+            evaluation_summary = CASE WHEN stage = 'evaluation' THEN NULL ELSE evaluation_summary END,
+            requested_repair_target_stage = CASE WHEN stage = 'evaluation' THEN NULL ELSE requested_repair_target_stage END,
+            evaluation_findings = CASE WHEN stage = 'evaluation' THEN '[]'::jsonb ELSE evaluation_findings END,
+            evaluation_next_actions = CASE WHEN stage = 'evaluation' THEN '[]'::jsonb ELSE evaluation_next_actions END,
+            current_lease_id = NULL,
+            leased_by_worker_id = NULL,
+            lease_expires_at = NULL,
+            last_heartbeat_at = NULL,
+            started_at = NULL,
+            completed_at = NULL,
+            updated_at = NOW()
+        WHERE run_id = $1
+          AND task_id = ANY($2::text[])
+      `,
+      [runId, taskIdsToPending]
+    );
+  }
 }
 
 function isResolvedRouteFailureRow(
@@ -332,7 +587,8 @@ async function updateTaskStatus(
   schema: string,
   options: PlatformControlPlaneTaskActionOptions,
   status: PlatformTaskRecord['status'],
-  retryCount?: number
+  retryCount?: number,
+  clearEvaluationSignals = false
 ): Promise<void> {
   const quotedSchema = quoteSqlIdentifier(schema);
   await executor.query(
@@ -340,6 +596,11 @@ async function updateTaskStatus(
       UPDATE ${quotedSchema}.tasks
       SET status = $3,
           retry_count = COALESCE($4, retry_count),
+          evaluation_decision = CASE WHEN $5 THEN NULL ELSE evaluation_decision END,
+          evaluation_summary = CASE WHEN $5 THEN NULL ELSE evaluation_summary END,
+          requested_repair_target_stage = CASE WHEN $5 THEN NULL ELSE requested_repair_target_stage END,
+          evaluation_findings = CASE WHEN $5 THEN '[]'::jsonb ELSE evaluation_findings END,
+          evaluation_next_actions = CASE WHEN $5 THEN '[]'::jsonb ELSE evaluation_next_actions END,
           current_lease_id = NULL,
           leased_by_worker_id = NULL,
           lease_expires_at = NULL,
@@ -352,7 +613,7 @@ async function updateTaskStatus(
       WHERE run_id = $1
         AND task_id = $2
     `,
-    [options.runId, options.taskId, status, retryCount ?? null]
+    [options.runId, options.taskId, status, retryCount ?? null, clearEvaluationSignals]
   );
 }
 
@@ -403,7 +664,7 @@ export async function retryPlatformControlPlaneTask(
   }
 
   const nextRetryCount = task.retry_count + 1;
-  await updateTaskStatus(executor, schema, options, 'ready', nextRetryCount);
+  await updateTaskStatus(executor, schema, options, 'ready', nextRetryCount, task.stage === 'evaluation');
 
   const progress = await getUpdatedRunProgress(executor, schema, options.runId);
   await updateRunProgress(executor, schema, options.runId, progress);
@@ -598,6 +859,145 @@ export async function rejectPlatformControlPlaneTask(
   return resolveApprovalAction(executor, schema, options, 'reject');
 }
 
+async function resolvePublicationRunAction(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions,
+  action: 'approve-publication' | 'force-publish'
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  const run = await getRunActionRow(executor, schema, options.runId);
+  if (!run) {
+    return null;
+  }
+
+  if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot execute ${action} while ${run.status}`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action
+      }
+    );
+  }
+
+  const publication = await getLatestRunPublicationActionRow(
+    executor,
+    schema,
+    options.runId,
+    action === 'approve-publication' ? ['approval-required'] : ['approval-required', 'blocked']
+  );
+  if (!publication) {
+    throw new PlatformControlPlaneActionError(
+      'approval-not-found',
+      `Run ${options.runId} does not have a publication gate for ${action}`,
+      409,
+      {
+        runId: options.runId,
+        action
+      }
+    );
+  }
+
+  if (action === 'approve-publication' && publication.status !== 'approval-required') {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot approve publication ${publication.publication_id} because it is ${publication.status}`,
+      409,
+      {
+        runId: options.runId,
+        publicationId: publication.publication_id,
+        publicationStatus: publication.status,
+        action
+      }
+    );
+  }
+
+  const taskId = getPublicationTaskId(publication);
+  if (!taskId) {
+    throw new PlatformControlPlaneActionError(
+      'approval-not-found',
+      `Publication ${publication.publication_id} is missing its task binding`,
+      409,
+      {
+        runId: options.runId,
+        publicationId: publication.publication_id,
+        action
+      }
+    );
+  }
+
+  const metadata = {
+    ...publication.metadata,
+    approvalStatus: action === 'approve-publication' ? 'approved' : 'forced-published',
+    approvalActionAt: new Date().toISOString(),
+    ...(options.actor ? { approvalActor: options.actor } : {}),
+    ...(options.note ? { approvalNote: options.note } : {}),
+    ...(action === 'force-publish' ? { forcePublished: true, forcePublishedAt: new Date().toISOString() } : {})
+  };
+
+  await updatePublication(executor, schema, publication.publication_id, options.runId, 'published', metadata);
+  await updateTaskStatus(executor, schema, { runId: options.runId, taskId }, 'completed');
+
+  const progress = await getUpdatedRunProgress(executor, schema, options.runId);
+  await updateRunProgress(executor, schema, options.runId, progress);
+
+  const events: PlatformEventRecord[] = [
+    ...(publication.status === 'approval-required'
+      ? [{
+          eventId: randomUUID(),
+          runId: options.runId,
+          taskId,
+          eventType: PLATFORM_EVENT_TYPES.APPROVAL_APPROVED,
+          payload: buildRunActionPayload(options, {
+            publicationId: publication.publication_id,
+            publishMode: publication.publish_mode,
+            previousStatus: publication.status,
+            forced: action === 'force-publish',
+            gateReason: publication.metadata?.gateReason ?? null
+          })
+        }]
+      : []),
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId,
+      eventType: PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED,
+      payload: buildRunActionPayload(options, {
+        publicationId: publication.publication_id,
+        publishMode: publication.publish_mode,
+        previousStatus: publication.status,
+        status: 'published',
+        forced: action === 'force-publish'
+      })
+    },
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId,
+      eventType: PLATFORM_EVENT_TYPES.TASK_COMPLETED,
+      payload: buildRunActionPayload(options, {
+        publicationId: publication.publication_id,
+        publicationStatus: 'published',
+        forced: action === 'force-publish'
+      })
+    }
+  ];
+  await insertPlatformEvents(executor, schema, events);
+
+  return {
+    action,
+    runId: options.runId,
+    runStatus: progress.status,
+    currentStage: progress.currentStage,
+    paused: isRunPaused(run.metadata),
+    publicationId: publication.publication_id,
+    publicationStatus: 'published'
+  };
+}
+
 function buildRunControlPlaneMetadata(
   previousMetadata: Record<string, unknown>,
   action: 'pause' | 'resume',
@@ -719,4 +1119,244 @@ export async function resumePlatformControlPlaneRun(
   options: PlatformControlPlaneRunActionOptions
 ): Promise<PlatformControlPlaneRunActionResult | null> {
   return resolveRunAction(executor, schema, options, 'resume');
+}
+
+export async function resumePlatformControlPlaneRunFromTargetStage(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  const run = await getRunActionRow(executor, schema, options.runId);
+  if (!run) {
+    return null;
+  }
+
+  if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot be resumed from target stage while ${run.status}`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action: 'resume-from-target-stage'
+      }
+    );
+  }
+
+  const reroute = await getLatestRunRerouteTarget(executor, schema, options.runId);
+  const targetStage = reroute?.requested_repair_target_stage ?? null;
+  const routePrefix = reroute?.task_id ? getRoutePrefix(reroute.task_id) : null;
+  if (!reroute?.task_id || !targetStage || !routePrefix) {
+    throw new PlatformControlPlaneActionError(
+      'reroute-target-missing',
+      `Run ${options.runId} does not have an active evaluator reroute target`,
+      409,
+      {
+        runId: options.runId,
+        action: 'resume-from-target-stage'
+      }
+    );
+  }
+
+  await rearmRunFromTargetStage(executor, schema, options.runId, routePrefix, targetStage);
+
+  const nextMetadata = buildRunControlPlaneMetadata(run.metadata ?? {}, 'resume', options);
+  await updateRunActionState(executor, schema, options.runId, nextMetadata);
+
+  const progress = await getUpdatedRunProgress(executor, schema, options.runId);
+  await updateRunProgress(executor, schema, options.runId, progress);
+
+  await insertPlatformEvents(executor, schema, [
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId: reroute.task_id,
+      eventType: PLATFORM_EVENT_TYPES.RUN_RESUMED_FROM_TARGET_STAGE,
+      payload: buildRunActionPayload(options, {
+        targetStage,
+        targetTaskId: getRouteTaskId(routePrefix, targetStage),
+        rerouteTaskId: reroute.task_id,
+        previousPaused: isRunPaused(run.metadata)
+      })
+    }
+  ]);
+
+  return {
+    action: 'resume-from-target-stage',
+    runId: options.runId,
+    runStatus: progress.status,
+    currentStage: progress.currentStage,
+    paused: false,
+    rerouteTargetStage: targetStage
+  };
+}
+
+export async function approvePlatformControlPlaneRunPublication(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  return resolvePublicationRunAction(executor, schema, options, 'approve-publication');
+}
+
+export async function forcePublishPlatformControlPlaneRun(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  return resolvePublicationRunAction(executor, schema, options, 'force-publish');
+}
+
+export async function reroutePlatformControlPlaneRunToStage(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions,
+  targetStage: PlatformRerouteTargetStage
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  const run = await getRunActionRow(executor, schema, options.runId);
+  if (!run) {
+    return null;
+  }
+
+  if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot reroute while ${run.status}`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action: buildRerouteRunAction(targetStage)
+      }
+    );
+  }
+
+  const reroute = await getLatestRunRerouteTarget(executor, schema, options.runId);
+  const routePrefix = reroute?.task_id ? getRoutePrefix(reroute.task_id) : null;
+  if (!reroute?.task_id || !routePrefix) {
+    throw new PlatformControlPlaneActionError(
+      'reroute-target-missing',
+      `Run ${options.runId} does not have an active evaluator reroute target`,
+      409,
+      {
+        runId: options.runId,
+        action: buildRerouteRunAction(targetStage)
+      }
+    );
+  }
+
+  await updateEvaluationRerouteTarget(executor, schema, options.runId, reroute.task_id, targetStage);
+  await rearmRunFromTargetStage(executor, schema, options.runId, routePrefix, targetStage);
+
+  const nextMetadata = buildRunControlPlaneMetadata(run.metadata ?? {}, 'resume', options);
+  await updateRunActionState(executor, schema, options.runId, nextMetadata);
+
+  const progress = await getUpdatedRunProgress(executor, schema, options.runId);
+  await updateRunProgress(executor, schema, options.runId, progress);
+
+  await insertPlatformEvents(executor, schema, [
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId: reroute.task_id,
+      eventType: PLATFORM_EVENT_TYPES.RUN_REROUTED_TO_STAGE,
+      payload: buildRunActionPayload(options, {
+        previousTargetStage: reroute.requested_repair_target_stage ?? null,
+        targetStage,
+        rerouteTaskId: reroute.task_id,
+        routePrefix
+      })
+    }
+  ]);
+
+  return {
+    action: buildRerouteRunAction(targetStage),
+    runId: options.runId,
+    runStatus: progress.status,
+    currentStage: progress.currentStage,
+    paused: false,
+    rerouteTargetStage: targetStage
+  };
+}
+
+export async function cancelPlatformControlPlaneRunRoute(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions
+): Promise<PlatformControlPlaneRunActionResult | null> {
+  const run = await getRunActionRow(executor, schema, options.runId);
+  if (!run) {
+    return null;
+  }
+
+  if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot cancel a route while ${run.status}`,
+      409,
+      {
+        runId: options.runId,
+        runStatus: run.status,
+        action: 'cancel-route'
+      }
+    );
+  }
+
+  const reroute = await getLatestRunRerouteTarget(executor, schema, options.runId);
+  const routePrefix = reroute?.task_id ? getRoutePrefix(reroute.task_id) : null;
+  if (!reroute?.task_id || !routePrefix) {
+    throw new PlatformControlPlaneActionError(
+      'reroute-target-missing',
+      `Run ${options.runId} does not have an active evaluator reroute route to cancel`,
+      409,
+      {
+        runId: options.runId,
+        action: 'cancel-route'
+      }
+    );
+  }
+
+  const cancelledTaskIds = await cancelRouteTasks(executor, schema, options.runId, routePrefix);
+  if (cancelledTaskIds.length === 0) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} does not have an open route to cancel`,
+      409,
+      {
+        runId: options.runId,
+        action: 'cancel-route',
+        routePrefix
+      }
+    );
+  }
+
+  const nextMetadata = buildRunControlPlaneMetadata(run.metadata ?? {}, 'resume', options);
+  await updateRunActionState(executor, schema, options.runId, nextMetadata);
+
+  const progress = await getUpdatedRunProgress(executor, schema, options.runId);
+  await updateRunProgress(executor, schema, options.runId, progress);
+
+  await insertPlatformEvents(executor, schema, [
+    {
+      eventId: randomUUID(),
+      runId: options.runId,
+      taskId: reroute.task_id,
+      eventType: PLATFORM_EVENT_TYPES.RUN_ROUTE_CANCELLED,
+      payload: buildRunActionPayload(options, {
+        rerouteTaskId: reroute.task_id,
+        routePrefix,
+        cancelledTaskIds,
+        previousTargetStage: reroute.requested_repair_target_stage ?? null
+      })
+    }
+  ]);
+
+  return {
+    action: 'cancel-route',
+    runId: options.runId,
+    runStatus: progress.status,
+    currentStage: progress.currentStage,
+    paused: false
+  };
 }
