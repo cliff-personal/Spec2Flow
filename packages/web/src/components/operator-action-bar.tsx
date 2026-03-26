@@ -12,7 +12,7 @@ type OperatorActionBarProps = Readonly<{
   isPending: boolean;
   errorMessage: string | null;
   onTaskAction: (taskId: string, action: TaskActionType, note?: string) => void;
-  onRunAction: (action: RunActionType) => void;
+  onRunAction: (action: RunActionType, note?: string) => void;
 }>;
 
 type TaskComposerControlProps = {
@@ -25,6 +25,18 @@ type TaskComposerControlProps = {
   onCloseComposer: () => void;
   onDraftChange: (actionKey: string, nextValue: string) => void;
   onTaskAction: (taskId: string, action: TaskActionType, note?: string) => void;
+};
+
+type RunComposerControlProps = {
+  action: RunOperatorAction;
+  actionKey: string;
+  currentDraft: string;
+  composerOpen: boolean;
+  isPending: boolean;
+  onOpenComposer: (actionKey: string, initialValue: string) => void;
+  onCloseComposer: () => void;
+  onDraftChange: (actionKey: string, nextValue: string) => void;
+  onRunAction: (action: RunActionType, note?: string) => void;
 };
 
 function renderTaskComposerControl(props: TaskComposerControlProps): JSX.Element | null {
@@ -105,24 +117,80 @@ function renderTaskComposerControl(props: TaskComposerControlProps): JSX.Element
   );
 }
 
-function renderRunControl(
-  action: RunOperatorAction,
-  isPending: boolean,
-  onRunAction: (action: RunActionType) => void
-): JSX.Element | null {
-  if (action.kind !== 'run' || !action.runAction) {
+function renderRunControl(props: RunComposerControlProps): JSX.Element | null {
+  if (props.action.kind !== 'run' || !props.action.runAction) {
     return null;
   }
 
+  const runAction = props.action.runAction;
+  const notePrompt = props.action.notePrompt;
+
+  if (!notePrompt) {
+    return (
+      <button
+        className={buttonClassName(props.action.tone)}
+        disabled={props.isPending}
+        onClick={() => props.onRunAction(runAction)}
+        type="button"
+      >
+        {props.action.label}
+      </button>
+    );
+  }
+
+  const trimmedDraft = props.currentDraft.trim();
+
   return (
-    <button
-      className={buttonClassName(action.tone)}
-      disabled={isPending}
-      onClick={() => onRunAction(action.runAction)}
-      type="button"
-    >
-      {action.label}
-    </button>
+    <div className="flex flex-col items-stretch gap-2 min-w-[19rem] max-w-[28rem]">
+      <button
+        className={buttonClassName(props.action.tone)}
+        disabled={props.isPending}
+        onClick={() => props.onOpenComposer(props.actionKey, notePrompt.initialValue)}
+        type="button"
+      >
+        {props.composerOpen ? 'Hide Note' : props.action.label}
+      </button>
+      {props.composerOpen ? (
+        <div className="rounded-2xl px-3 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.82)' }}>{notePrompt.title}</p>
+          <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.46)' }}>{notePrompt.helperText}</p>
+          <textarea
+            className="mt-3 w-full rounded-2xl px-3 py-3 text-[12px]"
+            disabled={props.isPending}
+            onChange={(event) => props.onDraftChange(props.actionKey, event.target.value)}
+            placeholder={notePrompt.placeholder}
+            rows={6}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.82)'
+            }}
+            value={props.currentDraft}
+          />
+          <div className="flex gap-2 flex-wrap mt-3">
+            <button
+              className={buttonClassName(props.action.tone)}
+              disabled={props.isPending || (notePrompt.required && trimmedDraft.length === 0)}
+              onClick={() => {
+                props.onRunAction(runAction, trimmedDraft.length > 0 ? trimmedDraft : undefined);
+                props.onCloseComposer();
+              }}
+              type="button"
+            >
+              {notePrompt.confirmLabel}
+            </button>
+            <button
+              className="button-ghost"
+              disabled={props.isPending}
+              onClick={props.onCloseComposer}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -199,7 +267,17 @@ export function OperatorActionBar(props: OperatorActionBarProps): JSX.Element | 
             onCloseComposer: () => setActiveComposerKey(null),
             onDraftChange: updateDraft,
             onTaskAction: props.onTaskAction,
-          }) ?? renderRunControl(action, props.isPending, props.onRunAction) ?? renderLinkControl(action);
+          }) ?? renderRunControl({
+            action,
+            actionKey: key,
+            currentDraft,
+            composerOpen,
+            isPending: props.isPending,
+            onOpenComposer: toggleComposer,
+            onCloseComposer: () => setActiveComposerKey(null),
+            onDraftChange: updateDraft,
+            onRunAction: props.onRunAction,
+          }) ?? renderLinkControl(action);
 
           return (
             <div key={key} className="flex items-start justify-between gap-3 flex-wrap">

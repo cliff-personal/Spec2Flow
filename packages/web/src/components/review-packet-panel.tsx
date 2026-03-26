@@ -39,7 +39,7 @@ type ReviewPacketPanelProps = Readonly<{
   isActionPending: boolean;
   errorMessage: string | null;
   onTaskAction: (taskId: string, action: 'retry' | 'approve' | 'reject', note?: string) => void;
-  onRunAction: (action: RunActionType) => void;
+  onRunAction: (action: RunActionType, note?: string) => void;
 }>;
 
 function unique(values: string[]): string[] {

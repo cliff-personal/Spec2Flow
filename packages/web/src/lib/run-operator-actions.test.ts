@@ -127,6 +127,17 @@ describe('deriveRunOperatorActions', () => {
     expect(actions[0]).toMatchObject({ kind: 'run', runAction: 'approve-publication' });
     expect(actions[1]).toMatchObject({ kind: 'run', runAction: 'force-publish' });
     expect(actions[2]).toMatchObject({ kind: 'task', taskAction: 'reject', taskId: 'task-9' });
+    expect(actions[0]).toMatchObject({
+      notePrompt: expect.objectContaining({
+        title: 'Record publication approval',
+      }),
+    });
+    expect(actions[1]).toMatchObject({
+      notePrompt: expect.objectContaining({
+        confirmLabel: 'Force Publish',
+        required: true,
+      }),
+    });
   });
 
   it('uses review decision language inside the review packet surface', () => {
@@ -165,6 +176,12 @@ describe('deriveRunOperatorActions', () => {
       }),
     });
     expect(actions[2]?.notePrompt?.initialValue).toContain('Decision: needs-follow-up');
+    expect(actions[1]).toMatchObject({
+      notePrompt: expect.objectContaining({
+        title: 'Record force-publish rationale',
+        required: true,
+      }),
+    });
   });
 
   it('surfaces reroute override actions when the evaluator requests a repair target', () => {
@@ -188,6 +205,18 @@ describe('deriveRunOperatorActions', () => {
       expect.objectContaining({ kind: 'run', runAction: 'reroute-to-automated-execution' }),
       expect.objectContaining({ kind: 'run', runAction: 'cancel-route' }),
     ]);
+    expect(actions[1]).toMatchObject({
+      notePrompt: expect.objectContaining({
+        confirmLabel: 'Apply Reroute',
+        required: true,
+      }),
+    });
+    expect(actions[4]).toMatchObject({
+      notePrompt: expect.objectContaining({
+        confirmLabel: 'Cancel Route',
+        required: true,
+      }),
+    });
   });
 
   it('offers retry when a repair path is blocked', () => {

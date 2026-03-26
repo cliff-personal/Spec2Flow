@@ -176,7 +176,7 @@ export function RunDetailPanel(
     isActionPending: boolean;
     errorMessage: string | null;
     onTaskAction: (taskId: string, action: 'retry' | 'approve' | 'reject', note?: string) => void;
-    onRunAction: (action: RunActionType) => void;
+    onRunAction: (action: RunActionType, note?: string) => void;
   }>
 ): JSX.Element {
   const readiness = deriveRunReadinessSignal(props.runDetail, props.observability, props.tasks);

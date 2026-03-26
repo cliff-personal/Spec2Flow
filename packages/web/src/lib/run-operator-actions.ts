@@ -21,6 +21,8 @@ export type RunOperatorAction = {
   };
 };
 
+type ActionNotePrompt = NonNullable<RunOperatorAction['notePrompt']>;
+
 function buildDecisionNoteTemplate(action: 'approve' | 'reject'): string {
   if (action === 'approve') {
     return [
@@ -59,6 +61,72 @@ function buildDecisionNotePrompt(action: 'approve' | 'reject') {
     confirmLabel: 'Record Follow-up',
     required: true,
   };
+}
+
+function buildRunActionNotePrompt(action: RunActionType): ActionNotePrompt | undefined {
+  switch (action) {
+    case 'approve-publication':
+      return {
+        title: 'Record publication approval',
+        helperText: 'Capture why this publication exception is being approved so the audit trail explains the release decision.',
+        placeholder: 'Summarize why the publication gate is cleared.',
+        initialValue: [
+          'Decision: approve-publication',
+          'Reason:',
+          'Risk check:',
+          'Follow-up owner: none'
+        ].join('\n'),
+        confirmLabel: 'Approve Publication',
+        required: false,
+      };
+    case 'force-publish':
+      return {
+        title: 'Record force-publish rationale',
+        helperText: 'Force publish is an operator override. Record the exact reason, risk acceptance, and expected follow-up before continuing.',
+        placeholder: 'Explain why the publish gate is being overridden.',
+        initialValue: [
+          'Decision: force-publish',
+          'Reason:',
+          'Accepted risk:',
+          'Follow-up owner:'
+        ].join('\n'),
+        confirmLabel: 'Force Publish',
+        required: true,
+      };
+    case 'reroute-to-requirements-analysis':
+    case 'reroute-to-code-implementation':
+    case 'reroute-to-test-design':
+    case 'reroute-to-automated-execution':
+      return {
+        title: 'Record reroute override',
+        helperText: 'Explain why the evaluator-selected repair route is being overridden and what evidence supports the new target stage.',
+        placeholder: 'Summarize the evidence behind this reroute override.',
+        initialValue: [
+          `Decision: ${action}`,
+          'Reason:',
+          'Evidence:',
+          'Expected recovery path:'
+        ].join('\n'),
+        confirmLabel: 'Apply Reroute',
+        required: true,
+      };
+    case 'cancel-route':
+      return {
+        title: 'Record route cancellation',
+        helperText: 'Cancelling a repair route is an exception-handling decision. Record why the route is being dropped and what happens next.',
+        placeholder: 'Explain why the active repair route is being cancelled.',
+        initialValue: [
+          'Decision: cancel-route',
+          'Reason:',
+          'Next control-plane action:',
+          'Follow-up owner:'
+        ].join('\n'),
+        confirmLabel: 'Cancel Route',
+        required: true,
+      };
+    default:
+      return undefined;
+  }
 }
 
 function countMissingArtifacts(observability: PlatformObservability | undefined): number {
@@ -118,7 +186,9 @@ function buildPublicationActions(
       detail: copy.approveDetail,
       tone: 'primary',
       runAction: 'approve-publication',
-      notePrompt: surface === 'review-packet' ? buildDecisionNotePrompt('approve') : undefined,
+      notePrompt: surface === 'review-packet'
+        ? buildDecisionNotePrompt('approve')
+        : buildRunActionNotePrompt('approve-publication'),
     },
     {
       kind: 'run',
@@ -126,6 +196,7 @@ function buildPublicationActions(
       detail: copy.forcePublishDetail,
       tone: 'secondary',
       runAction: 'force-publish',
+      notePrompt: buildRunActionNotePrompt('force-publish'),
     },
     {
       kind: 'task',
@@ -170,6 +241,7 @@ function buildRerouteActions(runDetail: RunDetail, rerouteTargetStage: NonNullab
       detail: `Override the evaluator route and restart repair from ${formatStageLabel(stageAction.stage)}.`,
       tone: 'secondary',
       runAction: stageAction.action,
+      notePrompt: buildRunActionNotePrompt(stageAction.action),
     });
   }
 
@@ -179,6 +251,7 @@ function buildRerouteActions(runDetail: RunDetail, rerouteTargetStage: NonNullab
     detail: 'Cancel the active reroute path and clear the queued repair tasks owned by that route.',
     tone: 'ghost',
     runAction: 'cancel-route',
+    notePrompt: buildRunActionNotePrompt('cancel-route'),
   });
 
   return actions;

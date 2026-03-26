@@ -76,9 +76,9 @@ export function useControlPlaneRunDetailPage(runId: string) {
   });
 
   const runActionMutation = useMutation({
-    mutationFn: async (action: RunActionType) => postRunAction(runId, action),
-    onSuccess: async (_result, action) => {
-      setActionMessage(formatRunActionMessage(action));
+    mutationFn: async (payload: { action: RunActionType; note?: string }) => postRunAction(runId, payload.action, payload.note),
+    onSuccess: async (_result, payload) => {
+      setActionMessage(formatRunActionMessage(payload.action));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-detail', runId] }),
         queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-tasks', runId] }),
@@ -93,9 +93,9 @@ export function useControlPlaneRunDetailPage(runId: string) {
     actionMutation.mutate({ taskId, action, ...(note ? { note } : {}) });
   }
 
-  function triggerRunAction(action: RunActionType): void {
+  function triggerRunAction(action: RunActionType, note?: string): void {
     setActionMessage(null);
-    runActionMutation.mutate(action);
+    runActionMutation.mutate({ action, ...(note ? { note } : {}) });
   }
 
   return {
