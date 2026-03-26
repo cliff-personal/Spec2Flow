@@ -219,6 +219,7 @@ export async function submitPlatformControlPlaneRun(
     });
   }
 
+  const selectedRoutes = Array.isArray(options.routes) && options.routes.length > 0 ? options.routes : undefined;
   const taskGraph = dependencies.buildTaskGraph(projectPayload, topologyPayload, riskPayload, {
     project: projectPath,
     topology: topologyPath,
@@ -226,7 +227,8 @@ export async function submitPlatformControlPlaneRun(
     requirement: requirementPath ?? null
   }, {
     changedFiles,
-    requirementText
+    requirementText,
+    ...(selectedRoutes ? { routes: selectedRoutes } : {})
   });
 
   let plan = dependencies.createPlatformRunInitializationPlan(taskGraph, {
@@ -246,7 +248,7 @@ export async function submitPlatformControlPlaneRun(
     projectPath,
     topologyPath,
     riskPath,
-    defaultBranch: defaultBranch ?? plan.repository.defaultBranch ?? 'main',
+    defaultBranch: defaultBranch ?? plan.repository.defaultBranch ?? (projectPayload as any)?.spec2flow?.project?.defaultBranch ?? 'main',
     branchPrefix,
     workspacePolicy,
     metadata: {

@@ -50,6 +50,12 @@ interface TopologyService {
 interface WorkflowRoute {
   name: string;
   entryServices: string[];
+  reviewPolicy?: {
+    required?: boolean;
+    reviewAgentCount?: number;
+    requireHumanApproval?: boolean;
+    allowAutoCommit?: boolean;
+  };
 }
 
 interface TopologyPayload {

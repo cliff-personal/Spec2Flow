@@ -123,6 +123,16 @@
               "items": { "type": "string", "minLength": 1 }
             }
           }
+        },
+        "reviewPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": { "type": "boolean", "default": false },
+            "reviewAgentCount": { "type": "integer", "minimum": 0, "default": 0 },
+            "requireHumanApproval": { "type": "boolean", "default": false },
+            "allowAutoCommit": { "type": "boolean", "default": false }
+          }
         }
       }
     },

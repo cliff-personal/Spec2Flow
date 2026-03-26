@@ -84,6 +84,13 @@ function checkIfScopedChangesAreCommitted(repoRoot: string, scopedChangedFiles: 
   }
 
   try {
+    // If there are any uncommitted changes (staged or working tree) for these files,
+    // they have NOT been committed yet.
+    const statusOutput = runGit(repoRoot, ['status', '--porcelain', '--', ...scopedChangedFiles]);
+    if (statusOutput.trim().length > 0) {
+      return false;
+    }
+    // No uncommitted changes — verify the files appear in git history to confirm they were committed.
     const output = runGit(repoRoot, ['log', '--oneline', '--name-only', '--diff-filter=ACDMRT', '-20', '--', ...scopedChangedFiles]);
     return output.trim().length > 0;
   } catch {
@@ -412,7 +419,6 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     };
   }
 
-  const branchName = buildBranchName(routeName);
   const commitMessage = buildCommitMessage(routeName, handoff);
 
   // Check if the scoped changes are already committed to the current branch
@@ -444,8 +450,17 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     };
   }
 
+  // If we are already on a spec2flow/ worktree branch, stage and commit there
+  // directly instead of creating a new branch (git worktrees cannot checkout
+  // another branch without detaching HEAD).
+  const currentBranchForAutoCommit = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const alreadyOnRunBranch = currentBranchForAutoCommit.startsWith('spec2flow/');
+  const branchName = alreadyOnRunBranch ? currentBranchForAutoCommit : buildBranchName(routeName);
+
   try {
-    runGit(repoRoot, ['checkout', '-b', branchName]);
+    if (!alreadyOnRunBranch) {
+      runGit(repoRoot, ['checkout', '-b', branchName]);
+    }
     stageScopedFiles(repoRoot, scopedChangedFiles);
     const stagedScopedFiles = getStagedScopedFiles(repoRoot, scopedChangedFiles);
     if (stagedScopedFiles.length === 0) {
@@ -475,6 +490,11 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
 
     runGit(repoRoot, ['commit', '-m', commitMessage]);
     const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
+    try {
+      runGit(repoRoot, ['push', '--set-upstream', 'origin', branchName]);
+    } catch {
+      // Push failure is non-fatal — the commit succeeded and the branch exists locally
+    }
     const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, true, 'published', 'auto-commit', {
       branchName,
       commitSha,

@@ -211,7 +211,7 @@ export function promoteReadyTasks(taskGraphPayload: TaskGraphDocument, execution
     const dependencies = task.dependsOn ?? [];
     const dependenciesSatisfied = dependencies.every((dependencyId) => {
       const dependencyState = taskStateIndex.get(dependencyId);
-      return dependencyState !== undefined && ['completed', 'skipped'].includes(dependencyState.status);
+      return dependencyState !== undefined && ['completed', 'skipped', 'blocked'].includes(dependencyState.status);
     });
 
     if (dependencies.length > 0 && dependenciesSatisfied) {

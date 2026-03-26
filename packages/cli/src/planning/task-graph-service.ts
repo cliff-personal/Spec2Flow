@@ -351,7 +351,16 @@ function buildRouteTaskBundle(
   const matchingRules = getMatchingRiskRules(route, projectPayload, topologyPayload, riskPayload, changedFiles);
   const matchedRule = getHighestRiskRule(matchingRules);
   const riskLevel = (matchedRule?.level ?? 'low') as RiskLevel;
-  const reviewPolicy = buildReviewPolicy(matchedRule);
+  const riskReviewPolicy = buildReviewPolicy(matchedRule);
+  // Merge topology route-level reviewPolicy overrides (e.g. allowAutoCommit)
+  const routeReviewPolicy = route.reviewPolicy ?? {};
+  const reviewPolicy = {
+    ...riskReviewPolicy,
+    ...(typeof routeReviewPolicy.required === 'boolean' ? { required: routeReviewPolicy.required } : {}),
+    ...(typeof routeReviewPolicy.reviewAgentCount === 'number' ? { reviewAgentCount: routeReviewPolicy.reviewAgentCount } : {}),
+    ...(typeof routeReviewPolicy.requireHumanApproval === 'boolean' ? { requireHumanApproval: routeReviewPolicy.requireHumanApproval } : {}),
+    ...(typeof routeReviewPolicy.allowAutoCommit === 'boolean' ? { allowAutoCommit: routeReviewPolicy.allowAutoCommit } : {})
+  };
   const routeServiceKinds = getRouteServiceKinds(route, projectPayload, topologyPayload);
   const routeTargetFiles = findRouteTargetFiles(route, projectPayload);
   const routeVerifyCommands = dedupe([
@@ -525,12 +534,16 @@ export function buildTaskGraph(
   topologyPayload: Record<string, any>,
   riskPayload: Record<string, any>,
   paths: { project: string; topology: string; risk: string; requirement?: string | null },
-  options: { changedFiles?: string[]; requirementText?: string } = {}
+  options: { changedFiles?: string[]; requirementText?: string; routes?: string[] } = {}
 ): TaskGraphDocument {
   const project = projectPayload.spec2flow;
   const changedFiles = options.changedFiles ?? [];
   const requirementText = options.requirementText ?? '';
-  const routeSelection = selectRoutes(topologyPayload, projectPayload, changedFiles, requirementText);
+  const rawRouteSelection = selectRoutes(topologyPayload, projectPayload, changedFiles, requirementText);
+  const routeFilter = options.routes && options.routes.length > 0 ? new Set(options.routes) : null;
+  const routeSelection = routeFilter
+    ? { ...rawRouteSelection, routes: rawRouteSelection.routes.filter((r: Record<string, any>) => routeFilter.has(r.name)), mode: 'explicit-filter' as const }
+    : rawRouteSelection;
 
   const tasks: Task[] = [
     {

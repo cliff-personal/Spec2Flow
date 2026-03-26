@@ -177,6 +177,7 @@ export interface PlatformControlPlaneRunSubmissionRequest {
   repositoryName?: string;
   defaultBranch?: string;
   runId?: string;
+  routes?: string[];
 }
 
 export interface PlatformControlPlaneRunSubmissionResult {

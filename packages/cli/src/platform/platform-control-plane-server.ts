@@ -317,6 +317,7 @@ function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissio
   const repositoryName = parseOptionalString(record?.repositoryName);
   const defaultBranch = parseOptionalString(record?.defaultBranch);
   const runId = parseOptionalString(record?.runId);
+  const routes = parseOptionalStringArray(record?.routes);
   const workspacePolicyRecord = asObjectRecord(record?.workspacePolicy);
   const allowedReadGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.allowedReadGlobs) : undefined;
   const allowedWriteGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.allowedWriteGlobs) : undefined;
@@ -347,7 +348,8 @@ function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissio
     ...(repositoryId ? { repositoryId } : {}),
     ...(repositoryName ? { repositoryName } : {}),
     ...(defaultBranch ? { defaultBranch } : {}),
-    ...(runId ? { runId } : {})
+    ...(runId ? { runId } : {}),
+    ...(routes ? { routes } : {})
   };
 }
 
