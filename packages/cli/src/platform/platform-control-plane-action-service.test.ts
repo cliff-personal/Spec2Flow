@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  approvePlatformControlPlaneRunPublication,
   forcePublishPlatformControlPlaneRun,
   pausePlatformControlPlaneRun,
   approvePlatformControlPlaneTask,
@@ -52,6 +53,7 @@ class SequentialExecutor implements SqlExecutor {
 }
 
 const tempDirs: string[] = [];
+const originalPath = process.env.PATH ?? '';
 
 function createRoleProfile(): Record<string, unknown> {
   return {
@@ -120,7 +122,43 @@ function initPublicationRepo(): {
   };
 }
 
+function enableRemotePullRequestCommands(repoRoot: string): string {
+  const remoteRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-platform-remote-'));
+  tempDirs.push(remoteRoot);
+  execFileSync('git', ['init', '--bare'], { cwd: remoteRoot, encoding: 'utf8' });
+  execFileSync('git', ['remote', 'add', 'origin', remoteRoot], { cwd: repoRoot, encoding: 'utf8' });
+  execFileSync('git', ['push', '--set-upstream', 'origin', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' });
+
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-platform-gh-bin-'));
+  tempDirs.push(binDir);
+  const ghLogPath = path.join(binDir, 'gh.log');
+  const ghPath = path.join(binDir, 'gh');
+  const ghScript = [
+    '#!/bin/sh',
+    'printf "%s\\n" "$*" >> "$GH_LOG_PATH"',
+    'if [ "$1" = "pr" ] && [ "$2" = "create" ]; then',
+    '  printf "%s\\n" "$GH_PR_URL"',
+    '  exit 0',
+    'fi',
+    'if [ "$1" = "pr" ] && [ "$2" = "merge" ]; then',
+    '  exit 0',
+    'fi',
+    'exit 1',
+    ''
+  ].join('\n');
+  fs.writeFileSync(ghPath, ghScript, 'utf8');
+  fs.chmodSync(ghPath, 0o755);
+
+  process.env.GH_LOG_PATH = ghLogPath;
+  process.env.GH_PR_URL = 'https://github.com/cliff-personal/Spec2Flow/pull/654';
+  process.env.PATH = `${binDir}:${originalPath}`;
+  return ghLogPath;
+}
+
 afterEach(() => {
+  process.env.PATH = originalPath;
+  delete process.env.GH_LOG_PATH;
+  delete process.env.GH_PR_URL;
   while (tempDirs.length > 0) {
     const tempDir = tempDirs.pop();
     if (tempDir) {
@@ -981,5 +1019,244 @@ describe('platform-control-plane-action-service', () => {
     expect(currentBranch).toMatch(/^spec2flow\//);
     expect(fs.existsSync(path.join(repoRoot, 'spec2flow', 'outputs', 'collaboration', 'frontend-smoke', 'publication-record.json'))).toBe(true);
     expect(fs.existsSync(path.join(repoRoot, 'spec2flow', 'outputs', 'collaboration', 'frontend-smoke', 'pr-draft.md'))).toBe(true);
+  });
+
+  it('approves publication by executing real PR creation and merge orchestration', async () => {
+    const { repoRoot, implementationSummaryPath, collaborationHandoffPath } = initPublicationRepo();
+    const ghLogPath = enableRemotePullRequestCommands(repoRoot);
+    const executor = new SequentialExecutor([
+      {
+        match: 'SELECT run_id, status, current_stage, metadata',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            status: 'blocked',
+            current_stage: 'collaboration',
+            metadata: {}
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: /FROM "spec2flow_platform"\.publications[\s\S]*status = ANY/,
+        result: {
+          rows: [{
+            publication_id: 'publication-approval-1',
+            run_id: 'run-1',
+            publish_mode: 'manual-handoff',
+            status: 'approval-required',
+            metadata: {
+              taskId: 'frontend-smoke--collaboration',
+              gateReason: 'human-approval-required'
+            }
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'SELECT *\n      FROM "spec2flow_platform".runs',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            repository_id: 'repo-1',
+            workflow_name: 'frontend-smoke',
+            request_text: 'Publish the collaboration handoff',
+            status: 'blocked',
+            current_stage: 'collaboration',
+            risk_level: 'medium',
+            request_payload: {},
+            metadata: {},
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:00:00.000Z',
+            started_at: '2026-03-24T12:00:00.000Z',
+            completed_at: null
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'SELECT *\n      FROM "spec2flow_platform".tasks',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            task_id: 'frontend-smoke--collaboration',
+            stage: 'collaboration',
+            title: 'Prepare handoff',
+            goal: 'Prepare collaboration publish flow',
+            executor_type: 'collaboration-agent',
+            status: 'blocked',
+            risk_level: 'medium',
+            depends_on: [],
+            target_files: ['src/app.ts'],
+            verify_commands: [],
+            inputs: {},
+            role_profile: createRoleProfile(),
+            review_policy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true,
+              allowAutoCommit: false
+            },
+            artifacts_dir: null,
+            attempts: 1,
+            retry_count: 0,
+            max_retries: 3,
+            auto_repair_count: 0,
+            max_auto_repair_attempts: 0,
+            evaluation_decision: null,
+            evaluation_summary: null,
+            requested_repair_target_stage: null,
+            evaluation_findings: [],
+            evaluation_next_actions: [],
+            current_lease_id: null,
+            leased_by_worker_id: null,
+            lease_expires_at: null,
+            last_heartbeat_at: null,
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:00:00.000Z',
+            started_at: '2026-03-24T12:00:00.000Z',
+            completed_at: null
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'LEFT JOIN "spec2flow_platform".run_workspaces',
+        result: {
+          rows: [{
+            project_id: 'project-1',
+            project_repository_id: 'repo-1',
+            project_name: 'Spec2Flow',
+            project_repository_root_path: repoRoot,
+            project_workspace_root_path: repoRoot,
+            project_path: null,
+            topology_path: null,
+            risk_path: null,
+            project_default_branch: 'main',
+            project_branch_prefix: 'spec2flow/',
+            project_adapter_profile: null,
+            project_workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['**/*'],
+              forbiddenWriteGlobs: []
+            },
+            project_metadata: {},
+            project_created_at: '2026-03-24T12:00:00.000Z',
+            project_updated_at: '2026-03-24T12:00:00.000Z',
+            workspace_run_id: 'run-1',
+            workspace_repository_id: 'repo-1',
+            worktree_mode: 'managed',
+            provisioning_status: 'provisioned',
+            branch_name: 'spec2flow/frontend-smoke-run-1',
+            base_branch: 'main',
+            workspace_root_path: repoRoot,
+            worktree_path: repoRoot,
+            workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['**/*'],
+              forbiddenWriteGlobs: []
+            },
+            workspace_metadata: {},
+            workspace_created_at: '2026-03-24T12:00:00.000Z',
+            workspace_updated_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      { match: 'SELECT *\n      FROM "spec2flow_platform".events', result: { rows: [], rowCount: 0 } },
+      {
+        match: 'SELECT *\n      FROM "spec2flow_platform".artifacts',
+        result: {
+          rows: [
+            {
+              artifact_id: 'artifact-implementation',
+              run_id: 'run-1',
+              task_id: 'frontend-smoke--code-implementation',
+              kind: 'report',
+              path: implementationSummaryPath,
+              schema_type: null,
+              metadata: { originalArtifactId: 'implementation-summary' },
+              created_at: '2026-03-24T12:00:00.000Z'
+            },
+            {
+              artifact_id: 'artifact-handoff',
+              run_id: 'run-1',
+              task_id: 'frontend-smoke--collaboration',
+              kind: 'report',
+              path: collaborationHandoffPath,
+              schema_type: null,
+              metadata: { originalArtifactId: 'collaboration-handoff' },
+              created_at: '2026-03-24T12:00:00.000Z'
+            }
+          ],
+          rowCount: 2
+        }
+      },
+      { match: 'SELECT *\n      FROM "spec2flow_platform".repair_attempts', result: { rows: [], rowCount: 0 } },
+      {
+        match: 'SELECT *\n      FROM "spec2flow_platform".publications',
+        result: {
+          rows: [{
+            publication_id: 'publication-approval-1',
+            run_id: 'run-1',
+            branch_name: null,
+            commit_sha: null,
+            pr_url: null,
+            publish_mode: 'manual-handoff',
+            status: 'approval-required',
+            metadata: {
+              taskId: 'frontend-smoke--collaboration',
+              gateReason: 'human-approval-required'
+            },
+            created_at: '2026-03-24T12:00:00.000Z',
+            updated_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      { match: 'INSERT INTO "spec2flow_platform".artifacts', result: { rows: [], rowCount: 1 } },
+      { match: 'INSERT INTO "spec2flow_platform".artifacts', result: { rows: [], rowCount: 1 } },
+      { match: 'INSERT INTO "spec2flow_platform".publications', result: { rows: [], rowCount: 1 } },
+      { match: 'INSERT INTO "spec2flow_platform".events', result: { rows: [], rowCount: 1 } },
+      { match: 'UPDATE "spec2flow_platform".publications', result: { rows: [], rowCount: 1 } },
+      { match: 'UPDATE "spec2flow_platform".tasks', result: { rows: [], rowCount: 1 } },
+      {
+        match: 'SELECT task_id, stage, status, created_at',
+        result: {
+          rows: [{
+            task_id: 'frontend-smoke--collaboration',
+            stage: 'collaboration',
+            status: 'completed',
+            created_at: '2026-03-24T12:00:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      { match: 'UPDATE "spec2flow_platform".runs', result: { rows: [], rowCount: 1 } },
+      { match: 'INSERT INTO "spec2flow_platform".events', result: { rows: [], rowCount: 1 } },
+      { match: 'INSERT INTO "spec2flow_platform".events', result: { rows: [], rowCount: 1 } }
+    ]);
+
+    const result = await approvePlatformControlPlaneRunPublication(executor, 'spec2flow_platform', {
+      runId: 'run-1',
+      actor: 'operator-1',
+      note: 'approve and publish for merge orchestration'
+    });
+
+    const publicationInsert = executor.calls.find((call) => call.text.includes('INSERT INTO "spec2flow_platform".publications'));
+    const insertedPrUrl = publicationInsert?.values?.[4];
+    expect(result).toEqual(expect.objectContaining({
+      action: 'approve-publication',
+      runStatus: 'completed',
+      currentStage: null,
+      paused: false,
+      publicationStatus: 'published'
+    }));
+    expect(result?.publicationId).toBe(publicationInsert?.values?.[0]);
+    expect(insertedPrUrl).toBe('https://github.com/cliff-personal/Spec2Flow/pull/654');
+
+    const ghLog = fs.readFileSync(ghLogPath, 'utf8');
+    expect(ghLog).toContain('pr create');
+    expect(ghLog).toContain('pr merge --auto --squash https://github.com/cliff-personal/Spec2Flow/pull/654');
   });
 });

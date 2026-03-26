@@ -992,71 +992,181 @@ async function resolvePublicationRunAction(
     return resolveForcedPublicationRunAction(executor, schema, options, run, publication, taskId);
   }
 
-  const metadata = {
+  return resolveApprovedPublicationRunAction(executor, schema, options, run, publication, taskId);
+}
+
+async function resolveApprovedPublicationRunAction(
+  executor: SqlExecutor,
+  schema: string,
+  options: PlatformControlPlaneRunActionOptions,
+  run: PlatformRunActionRow,
+  publication: PlatformPublicationActionRow,
+  taskId: string
+): Promise<PlatformControlPlaneRunActionResult> {
+  const snapshot = await getPlatformRunState(executor, schema, { runId: options.runId });
+  const task = snapshot.tasks.find((candidate) => candidate.taskId === taskId);
+  if (!task) {
+    throw new PlatformControlPlaneActionError(
+      'task-not-found',
+      `Run ${options.runId} is missing collaboration task ${taskId} for approve-publication`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        publicationId: publication.publication_id,
+        action: 'approve-publication'
+      }
+    );
+  }
+
+  if (task.stage !== 'collaboration') {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot approve publication for task ${taskId} because it is ${task.stage}`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        taskStage: task.stage,
+        publicationId: publication.publication_id,
+        action: 'approve-publication'
+      }
+    );
+  }
+
+  const taskStateStatus = task.status === 'blocked' || task.status === 'completed'
+    ? task.status
+    : null;
+  if (!taskStateStatus) {
+    throw new PlatformControlPlaneActionError(
+      'invalid-run-action',
+      `Run ${options.runId} cannot approve publication for task ${taskId} while it is ${task.status}`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        taskStatus: task.status,
+        publicationId: publication.publication_id,
+        action: 'approve-publication'
+      }
+    );
+  }
+
+  const artifactBaseDir = resolvePublicationArtifactBaseDir(snapshot, options.runId);
+  const allArtifacts = snapshot.artifacts.map((artifact) => buildExecutionArtifactRef(artifact));
+  const taskArtifacts = allArtifacts.filter((artifact) => artifact.taskId === taskId);
+  const decision = applyCollaborationPublicationPolicy({
+    taskGraphTask: {
+      id: task.taskId,
+      stage: task.stage,
+      ...(task.reviewPolicy ? { reviewPolicy: task.reviewPolicy } : {})
+    },
+    taskState: {
+      taskId,
+      status: taskStateStatus,
+      notes: []
+    },
+    artifacts: taskArtifacts,
+    allArtifacts,
+    artifactBaseDir,
+    approvalMode: 'operator-approved',
+    remotePublication: {
+      createPullRequest: true,
+      requestMerge: true,
+      mergeMethod: 'squash'
+    }
+  });
+
+  if (decision.status === 'not-applicable') {
+    throw new PlatformControlPlaneActionError(
+      'publication-context-missing',
+      `Run ${options.runId} could not rehydrate publication context for ${taskId}`,
+      409,
+      {
+        runId: options.runId,
+        taskId,
+        publicationId: publication.publication_id,
+        action: 'approve-publication'
+      }
+    );
+  }
+
+  if (decision.generatedArtifacts.length > 0) {
+    await insertPlatformArtifacts(executor, schema, buildPlatformArtifactsForRun(options.runId, decision.generatedArtifacts));
+  }
+  await reconcilePlatformPublications(executor, schema, {
+    runId: options.runId,
+    taskId,
+    artifactBaseDir,
+    newArtifacts: decision.generatedArtifacts
+  });
+
+  const timestamp = new Date().toISOString();
+  const approvalMetadata = {
     ...publication.metadata,
     approvalStatus: 'approved',
-    approvalActionAt: new Date().toISOString(),
+    approvalActionAt: timestamp,
     ...(options.actor ? { approvalActor: options.actor } : {}),
-    ...(options.note ? { approvalNote: options.note } : {})
+    ...(options.note ? { approvalNote: options.note } : {}),
+    approvalResult: decision.status,
+    supersededByPublicationId: decision.publication.publicationId
   };
+  await updatePublication(executor, schema, publication.publication_id, options.runId, publication.status, approvalMetadata);
 
-  await updatePublication(executor, schema, publication.publication_id, options.runId, 'published', metadata);
+  const approvalEvents: PlatformEventRecord[] = [{
+    eventId: randomUUID(),
+    runId: options.runId,
+    taskId,
+    eventType: PLATFORM_EVENT_TYPES.APPROVAL_APPROVED,
+    payload: buildRunActionPayload(options, {
+      publicationId: decision.publication.publicationId,
+      sourcePublicationId: publication.publication_id,
+      publishMode: decision.publication.publishMode,
+      previousStatus: publication.status,
+      forced: false,
+      gateReason: publication.metadata?.gateReason ?? null,
+      approvalResult: decision.status
+    })
+  }];
+
+  if (decision.status !== 'published') {
+    await insertPlatformEvents(executor, schema, approvalEvents);
+    return {
+      action: 'approve-publication',
+      runId: options.runId,
+      runStatus: run.status,
+      currentStage: run.current_stage,
+      paused: isRunPaused(run.metadata),
+      publicationId: decision.publication.publicationId,
+      publicationStatus: decision.publication.status
+    };
+  }
+
   await updateTaskStatus(executor, schema, { runId: options.runId, taskId }, 'completed');
-
   const progress = await getUpdatedRunProgress(executor, schema, options.runId);
   await updateRunProgress(executor, schema, options.runId, progress);
-
-  const events: PlatformEventRecord[] = [
-    ...(publication.status === 'approval-required'
-      ? [{
-          eventId: randomUUID(),
-          runId: options.runId,
-          taskId,
-          eventType: PLATFORM_EVENT_TYPES.APPROVAL_APPROVED,
-          payload: buildRunActionPayload(options, {
-            publicationId: publication.publication_id,
-            publishMode: publication.publish_mode,
-            previousStatus: publication.status,
-            forced: false,
-            gateReason: publication.metadata?.gateReason ?? null
-          })
-        }]
-      : []),
-    {
-      eventId: randomUUID(),
-      runId: options.runId,
-      taskId,
-      eventType: PLATFORM_EVENT_TYPES.PUBLICATION_PUBLISHED,
-      payload: buildRunActionPayload(options, {
-        publicationId: publication.publication_id,
-        publishMode: publication.publish_mode,
-        previousStatus: publication.status,
-        status: 'published',
-        forced: false
-      })
-    },
-    {
-      eventId: randomUUID(),
-      runId: options.runId,
-      taskId,
-      eventType: PLATFORM_EVENT_TYPES.TASK_COMPLETED,
-      payload: buildRunActionPayload(options, {
-        publicationId: publication.publication_id,
-        publicationStatus: 'published',
-        forced: false
-      })
-    }
-  ];
-  await insertPlatformEvents(executor, schema, events);
+  approvalEvents.push({
+    eventId: randomUUID(),
+    runId: options.runId,
+    taskId,
+    eventType: PLATFORM_EVENT_TYPES.TASK_COMPLETED,
+    payload: buildRunActionPayload(options, {
+      publicationId: decision.publication.publicationId,
+      sourcePublicationId: publication.publication_id,
+      publicationStatus: decision.publication.status,
+      forced: false
+    })
+  });
+  await insertPlatformEvents(executor, schema, approvalEvents);
 
   return {
-    action,
+    action: 'approve-publication',
     runId: options.runId,
     runStatus: progress.status,
     currentStage: progress.currentStage,
     paused: isRunPaused(run.metadata),
-    publicationId: publication.publication_id,
-    publicationStatus: 'published'
+    publicationId: decision.publication.publicationId,
+    publicationStatus: decision.publication.status
   };
 }
 

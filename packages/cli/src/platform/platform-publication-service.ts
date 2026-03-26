@@ -29,10 +29,12 @@ function buildPublicationEvents(
     publicationId: publicationRecord.publicationId,
     branchName: publicationRecord.branchName ?? null,
     commitSha: publicationRecord.commitSha ?? null,
+    prUrl: publicationRecord.prUrl ?? null,
     publishMode: publicationRecord.publishMode,
     status: publicationRecord.status,
     gateReason: publicationRecord.gateReason ?? null,
     prDraftPath: publicationRecord.prDraftPath ?? null,
+    mergeStatus: publicationRecord.mergeStatus ?? null,
     approvalRequired: publicationRecord.approvalRequired
   };
 
@@ -107,7 +109,7 @@ function mapPublicationRecord(runId: string, publicationRecord: PublicationRecor
     runId,
     branchName: publicationRecord.branchName ?? null,
     commitSha: publicationRecord.commitSha ?? null,
-    prUrl: null,
+    prUrl: publicationRecord.prUrl ?? null,
     publishMode: publicationRecord.publishMode,
     status: publicationRecord.status,
     metadata: {
@@ -119,6 +121,7 @@ function mapPublicationRecord(runId: string, publicationRecord: PublicationRecor
       commitMessage: publicationRecord.commitMessage ?? null,
       prTitle: publicationRecord.prTitle ?? null,
       prDraftPath: publicationRecord.prDraftPath ?? null,
+      mergeStatus: publicationRecord.mergeStatus ?? null,
       gateReason: publicationRecord.gateReason ?? null,
       artifactRefs: publicationRecord.artifactRefs,
       nextActions: publicationRecord.nextActions

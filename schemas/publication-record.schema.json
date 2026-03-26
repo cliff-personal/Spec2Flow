@@ -41,7 +41,7 @@
     },
     "publishMode": {
       "type": "string",
-      "enum": ["auto-commit", "manual-handoff"]
+      "enum": ["auto-commit", "manual-handoff", "approved-handoff"]
     },
     "summary": {
       "type": "string",
@@ -77,6 +77,14 @@
       "type": "string",
       "minLength": 1
     },
+    "prUrl": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mergeStatus": {
+      "type": "string",
+      "enum": ["not-requested", "requested", "merged", "blocked"]
+    },
     "gateReason": {
       "type": "string",
       "enum": [
@@ -85,7 +93,10 @@
         "missing-implementation-summary",
         "no-scoped-changes",
         "staged-changes-outside-scope",
-        "publish-command-failed"
+        "publish-command-failed",
+        "remote-push-failed",
+        "pull-request-create-failed",
+        "merge-command-failed"
       ]
     },
     "artifactRefs": {

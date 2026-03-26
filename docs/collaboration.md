@@ -3,7 +3,7 @@
 - Status: active
 - Source of truth: `docs/playbooks/collaboration.md`, `docs/usage-guide.md`, `package.json`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-26
 
 ## Goal
 
@@ -49,7 +49,8 @@ Define a simple, reviewable workflow that connects Copilot, Playwright, GitHub A
 Controller-side publication is now part of the collaboration closeout path:
 
 - when policy allows, Spec2Flow can create a scoped `spec2flow/...` branch and deterministic commit after the collaboration handoff
-- when policy blocks auto-commit, Spec2Flow writes a `publication-record` and optional PR draft artifact, then leaves the route blocked for manual publish
+- when policy blocks auto-commit or requires approval, Spec2Flow writes a `publication-record` and optional PR draft artifact, then leaves the route blocked for an explicit operator publication action
+- when an operator approves publication, Spec2Flow now replays publication through the real orchestration path: push the branch, create a pull request through `gh`, and request merge orchestration before completing the route
 
 ## Tool Responsibilities
 
@@ -84,7 +85,7 @@ Human review is required for:
 - publishing externally visible bug reports
 - changing workflow conventions
 
-Remote push and PR API publication still stay outside the current automation boundary.
+Remote publication is now inside the automation boundary for explicit operator-approved publication, but merge approval and repository policy still remain governed by the target Git provider and its branch protections.
 
 ## Recommended Labels
 

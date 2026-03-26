@@ -3,7 +3,7 @@
 - Status: active
 - Source of truth: `package.json`, `docs/examples/synapse-network/README.md`, `docs/playbooks/index.md`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`, `npm run validate:synapse-example`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-26
 
 ## Goal
 
@@ -348,7 +348,8 @@ Phase 5 now upgrades `collaboration` from a handoff-only stage into a policy-gat
 
 - `packages/cli/src/runtime/collaboration-publication-service.ts` reads the completed `collaboration-handoff` and decides whether the route can auto-publish or must stop at a manual gate
 - when `reviewPolicy.allowAutoCommit` is enabled and approval is not required, the controller creates a scoped `spec2flow/...` branch, stages the implementation-summary file set, and creates a deterministic git commit
-- when auto-commit is blocked, the controller writes a `publication-record` plus optional `pr-draft` artifact and moves the route to `blocked` so an operator can publish manually
+- when auto-commit is blocked or approval is still required, the controller writes a `publication-record` plus optional `pr-draft` artifact and moves the route to `blocked` so an operator can intervene through an explicit publication action
+- `approve-publication` now replays publication through the governed runtime path, including branch push, pull-request creation through `gh`, and merge orchestration request when the target repository allows it
 - PostgreSQL-backed runs now persist those publication outcomes in `publications` and emit publication events through `packages/cli/src/platform/platform-publication-service.ts`
 
 ## Recommended Integration Layout

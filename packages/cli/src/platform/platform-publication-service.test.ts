@@ -79,6 +79,8 @@ describe('platform-publication-service', () => {
       commitMessage: 'spec2flow: publish frontend-smoke handoff',
       prTitle: 'Frontend smoke collaboration handoff',
       prDraftPath: 'spec2flow/outputs/collaboration/frontend-smoke/pr-draft.md',
+      prUrl: 'https://github.com/cliff-personal/Spec2Flow/pull/88',
+      mergeStatus: 'requested',
       artifactRefs: ['implementation-summary', 'execution-report'],
       nextActions: ['Open the pull request handoff for review.']
     }, null, 2)}\n`, 'utf8');
@@ -110,6 +112,7 @@ describe('platform-publication-service', () => {
 
     expect(result.publicationsInserted).toBe(1);
     expect(result.eventsWritten).toBe(1);
+    expect(executor.calls[0]?.values?.[4]).toBe('https://github.com/cliff-personal/Spec2Flow/pull/88');
   });
 
   it('emits approval-requested events for approval-gated publication records', async () => {

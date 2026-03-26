@@ -9,6 +9,7 @@ import type { TaskState } from '../types/execution-state.js';
 import type { Task, TaskRoleProfile } from '../types/task-graph.js';
 
 const tempDirs: string[] = [];
+const originalPath = process.env.PATH ?? '';
 
 function createRoleProfile(stage: TaskRoleProfile['specialistRole']): TaskRoleProfile {
   return {
@@ -36,6 +37,39 @@ function initGitRepo(): string {
   execFileSync('git', ['add', 'src/app.ts'], { cwd: repoRoot, encoding: 'utf8' });
   execFileSync('git', ['commit', '-m', 'initial'], { cwd: repoRoot, encoding: 'utf8' });
   return repoRoot;
+}
+
+function enableRemotePullRequestCommands(repoRoot: string): string {
+  const remoteRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-collaboration-remote-'));
+  tempDirs.push(remoteRoot);
+  execFileSync('git', ['init', '--bare'], { cwd: remoteRoot, encoding: 'utf8' });
+  execFileSync('git', ['remote', 'add', 'origin', remoteRoot], { cwd: repoRoot, encoding: 'utf8' });
+  execFileSync('git', ['push', '--set-upstream', 'origin', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' });
+
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-gh-bin-'));
+  tempDirs.push(binDir);
+  const ghLogPath = path.join(binDir, 'gh.log');
+  const ghPath = path.join(binDir, 'gh');
+  const ghScript = [
+    '#!/bin/sh',
+    'printf "%s\\n" "$*" >> "$GH_LOG_PATH"',
+    'if [ "$1" = "pr" ] && [ "$2" = "create" ]; then',
+    '  printf "%s\\n" "$GH_PR_URL"',
+    '  exit 0',
+    'fi',
+    'if [ "$1" = "pr" ] && [ "$2" = "merge" ]; then',
+    '  exit 0',
+    'fi',
+    'exit 1',
+    ''
+  ].join('\n');
+  fs.writeFileSync(ghPath, ghScript, 'utf8');
+  fs.chmodSync(ghPath, 0o755);
+
+  process.env.GH_LOG_PATH = ghLogPath;
+  process.env.GH_PR_URL = 'https://github.com/cliff-personal/Spec2Flow/pull/321';
+  process.env.PATH = `${binDir}:${originalPath}`;
+  return ghLogPath;
 }
 
 function writeImplementationSummary(repoRoot: string): string {
@@ -104,6 +138,9 @@ function createTaskState(status: TaskState['status'] = 'completed'): TaskState {
 }
 
 afterEach(() => {
+  process.env.PATH = originalPath;
+  delete process.env.GH_LOG_PATH;
+  delete process.env.GH_PR_URL;
   while (tempDirs.length > 0) {
     const tempDir = tempDirs.pop();
     if (tempDir) {
@@ -254,5 +291,60 @@ describe('collaboration-publication-service', () => {
     expect(decision.publication.branchName).toMatch(/^spec2flow\//);
     expect(decision.publication.commitSha).toBeTruthy();
     expect(decision.generatedArtifacts.map((artifact) => artifact.id)).toEqual(expect.arrayContaining(['publication-record', 'pr-draft']));
+  });
+
+  it('approves publication through real PR creation and merge orchestration', () => {
+    const repoRoot = initGitRepo();
+    const ghLogPath = enableRemotePullRequestCommands(repoRoot);
+    const implementationSummaryPath = writeImplementationSummary(repoRoot);
+    const collaborationHandoffPath = writeCollaborationHandoff(repoRoot, true);
+    fs.writeFileSync(path.join(repoRoot, 'src', 'app.ts'), 'export const value = 2;\n', 'utf8');
+
+    const decision = applyCollaborationPublicationPolicy({
+      taskGraphTask: createCollaborationTask(false, true),
+      taskState: createTaskState('blocked'),
+      artifacts: [
+        {
+          id: 'collaboration-handoff',
+          kind: 'report',
+          path: collaborationHandoffPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ],
+      allArtifacts: [
+        {
+          id: 'implementation-summary',
+          kind: 'report',
+          path: implementationSummaryPath,
+          taskId: 'frontend-smoke--code-implementation'
+        },
+        {
+          id: 'collaboration-handoff',
+          kind: 'report',
+          path: collaborationHandoffPath,
+          taskId: 'frontend-smoke--collaboration'
+        }
+      ],
+      artifactBaseDir: repoRoot,
+      approvalMode: 'operator-approved',
+      remotePublication: {
+        createPullRequest: true,
+        requestMerge: true,
+        mergeMethod: 'squash'
+      }
+    });
+
+    expect(decision.status).toBe('published');
+    if (decision.status !== 'published') {
+      throw new Error('expected approved publication to publish');
+    }
+
+    expect(decision.publication.publishMode).toBe('approved-handoff');
+    expect(decision.publication.prUrl).toBe('https://github.com/cliff-personal/Spec2Flow/pull/321');
+    expect(decision.publication.mergeStatus).toBe('requested');
+
+    const ghLog = fs.readFileSync(ghLogPath, 'utf8');
+    expect(ghLog).toContain('pr create');
+    expect(ghLog).toContain('pr merge --auto --squash https://github.com/cliff-personal/Spec2Flow/pull/321');
   });
 });

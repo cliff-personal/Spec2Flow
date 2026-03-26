@@ -161,7 +161,7 @@ export interface PublicationRecord {
   taskId: string;
   stage: 'collaboration';
   status: 'published' | 'approval-required' | 'blocked';
-  publishMode: 'auto-commit' | 'manual-handoff';
+  publishMode: 'auto-commit' | 'manual-handoff' | 'approved-handoff';
   summary: string;
   handoffType: CollaborationHandoff['handoffType'];
   approvalRequired: boolean;
@@ -171,13 +171,18 @@ export interface PublicationRecord {
   commitMessage?: string;
   prTitle?: string;
   prDraftPath?: string;
+  prUrl?: string;
+  mergeStatus?: 'not-requested' | 'requested' | 'merged' | 'blocked';
   gateReason?:
     | 'human-approval-required'
     | 'auto-commit-disabled'
     | 'missing-implementation-summary'
     | 'no-scoped-changes'
     | 'staged-changes-outside-scope'
-    | 'publish-command-failed';
+    | 'publish-command-failed'
+    | 'remote-push-failed'
+    | 'pull-request-create-failed'
+    | 'merge-command-failed';
   artifactRefs: string[];
   nextActions: string[];
 }

@@ -37,6 +37,12 @@ export interface ApplyCollaborationPublicationOptions {
   allArtifacts: ArtifactRef[];
   artifactBaseDir: string;
   forcePublish?: boolean;
+  approvalMode?: 'operator-approved';
+  remotePublication?: {
+    createPullRequest?: boolean;
+    requestMerge?: boolean;
+    mergeMethod?: 'merge' | 'squash' | 'rebase';
+  };
 }
 
 function normalizeArtifactSearchValue(value: string): string {
@@ -74,6 +80,13 @@ function resolveGitRepositoryRoot(startDir: string): string {
 
 function runGit(repoRoot: string, args: string[]): string {
   return execFileSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8'
+  }).trim();
+}
+
+function runGh(repoRoot: string, args: string[]): string {
+  return execFileSync('gh', args, {
     cwd: repoRoot,
     encoding: 'utf8'
   }).trim();
@@ -253,10 +266,151 @@ function writePublicationRecord(
   writeJsonFrom(artifactBaseDir, publicationRecordPath, publicationRecord);
 }
 
+function resolveSuccessfulPublishMode(
+  operatorApproved: boolean,
+  publicationAutoCommitEnabled: boolean
+): PublicationRecord['publishMode'] {
+  if (operatorApproved) {
+    return 'approved-handoff';
+  }
+
+  return publicationAutoCommitEnabled ? 'auto-commit' : 'manual-handoff';
+}
+
+function buildPublicationNotes(publicationRecord: PublicationRecord, draftArtifacts: ArtifactRef[]): string[] {
+  return [
+    'publication-status:published',
+    ...(publicationRecord.branchName ? [`publication-branch:${publicationRecord.branchName}`] : []),
+    ...(publicationRecord.commitSha ? [`publication-commit:${publicationRecord.commitSha}`] : []),
+    ...(publicationRecord.prUrl ? [`publication-pr-url:${publicationRecord.prUrl}`] : []),
+    ...(publicationRecord.mergeStatus ? [`publication-merge-status:${publicationRecord.mergeStatus}`] : []),
+    ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
+  ];
+}
+
+function blockPublishedPublication(
+  publicationRecord: PublicationRecord,
+  reason: PublicationGateReason,
+  publicationRecordPath: string,
+  artifactBaseDir: string,
+  taskId: string,
+  draftArtifacts: ArtifactRef[],
+  notes: string[]
+): CollaborationPublicationDecision {
+  publicationRecord.status = 'blocked';
+  publicationRecord.gateReason = reason;
+  writePublicationRecord(artifactBaseDir, publicationRecordPath, publicationRecord);
+
+  return {
+    status: 'blocked',
+    reason,
+    publication: publicationRecord,
+    generatedArtifacts: [
+      buildGeneratedArtifact(taskId, 'publication-record', publicationRecordPath),
+      ...draftArtifacts
+    ],
+    notes
+  };
+}
+
+function finalizePublishedPublication(
+  options: ApplyCollaborationPublicationOptions,
+  handoff: CollaborationHandoff,
+  repoRoot: string,
+  publicationRecordPath: string,
+  publicationArtifactsDir: string,
+  publicationRecord: PublicationRecord,
+  writeDraftArtifact: (publicationRecord: PublicationRecord) => ArtifactRef[]
+): CollaborationPublicationDecision {
+  const draftArtifacts = writeDraftArtifact(publicationRecord);
+  const remotePublication = options.remotePublication;
+
+  if (remotePublication?.createPullRequest && handoff.handoffType === 'pull-request' && publicationRecord.branchName) {
+    try {
+      runGit(repoRoot, ['push', '--set-upstream', 'origin', publicationRecord.branchName]);
+    } catch {
+      return blockPublishedPublication(
+        publicationRecord,
+        'remote-push-failed',
+        publicationRecordPath,
+        options.artifactBaseDir,
+        options.taskGraphTask.id,
+        draftArtifacts,
+        [
+          `publication-branch:${publicationRecord.branchName}`,
+          'publication-blocked:remote-push-failed',
+          ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
+        ]
+      );
+    }
+
+    const prDraftAbsolutePath = publicationRecord.prDraftPath
+      ? path.resolve(repoRoot, publicationRecord.prDraftPath)
+      : path.join(publicationArtifactsDir, 'pr-draft.md');
+    const prTitle = publicationRecord.prTitle ?? buildPrTitle(getRouteName(options.taskGraphTask.id), handoff);
+
+    try {
+      const prUrl = runGh(repoRoot, ['pr', 'create', '--title', prTitle, '--body-file', prDraftAbsolutePath, '--head', publicationRecord.branchName]);
+      publicationRecord.prTitle = prTitle;
+      publicationRecord.prUrl = prUrl;
+    } catch {
+      return blockPublishedPublication(
+        publicationRecord,
+        'pull-request-create-failed',
+        publicationRecordPath,
+        options.artifactBaseDir,
+        options.taskGraphTask.id,
+        draftArtifacts,
+        [
+          `publication-branch:${publicationRecord.branchName}`,
+          'publication-blocked:pull-request-create-failed',
+          ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
+        ]
+      );
+    }
+
+    if (remotePublication.requestMerge && publicationRecord.prUrl) {
+      try {
+        runGh(repoRoot, ['pr', 'merge', '--auto', `--${remotePublication.mergeMethod ?? 'squash'}`, publicationRecord.prUrl]);
+        publicationRecord.mergeStatus = 'requested';
+      } catch {
+        publicationRecord.mergeStatus = 'blocked';
+        return blockPublishedPublication(
+          publicationRecord,
+          'merge-command-failed',
+          publicationRecordPath,
+          options.artifactBaseDir,
+          options.taskGraphTask.id,
+          draftArtifacts,
+          [
+            ...(publicationRecord.prUrl ? [`publication-pr-url:${publicationRecord.prUrl}`] : []),
+            'publication-blocked:merge-command-failed',
+            ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
+          ]
+        );
+      }
+    } else {
+      publicationRecord.mergeStatus = 'not-requested';
+    }
+  }
+
+  writePublicationRecord(options.artifactBaseDir, publicationRecordPath, publicationRecord);
+  return {
+    status: 'published',
+    publication: publicationRecord,
+    generatedArtifacts: [
+      buildGeneratedArtifact(options.taskGraphTask.id, 'publication-record', publicationRecordPath),
+      ...draftArtifacts
+    ],
+    notes: buildPublicationNotes(publicationRecord, draftArtifacts)
+  };
+}
+
 export function applyCollaborationPublicationPolicy(options: ApplyCollaborationPublicationOptions): CollaborationPublicationDecision {
   const forcePublish = options.forcePublish === true;
+  const operatorApproved = options.approvalMode === 'operator-approved';
   const taskStateAllowsPublication = options.taskState.status === 'completed'
-    || (forcePublish && options.taskState.status === 'blocked');
+    || ((forcePublish || operatorApproved) && options.taskState.status === 'blocked');
 
   if (options.taskGraphTask.stage !== 'collaboration' || !taskStateAllowsPublication) {
     return {
@@ -282,9 +436,10 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   const publicationRecordPath = toRelativeArtifactPath(repoRoot, publicationRecordAbsolutePath);
   const generatedArtifacts: ArtifactRef[] = [];
   const autoCommitEnabled = options.taskGraphTask.reviewPolicy?.allowAutoCommit === true;
-  const publicationAutoCommitEnabled = autoCommitEnabled || forcePublish;
-  const requireHumanApproval = !forcePublish
+  const publicationAutoCommitEnabled = autoCommitEnabled || forcePublish || operatorApproved;
+  const requireHumanApproval = !(forcePublish || operatorApproved)
     && (options.taskGraphTask.reviewPolicy?.requireHumanApproval === true || handoff.approvalRequired === true);
+  const successfulPublishMode = resolveSuccessfulPublishMode(operatorApproved, publicationAutoCommitEnabled);
 
   if (handoff.handoffType === 'pull-request') {
     ensureDirForFile(path.join(repoRoot, publicationRecordPath));
@@ -340,22 +495,11 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     if (earlyChangedFiles.length > 0 && checkIfScopedChangesAreCommitted(repoRoot, earlyChangedFiles)) {
       const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
       const currentBranch = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-      const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', 'manual-handoff', {
+      const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
         branchName: currentBranch,
         commitSha
       });
-      writePublicationRecord(options.artifactBaseDir, publicationRecordPath, publicationRecord);
-      generatedArtifacts.push(buildGeneratedArtifact(options.taskGraphTask.id, 'publication-record', publicationRecordPath));
-      return {
-        status: 'published',
-        publication: publicationRecord,
-        generatedArtifacts,
-        notes: [
-          'publication-status:published',
-          `publication-branch:${currentBranch}`,
-          `publication-commit:${commitSha}`
-        ]
-      };
+      return finalizePublishedPublication(options, handoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
     }
 
     const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'approval-required', 'manual-handoff', {
@@ -434,28 +578,12 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   if (checkIfScopedChangesAreCommitted(repoRoot, scopedChangedFiles)) {
     const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
     const currentBranch = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', 'auto-commit', {
+    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
       branchName: currentBranch,
       commitSha,
       commitMessage
     });
-    const draftArtifacts = writeDraftArtifact(publicationRecord);
-    writePublicationRecord(options.artifactBaseDir, publicationRecordPath, publicationRecord);
-    generatedArtifacts.push(
-      buildGeneratedArtifact(options.taskGraphTask.id, 'publication-record', publicationRecordPath),
-      ...draftArtifacts
-    );
-    return {
-      status: 'published',
-      publication: publicationRecord,
-      generatedArtifacts,
-      notes: [
-        'publication-status:published',
-        `publication-branch:${currentBranch}`,
-        `publication-commit:${commitSha}`,
-        ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
-      ]
-    };
+    return finalizePublishedPublication(options, handoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
   }
 
   // If we are already on a spec2flow/ worktree branch, stage and commit there
@@ -498,33 +626,12 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
 
     runGit(repoRoot, ['commit', '-m', commitMessage]);
     const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
-    try {
-      runGit(repoRoot, ['push', '--set-upstream', 'origin', branchName]);
-    } catch {
-      // Push failure is non-fatal — the commit succeeded and the branch exists locally
-    }
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', 'auto-commit', {
+    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
       branchName,
       commitSha,
       commitMessage
     });
-    const draftArtifacts = writeDraftArtifact(publicationRecord);
-    writePublicationRecord(options.artifactBaseDir, publicationRecordPath, publicationRecord);
-    generatedArtifacts.push(
-      buildGeneratedArtifact(options.taskGraphTask.id, 'publication-record', publicationRecordPath),
-      ...draftArtifacts
-    );
-    return {
-      status: 'published',
-      publication: publicationRecord,
-      generatedArtifacts,
-      notes: [
-        'publication-status:published',
-        `publication-branch:${branchName}`,
-        `publication-commit:${commitSha}`,
-        ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
-      ]
-    };
+    return finalizePublishedPublication(options, handoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
   } catch {
     const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
       branchName,
