@@ -32,6 +32,7 @@ export interface SchemaValidators {
   taskResult: ValidateFunction;
   adapterRun: ValidateFunction;
   adapterRuntime: ValidateFunction;
+  modelAdapterCapability: ValidateFunction;
 }
 
 export function getSchemaValidators(): SchemaValidators {
@@ -58,6 +59,7 @@ export function getSchemaValidators(): SchemaValidators {
     executionState: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/execution-state.schema.json'))),
     taskResult: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/task-result.schema.json'))),
     adapterRun: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/adapter-run.schema.json'))),
-    adapterRuntime: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/model-adapter-runtime.schema.json')))
+    adapterRuntime: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/model-adapter-runtime.schema.json'))),
+    modelAdapterCapability: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/model-adapter-capability.schema.json')))
   };
 }

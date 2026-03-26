@@ -28,6 +28,11 @@ export interface PlatformWorkspacePolicy {
   forbiddenWriteGlobs: string[];
 }
 
+export interface PlatformProjectAdapterProfile {
+  runtimePath: string;
+  capabilityPath?: string | null;
+}
+
 export interface PlatformProjectRecord {
   projectId: string;
   repositoryId: string;
@@ -39,6 +44,7 @@ export interface PlatformProjectRecord {
   riskPath?: string | null;
   defaultBranch?: string | null;
   branchPrefix?: string | null;
+  adapterProfile?: PlatformProjectAdapterProfile | null;
   workspacePolicy: PlatformWorkspacePolicy;
   metadata?: Record<string, unknown>;
   createdAt?: string | null;

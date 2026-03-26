@@ -2,6 +2,30 @@ import { describe, expect, it } from 'vitest';
 import { getSchemaValidators } from './schema-registry.js';
 
 describe('schema-registry', () => {
+  it('accepts a valid model-adapter-capability payload', () => {
+    const validators = getSchemaValidators();
+
+    const valid = validators.modelAdapterCapability({
+      adapter: {
+        name: 'github-copilot',
+        provider: 'github',
+        supports: {
+          toolCalling: true,
+          jsonMode: true,
+          multiAgentDispatch: true,
+          codeEditing: true,
+          streaming: true
+        },
+        limits: {
+          maxContextTokens: 128000,
+          maxParallelAgents: 4
+        }
+      }
+    });
+
+    expect(valid).toBe(true);
+  });
+
   it('accepts a valid adapter-run payload', () => {
     const validators = getSchemaValidators();
 

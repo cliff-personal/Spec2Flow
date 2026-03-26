@@ -21,6 +21,53 @@ export interface RegisterPlatformProjectDependencies {
   writeJson: (filePath: string, payload: unknown) => void;
 }
 
+function assignStringOption<T extends object, K extends keyof T>(
+  target: T,
+  key: K,
+  value: string | boolean | undefined,
+  transform?: (next: string) => T[K]
+): void {
+  if (typeof value !== 'string') {
+    return;
+  }
+
+  target[key] = (transform ? transform(value) : value as T[K]);
+}
+
+function buildProjectRegistrationRequest(
+  options: CliOptions,
+  parseCsvOption: RegisterPlatformProjectDependencies['parseCsvOption'],
+  repositoryRootPath: string
+): Parameters<RegisterPlatformProjectDependencies['registerPlatformProject']>[2] {
+  const request: Parameters<RegisterPlatformProjectDependencies['registerPlatformProject']>[2] = {
+    repositoryRootPath,
+    workspacePolicy: {
+      allowedReadGlobs: parseCsvOption(typeof options['allowed-read-globs'] === 'string' ? options['allowed-read-globs'] : undefined),
+      allowedWriteGlobs: parseCsvOption(typeof options['allowed-write-globs'] === 'string' ? options['allowed-write-globs'] : undefined),
+      forbiddenWriteGlobs: parseCsvOption(typeof options['forbidden-write-globs'] === 'string' ? options['forbidden-write-globs'] : undefined)
+    }
+  };
+
+  assignStringOption(request, 'projectId', options['project-id']);
+  assignStringOption(request, 'projectName', options['project-name']);
+  assignStringOption(request, 'workspaceRootPath', options['workspace-root'], resolveFromCwd);
+  assignStringOption(request, 'projectPath', options.project, resolveFromCwd);
+  assignStringOption(request, 'topologyPath', options.topology, resolveFromCwd);
+  assignStringOption(request, 'riskPath', options.risk, resolveFromCwd);
+  assignStringOption(request, 'repositoryId', options['repository-id']);
+  assignStringOption(request, 'repositoryName', options['repository-name']);
+  assignStringOption(request, 'defaultBranch', options['default-branch']);
+  assignStringOption(request, 'branchPrefix', options['branch-prefix']);
+
+  if (typeof options['adapter-runtime'] === 'string' || typeof options['adapter-capability'] === 'string') {
+    request.adapterProfile = {};
+    assignStringOption(request.adapterProfile, 'runtimePath', options['adapter-runtime']);
+    assignStringOption(request.adapterProfile, 'capabilityPath', options['adapter-capability']);
+  }
+
+  return request;
+}
+
 export async function runRegisterPlatformProject(
   options: CliOptions,
   dependencies: RegisterPlatformProjectDependencies
@@ -38,27 +85,11 @@ export async function runRegisterPlatformProject(
   const outputPath = typeof options.output === 'string' ? options.output : undefined;
   const pool = dependencies.createPlatformPool(config);
   let projectRegistration: PlatformControlPlaneProjectRegistrationResult;
+  const request = buildProjectRegistrationRequest(options, dependencies.parseCsvOption, repositoryRootPath);
 
   try {
     projectRegistration = await dependencies.withPlatformTransaction(pool, async (client) =>
-      dependencies.registerPlatformProject(client, config.schema, {
-        repositoryRootPath,
-        ...(typeof options['project-id'] === 'string' ? { projectId: options['project-id'] } : {}),
-        ...(typeof options['project-name'] === 'string' ? { projectName: options['project-name'] } : {}),
-        ...(typeof options['workspace-root'] === 'string' ? { workspaceRootPath: resolveFromCwd(options['workspace-root']) } : {}),
-        ...(typeof options.project === 'string' ? { projectPath: resolveFromCwd(options.project) } : {}),
-        ...(typeof options.topology === 'string' ? { topologyPath: resolveFromCwd(options.topology) } : {}),
-        ...(typeof options.risk === 'string' ? { riskPath: resolveFromCwd(options.risk) } : {}),
-        ...(typeof options['repository-id'] === 'string' ? { repositoryId: options['repository-id'] } : {}),
-        ...(typeof options['repository-name'] === 'string' ? { repositoryName: options['repository-name'] } : {}),
-        ...(typeof options['default-branch'] === 'string' ? { defaultBranch: options['default-branch'] } : {}),
-        ...(typeof options['branch-prefix'] === 'string' ? { branchPrefix: options['branch-prefix'] } : {}),
-        workspacePolicy: {
-          allowedReadGlobs: dependencies.parseCsvOption(typeof options['allowed-read-globs'] === 'string' ? options['allowed-read-globs'] : undefined),
-          allowedWriteGlobs: dependencies.parseCsvOption(typeof options['allowed-write-globs'] === 'string' ? options['allowed-write-globs'] : undefined),
-          forbiddenWriteGlobs: dependencies.parseCsvOption(typeof options['forbidden-write-globs'] === 'string' ? options['forbidden-write-globs'] : undefined)
-        }
-      })
+      dependencies.registerPlatformProject(client, config.schema, request)
     );
   } finally {
     await pool.end();

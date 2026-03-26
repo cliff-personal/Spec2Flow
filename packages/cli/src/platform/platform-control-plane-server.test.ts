@@ -53,6 +53,7 @@ describe('platform-control-plane-server', () => {
         riskPath: '/workspace/Spec2Flow/risk.yaml',
         defaultBranch: 'main',
         branchPrefix: 'spec2flow/',
+        adapterProfile: null,
         workspacePolicy: {
           allowedReadGlobs: ['**/*'],
           allowedWriteGlobs: ['src/**'],
@@ -82,6 +83,7 @@ describe('platform-control-plane-server', () => {
             riskPath: '/workspace/Spec2Flow/risk.yaml',
             defaultBranch: 'main',
             branchPrefix: 'spec2flow/',
+            adapterProfile: null,
             workspacePolicy: {
               allowedReadGlobs: ['**/*'],
               allowedWriteGlobs: ['src/**'],

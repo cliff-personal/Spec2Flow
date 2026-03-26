@@ -1,7 +1,7 @@
 # Architecture Overview
 
 - Status: active
-- Source of truth: `AGENTS.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/execution-state-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `packages/cli/src/shared/task-role-profile.ts`
+- Source of truth: `AGENTS.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/execution-state-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `packages/cli/src/platform/platform-project-service.ts`, `packages/cli/src/platform/platform-scheduler-service.ts`, `packages/cli/src/platform/platform-auto-runner-service.ts`, `packages/cli/src/shared/task-role-profile.ts`
 - Verified with: `npm run build`, `npm run test:unit`
 - Last verified: 2026-03-26
 
@@ -73,6 +73,7 @@ Storage model:
 - planning output is stored in `task-graph.json`
 - runtime progress is stored in `execution-state.json`
 - large evidence such as logs, screenshots, traces, and reports is stored in artifact directories and referenced back from `execution-state.json`
+- platform project registration persists adapter runtime and capability references so scheduler state can prefer project truth over late filesystem discovery
 
 The relationship between the two generated files is:
 - `task-graph.json` answers what should run
@@ -107,6 +108,10 @@ Responsibilities:
 Primary contract files:
 - `model-adapter-capability.json`
 - `model-adapter-runtime.json`
+
+Platform adapter selection rule:
+- registered projects persist an adapter profile in the control-plane store
+- the auto-runner prefers the stored project adapter profile and only falls back to default `.spec2flow/model-adapter-runtime.json` discovery for backward compatibility
 
 Runtime configuration reference:
 - [docs/runtime-config-reference.md](runtime-config-reference.md)

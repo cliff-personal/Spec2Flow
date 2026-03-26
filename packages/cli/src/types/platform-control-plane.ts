@@ -1,5 +1,6 @@
 import type { PlatformObservabilityReadModel } from './platform-observability.js';
 import type {
+  PlatformProjectAdapterProfile,
   PlatformProjectRecord,
   PlatformRunRecord,
   PlatformRunStateSnapshot,
@@ -50,6 +51,7 @@ export interface PlatformControlPlaneProjectListItem {
   riskPath?: string | null;
   defaultBranch?: string | null;
   branchPrefix?: string | null;
+  adapterProfile: PlatformProjectAdapterProfile | null;
   workspacePolicy: PlatformWorkspacePolicy;
   createdAt: string | null;
   updatedAt: string | null;
@@ -67,6 +69,10 @@ export interface PlatformControlPlaneProjectRegistrationRequest {
   repositoryName?: string;
   defaultBranch?: string;
   branchPrefix?: string;
+  adapterProfile?: {
+    runtimePath?: string;
+    capabilityPath?: string;
+  };
   workspacePolicy?: {
     allowedReadGlobs?: string[];
     allowedWriteGlobs?: string[];
@@ -178,6 +184,10 @@ export interface PlatformControlPlaneRunSubmissionRequest {
   defaultBranch?: string;
   runId?: string;
   routes?: string[];
+  adapterProfile?: {
+    runtimePath?: string;
+    capabilityPath?: string;
+  };
 }
 
 export interface PlatformControlPlaneRunSubmissionResult {

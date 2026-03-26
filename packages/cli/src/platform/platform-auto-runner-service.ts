@@ -9,21 +9,32 @@ import {
   persistPlatformWorkerResult
 } from './platform-worker-service.js';
 import {
+  getPlatformRunState,
   leaseNextPlatformTask,
   startPlatformTask
 } from './platform-scheduler-service.js';
 import { listPlatformRuns } from './platform-control-plane-service.js';
 import { withPlatformTransaction } from './platform-database.js';
+import {
+  DEFAULT_PLATFORM_PROJECT_ADAPTER_RUNTIME_PATH,
+  type PlatformProjectAdapterProfileInput
+} from './platform-project-adapter-profile.js';
 import type { AdapterRunnerDependencies } from '../adapters/adapter-runner.js';
 import type { TaskStage } from '../types/index.js';
 
 // Stages that can run without an AI adapter
-const DETERMINISTIC_STAGES: TaskStage[] = ['environment-preparation', 'automated-execution'];
+const DETERMINISTIC_STAGES = new Set<TaskStage>(['environment-preparation', 'automated-execution']);
 
 // Standard locations to search for the project's adapter runtime, in priority order.
 const ADAPTER_RUNTIME_CANDIDATES = [
-  path.join('.spec2flow', 'model-adapter-runtime.json'),
+  DEFAULT_PLATFORM_PROJECT_ADAPTER_RUNTIME_PATH,
 ];
+
+export interface AutoRunnerResolvedAdapterProfile {
+  runtimePath: string | null;
+  capabilityPath: string | null;
+  source: 'project' | 'fallback' | 'missing' | 'invalid-project-runtime';
+}
 
 function findAdapterRuntimePath(
   worktreePath: string | null | undefined,
@@ -39,6 +50,217 @@ function findAdapterRuntimePath(
     }
   }
   return null;
+}
+
+export function resolveAutoRunnerAdapterProfile(
+  projectAdapterProfile: PlatformProjectAdapterProfileInput | null | undefined,
+  worktreePath: string | null | undefined,
+  repositoryRootPath: string | null | undefined
+): AutoRunnerResolvedAdapterProfile {
+  const configuredRuntimePath = projectAdapterProfile?.runtimePath?.trim() || null;
+  const configuredCapabilityPath = projectAdapterProfile?.capabilityPath?.trim() || null;
+
+  if (configuredRuntimePath) {
+    if (fs.existsSync(configuredRuntimePath)) {
+      return {
+        runtimePath: configuredRuntimePath,
+        capabilityPath: configuredCapabilityPath && fs.existsSync(configuredCapabilityPath) ? configuredCapabilityPath : null,
+        source: 'project'
+      };
+    }
+
+    return {
+      runtimePath: configuredRuntimePath,
+      capabilityPath: configuredCapabilityPath,
+      source: 'invalid-project-runtime'
+    };
+  }
+
+  const fallbackRuntimePath = findAdapterRuntimePath(worktreePath, repositoryRootPath);
+  if (fallbackRuntimePath) {
+    return {
+      runtimePath: fallbackRuntimePath,
+      capabilityPath: null,
+      source: 'fallback'
+    };
+  }
+
+  return {
+    runtimePath: null,
+    capabilityPath: null,
+    source: 'missing'
+  };
+}
+
+async function loadResolvedAdapterProfile(
+  config: PlatformAutoRunnerConfig,
+  runId: string
+): Promise<AutoRunnerResolvedAdapterProfile> {
+  const snapshot = await withPlatformTransaction(config.pool, (client) =>
+    getPlatformRunState(client, config.schema, {
+      runId,
+      eventLimit: 1
+    })
+  );
+
+  return resolveAutoRunnerAdapterProfile(
+    snapshot.project?.adapterProfile ?? null,
+    snapshot.workspace?.worktreePath,
+    snapshot.project?.repositoryRootPath
+  );
+}
+
+async function materializeAutoRunnerClaim(
+  config: PlatformAutoRunnerConfig,
+  runId: string,
+  taskId: string,
+  workerId: string,
+  adapterProfile: AutoRunnerResolvedAdapterProfile
+): Promise<Awaited<ReturnType<typeof materializePlatformWorkerClaim>>> {
+  return withPlatformTransaction(config.pool, (client) =>
+    materializePlatformWorkerClaim(client, config.schema, {
+      runId,
+      taskId,
+      workerId,
+      adapter: 'spec2flow-auto-runner',
+      ...(adapterProfile.capabilityPath ? { adapterCapabilityPath: adapterProfile.capabilityPath } : {})
+    })
+  );
+}
+
+async function executeAutoRunnerTask(
+  materialization: Awaited<ReturnType<typeof materializePlatformWorkerClaim>>,
+  stage: TaskStage,
+  taskId: string,
+  adapterProfile: AutoRunnerResolvedAdapterProfile
+): Promise<Awaited<ReturnType<typeof executePlatformWorkerMaterialization>>> {
+  if (DETERMINISTIC_STAGES.has(stage)) {
+    console.log(`[auto-runner] deterministic ${stage} task ${taskId}`);
+    return executePlatformWorkerMaterialization(
+      { materialization },
+      noopAdapterDeps
+    );
+  }
+
+  if (adapterProfile.source === 'project' || adapterProfile.source === 'fallback') {
+    console.log(`[auto-runner] dispatching ${stage} task ${taskId} via ${adapterProfile.runtimePath}`);
+    return executePlatformWorkerMaterialization(
+      {
+        materialization,
+        ...(adapterProfile.runtimePath ? { adapterRuntimePath: adapterProfile.runtimePath } : {}),
+        ...(adapterProfile.capabilityPath ? { adapterCapabilityPath: adapterProfile.capabilityPath } : {})
+      },
+      noopAdapterDeps
+    );
+  }
+
+  if (adapterProfile.source === 'invalid-project-runtime') {
+    return buildStoppedPlatformWorkerExecutionResult({
+      materialization,
+      message: `Stage "${stage}" requires an AI adapter, but the registered project adapter runtime is missing: ${adapterProfile.runtimePath}`,
+      code: 'invalid-project-adapter-runtime',
+      recoverable: true
+    });
+  }
+
+  const worktreePath = materialization.snapshot.workspace?.worktreePath;
+  const repositoryRootPath = materialization.snapshot.project?.repositoryRootPath;
+  const searchedPaths = [worktreePath, repositoryRootPath]
+    .filter(Boolean)
+    .map((root) => `${root}/${DEFAULT_PLATFORM_PROJECT_ADAPTER_RUNTIME_PATH}`)
+    .join(', ');
+  return buildStoppedPlatformWorkerExecutionResult({
+    materialization,
+    message: `Stage "${stage}" requires an AI adapter. Register a project adapter profile or add .spec2flow/model-adapter-runtime.json to your project root. Searched: ${searchedPaths || 'no project path resolved'}`,
+    code: 'no-adapter-configured',
+    recoverable: true
+  });
+}
+
+async function processLeasedTask(
+  config: PlatformAutoRunnerConfig,
+  runId: string,
+  taskId: string,
+  stage: TaskStage,
+  workerId: string
+): Promise<void> {
+  let materialization: Awaited<ReturnType<typeof materializePlatformWorkerClaim>> | null = null;
+
+  try {
+    const startResult = await withPlatformTransaction(config.pool, (client) =>
+      startPlatformTask(client, config.schema, {
+        runId,
+        taskId,
+        workerId
+      })
+    );
+
+    if (startResult.status === 'rejected') {
+      return;
+    }
+
+    const resolvedAdapterProfile = await loadResolvedAdapterProfile(config, runId);
+    materialization = await materializeAutoRunnerClaim(
+      config,
+      runId,
+      taskId,
+      workerId,
+      resolvedAdapterProfile
+    );
+
+    const executionResult = await executeAutoRunnerTask(
+      materialization,
+      stage,
+      taskId,
+      resolvedAdapterProfile
+    );
+
+    if (!materialization) {
+      return;
+    }
+
+    const finalizedMaterialization = materialization;
+
+    await withPlatformTransaction(config.pool, (client) =>
+      persistPlatformWorkerResult(client, config.schema, {
+        runId,
+        taskId,
+        workerId,
+        materialization: finalizedMaterialization,
+        adapterRun: executionResult.adapterRun,
+        receipt: executionResult.receipt
+      })
+    );
+  } catch (taskError) {
+    console.error(`[auto-runner] error processing task ${taskId} for run ${runId}:`, taskError);
+    if (!materialization) {
+      return;
+    }
+
+    const failedMaterialization = materialization;
+
+    try {
+      const errorMessage = taskError instanceof Error ? taskError.message : String(taskError);
+      const stoppedResult = buildStoppedPlatformWorkerExecutionResult({
+        materialization: failedMaterialization,
+        message: `auto-runner task error: ${errorMessage}`,
+        code: 'auto-runner-task-error',
+        recoverable: false
+      });
+      await withPlatformTransaction(config.pool, (client) =>
+        persistPlatformWorkerResult(client, config.schema, {
+          runId,
+          taskId,
+          workerId,
+          materialization: failedMaterialization,
+          adapterRun: stoppedResult.adapterRun,
+          receipt: stoppedResult.receipt
+        })
+      );
+    } catch (persistError) {
+      console.error(`[auto-runner] failed to persist error result for task ${taskId}:`, persistError);
+    }
+  }
 }
 
 // No-op adapter dependencies — only used for non-deterministic stages which
@@ -105,111 +327,7 @@ export function startPlatformAutoRunner(config: PlatformAutoRunnerConfig): Platf
 
         const { taskId } = leaseResult.task;
         const stage = leaseResult.task.stage;
-
-        let materialization: Awaited<ReturnType<typeof materializePlatformWorkerClaim>> | null = null;
-
-        try {
-          // 2. Start the task
-          const startResult = await withPlatformTransaction(config.pool, (client) =>
-            startPlatformTask(client, config.schema, {
-              runId,
-              taskId,
-              workerId
-            })
-          );
-
-          if (startResult.status === 'rejected') {
-            // Lease was lost between lease and start — retry from top
-            continue;
-          }
-
-          // 3. Materialize claim (write execution-state + claim files)
-          materialization = await withPlatformTransaction(config.pool, (client) =>
-            materializePlatformWorkerClaim(client, config.schema, {
-              runId,
-              taskId,
-              workerId,
-              adapter: 'spec2flow-auto-runner'
-            })
-          );
-
-          let executionResult;
-
-          if (DETERMINISTIC_STAGES.includes(stage)) {
-            // 4a. Run deterministic task (no adapter needed)
-            console.log(`[auto-runner] deterministic ${stage} task ${taskId}`);
-            executionResult = await executePlatformWorkerMaterialization(
-              { materialization },
-              noopAdapterDeps
-            );
-          } else {
-            // 4b. Look for adapter runtime in the project's worktree / repository root
-            const worktreePath = materialization.snapshot.workspace?.worktreePath;
-            const repositoryRootPath = materialization.snapshot.project?.repositoryRootPath;
-            const adapterRuntimePath = findAdapterRuntimePath(worktreePath, repositoryRootPath);
-
-            if (adapterRuntimePath) {
-              // 4c. Dispatch to the AI adapter
-              console.log(`[auto-runner] dispatching ${stage} task ${taskId} via ${adapterRuntimePath}`);
-              executionResult = await executePlatformWorkerMaterialization(
-                { materialization, adapterRuntimePath },
-                noopAdapterDeps
-              );
-            } else {
-              // 4d. No adapter found — block with actionable message
-              const searchedPaths = [worktreePath, repositoryRootPath]
-                .filter(Boolean)
-                .map((r) => `${r}/.spec2flow/model-adapter-runtime.json`)
-                .join(', ');
-              executionResult = buildStoppedPlatformWorkerExecutionResult({
-                materialization,
-                message: `Stage "${stage}" requires an AI adapter. Add .spec2flow/model-adapter-runtime.json to your project root. Searched: ${searchedPaths || 'no project path resolved'}`,
-                code: 'no-adapter-configured',
-                recoverable: true
-              });
-            }
-          }
-
-          // 5. Persist result
-          await withPlatformTransaction(config.pool, (client) =>
-            persistPlatformWorkerResult(client, config.schema, {
-              runId,
-              taskId,
-              workerId,
-              materialization: materialization!,
-              adapterRun: executionResult.adapterRun,
-              receipt: executionResult.receipt
-            })
-          );
-        } catch (taskError) {
-          // Persist a blocked result if materialization completed so the task
-          // doesn't stay stuck in-progress. Otherwise just log and break.
-          console.error(`[auto-runner] error processing task ${taskId} for run ${runId}:`, taskError);
-          if (materialization) {
-            try {
-              const errorMessage = taskError instanceof Error ? taskError.message : String(taskError);
-              const stoppedResult = buildStoppedPlatformWorkerExecutionResult({
-                materialization,
-                message: `auto-runner task error: ${errorMessage}`,
-                code: 'auto-runner-task-error',
-                recoverable: false
-              });
-              await withPlatformTransaction(config.pool, (client) =>
-                persistPlatformWorkerResult(client, config.schema, {
-                  runId,
-                  taskId,
-                  workerId,
-                  materialization: materialization!,
-                  adapterRun: stoppedResult.adapterRun,
-                  receipt: stoppedResult.receipt
-                })
-              );
-            } catch (persistError) {
-              console.error(`[auto-runner] failed to persist error result for task ${taskId}:`, persistError);
-            }
-          }
-          break;
-        }
+        await processLeasedTask(config, runId, taskId, stage, workerId);
       }
     } catch (runError) {
       console.error(`[auto-runner] error processing run ${runId}:`, runError);

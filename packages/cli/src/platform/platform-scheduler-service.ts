@@ -6,6 +6,7 @@ import type {
   PlatformArtifactRecord,
   PlatformEventRecord,
   PlatformPublicationRecord,
+  PlatformProjectAdapterProfile,
   PlatformProjectRecord,
   PlatformRepairAttemptRecord,
   PlatformRunRecord,
@@ -131,6 +132,7 @@ interface PlatformRunProjectWorkspaceRow extends Record<string, unknown> {
   risk_path: string | null;
   project_default_branch: string | null;
   project_branch_prefix: string | null;
+  project_adapter_profile?: PlatformProjectAdapterProfile | null;
   project_workspace_policy: PlatformWorkspacePolicy | null;
   project_metadata: Record<string, unknown> | null;
   project_created_at: Date | string | null;
@@ -361,6 +363,7 @@ function mapProjectWorkspaceContext(
     riskPath: row.risk_path,
     defaultBranch: row.project_default_branch,
     branchPrefix: row.project_branch_prefix,
+    adapterProfile: row.project_adapter_profile ?? null,
     workspacePolicy: row.project_workspace_policy ?? {
       allowedReadGlobs: ['**/*'],
       allowedWriteGlobs: ['**/*'],
@@ -969,6 +972,7 @@ export async function getPlatformRunState(
         projects.risk_path,
         projects.default_branch AS project_default_branch,
         projects.branch_prefix AS project_branch_prefix,
+        projects.adapter_profile AS project_adapter_profile,
         projects.workspace_policy AS project_workspace_policy,
         projects.metadata AS project_metadata,
         projects.created_at AS project_created_at,

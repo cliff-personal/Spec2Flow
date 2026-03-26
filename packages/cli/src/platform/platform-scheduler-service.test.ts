@@ -543,6 +543,10 @@ describe('platform-scheduler-service', () => {
             risk_path: '/workspace/Spec2Flow/risk.yaml',
             project_default_branch: 'main',
             project_branch_prefix: 'spec2flow/',
+            project_adapter_profile: {
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+              capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
+            },
             project_workspace_policy: {
               allowedReadGlobs: ['**/*'],
               allowedWriteGlobs: ['src/**'],
@@ -613,7 +617,11 @@ describe('platform-scheduler-service', () => {
     });
     expect(result.project).toMatchObject({
       projectId: 'spec2flow-local',
-      name: 'Spec2Flow Local'
+      name: 'Spec2Flow Local',
+      adapterProfile: {
+        runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+        capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
+      }
     });
     expect(result.workspace).toMatchObject({
       branchName: 'spec2flow/run-1',

@@ -7,6 +7,7 @@ import {
   createPlatformRunInitializationPlan,
   persistPlatformRunPlan
 } from './platform-repository.js';
+import { resolvePlatformProjectAdapterProfile } from './platform-project-adapter-profile.js';
 import { provisionPlatformRunWorkspace } from './platform-run-provisioning-service.js';
 import { scaffoldSpec2flowFiles } from '../shared/scaffold-spec2flow.js';
 import type {
@@ -118,6 +119,40 @@ function buildRequirementText(
   return [inlineRequirement, fileRequirement].filter(Boolean).join('\n\n').trim();
 }
 
+function readOnboardingPayloads(
+  repositoryRoot: string,
+  projectPath: string,
+  topologyPath: string,
+  riskPath: string,
+  dependencies: SubmitPlatformControlPlaneRunDependencies
+): {
+  projectPayload: Parameters<typeof buildValidatorResult>[0];
+  topologyPayload: Parameters<typeof buildValidatorResult>[1];
+  riskPayload: Parameters<typeof buildValidatorResult>[2];
+} {
+  return {
+    projectPayload: dependencies.readStructuredFileFrom(repositoryRoot, projectPath) as Parameters<typeof buildValidatorResult>[0],
+    topologyPayload: dependencies.readStructuredFileFrom(repositoryRoot, topologyPath) as Parameters<typeof buildValidatorResult>[1],
+    riskPayload: dependencies.readStructuredFileFrom(repositoryRoot, riskPath) as Parameters<typeof buildValidatorResult>[2]
+  };
+}
+
+function readRequirementTextOrThrow(
+  repositoryRoot: string,
+  requirement: string | undefined,
+  requirementPath: string | undefined,
+  dependencies: SubmitPlatformControlPlaneRunDependencies
+): string {
+  try {
+    return buildRequirementText(repositoryRoot, requirement, requirementPath, dependencies);
+  } catch (error) {
+    throw toSubmissionError(error, {
+      repositoryRootPath: repositoryRoot,
+      requirementPath
+    });
+  }
+}
+
 function toSubmissionError(
   error: unknown,
   details: Record<string, unknown>
@@ -177,9 +212,13 @@ export async function submitPlatformControlPlaneRun(
   }
 
   try {
-    projectPayload = dependencies.readStructuredFileFrom(repositoryRoot, projectPath) as Parameters<typeof buildValidatorResult>[0];
-    topologyPayload = dependencies.readStructuredFileFrom(repositoryRoot, topologyPath) as Parameters<typeof buildValidatorResult>[1];
-    riskPayload = dependencies.readStructuredFileFrom(repositoryRoot, riskPath) as Parameters<typeof buildValidatorResult>[2];
+    ({ projectPayload, topologyPayload, riskPayload } = readOnboardingPayloads(
+      repositoryRoot,
+      projectPath,
+      topologyPath,
+      riskPath,
+      dependencies
+    ));
   } catch (error) {
     throw toSubmissionError(error, {
       repositoryRootPath: repositoryRoot,
@@ -209,15 +248,12 @@ export async function submitPlatformControlPlaneRun(
     );
   }
 
-  let requirementText = '';
-  try {
-    requirementText = buildRequirementText(repositoryRoot, options.requirement, requirementPath, dependencies);
-  } catch (error) {
-    throw toSubmissionError(error, {
-      repositoryRootPath: repositoryRoot,
-      requirementPath
-    });
-  }
+  const requirementText = readRequirementTextOrThrow(
+    repositoryRoot,
+    options.requirement,
+    requirementPath,
+    dependencies
+  );
 
   const selectedRoutes = Array.isArray(options.routes) && options.routes.length > 0 ? options.routes : undefined;
   const taskGraph = dependencies.buildTaskGraph(projectPayload, topologyPayload, riskPayload, {
@@ -250,6 +286,11 @@ export async function submitPlatformControlPlaneRun(
     riskPath,
     defaultBranch: defaultBranch ?? plan.repository.defaultBranch ?? (projectPayload as any)?.spec2flow?.project?.defaultBranch ?? 'main',
     branchPrefix,
+    adapterProfile: resolvePlatformProjectAdapterProfile({
+      repositoryRootPath: repositoryRoot,
+      workspaceRootPath,
+      ...(options.adapterProfile ? { adapterProfile: options.adapterProfile } : {})
+    }),
     workspacePolicy,
     metadata: {
       createdBy: 'submit-platform-run'

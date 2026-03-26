@@ -1,8 +1,10 @@
 import path from 'node:path';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
+import { resolvePlatformProjectAdapterProfile } from './platform-project-adapter-profile.js';
 import { upsertPlatformProject, upsertPlatformRepository } from './platform-repository.js';
 import { scaffoldSpec2flowFiles } from '../shared/scaffold-spec2flow.js';
 import type {
+  PlatformProjectAdapterProfile,
   PlatformControlPlaneProjectListItem,
   PlatformControlPlaneProjectRegistrationRequest,
   PlatformControlPlaneProjectRegistrationResult,
@@ -28,6 +30,7 @@ interface PlatformProjectRow extends Record<string, unknown> {
   risk_path: string | null;
   default_branch: string | null;
   branch_prefix: string | null;
+  adapter_profile?: PlatformProjectAdapterProfile | null;
   workspace_policy: PlatformWorkspacePolicy | null;
   created_at: Date | string | null;
   updated_at: Date | string | null;
@@ -88,6 +91,7 @@ function mapProjectRow(row: PlatformProjectRow): PlatformControlPlaneProjectList
     riskPath: row.risk_path,
     defaultBranch: row.default_branch,
     branchPrefix: row.branch_prefix,
+    adapterProfile: row.adapter_profile ?? null,
     workspacePolicy: row.workspace_policy ?? {
       allowedReadGlobs: ['**/*'],
       allowedWriteGlobs: ['**/*'],
@@ -128,6 +132,7 @@ export async function listPlatformProjects(
         projects.risk_path,
         projects.default_branch,
         projects.branch_prefix,
+        projects.adapter_profile,
         projects.workspace_policy,
         projects.created_at,
         projects.updated_at
@@ -175,6 +180,11 @@ export async function registerPlatformProject(
     riskPath: normalizeString(options.riskPath) ?? null,
     defaultBranch: normalizeString(options.defaultBranch) ?? null,
     branchPrefix: normalizeString(options.branchPrefix) ?? null,
+    adapterProfile: resolvePlatformProjectAdapterProfile({
+      repositoryRootPath,
+      workspaceRootPath,
+      ...(options.adapterProfile ? { adapterProfile: options.adapterProfile } : {})
+    }),
     workspacePolicy: normalizeWorkspacePolicy(options.workspacePolicy),
     metadata: {
       source: 'spec2flow-control-plane'

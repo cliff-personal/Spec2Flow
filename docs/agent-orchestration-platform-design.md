@@ -1,9 +1,9 @@
 # Agent Orchestration Platform Design
 
 - Status: active
-- Source of truth: `AGENTS.md`, `llms.txt`, `docs/architecture.md`, `docs/usage-guide.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/runtime/task-result-service.ts`
+- Source of truth: `AGENTS.md`, `llms.txt`, `docs/architecture.md`, `docs/usage-guide.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/platform/platform-project-service.ts`, `packages/cli/src/platform/platform-auto-runner-service.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-26
 - Supersedes: `synapse-integration-automation-design.md`
 
 ## Goal
@@ -27,6 +27,7 @@ What already fits the target:
 - The task graph already expands one request into stage-scoped subtasks.
 - The runtime already persists execution state outside model memory.
 - The result pipeline already supports defect routing and stage-specific specialists.
+- Project registration now persists adapter runtime and capability references so the scheduler can reuse durable project truth instead of depending only on late `.spec2flow/model-adapter-runtime.json` discovery.
 
 What is still missing:
 

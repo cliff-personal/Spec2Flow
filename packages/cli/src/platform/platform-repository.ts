@@ -205,8 +205,22 @@ export function attachPlatformProjectContext(
   plan: PlatformRunInitializationPlan,
   options: AttachPlatformProjectContextOptions
 ): PlatformRunInitializationPlan {
+  const requestPayload = plan.run.requestPayload ? { ...plan.run.requestPayload } : {};
+  const metadata = plan.run.metadata ? { ...plan.run.metadata } : undefined;
+  const nextMetadata = metadata
+    ? {
+        ...metadata,
+        projectId: options.project.projectId,
+        worktreePath: options.runWorkspace.worktreePath,
+        branchName: options.runWorkspace.branchName ?? null
+      }
+    : {
+        projectId: options.project.projectId,
+        worktreePath: options.runWorkspace.worktreePath,
+        branchName: options.runWorkspace.branchName ?? null
+      };
   const nextRequestPayload = {
-    ...(plan.run.requestPayload ?? {}),
+    ...requestPayload,
     project: {
       projectId: options.project.projectId,
       projectName: options.project.name,
@@ -214,7 +228,8 @@ export function attachPlatformProjectContext(
       workspaceRootPath: options.project.workspaceRootPath,
       projectPath: options.project.projectPath ?? null,
       topologyPath: options.project.topologyPath ?? null,
-      riskPath: options.project.riskPath ?? null
+      riskPath: options.project.riskPath ?? null,
+      adapterProfile: options.project.adapterProfile ?? null
     },
     workspace: {
       worktreeMode: options.runWorkspace.worktreeMode,
@@ -233,12 +248,7 @@ export function attachPlatformProjectContext(
     run: {
       ...plan.run,
       requestPayload: nextRequestPayload,
-      metadata: {
-        ...(plan.run.metadata ?? {}),
-        projectId: options.project.projectId,
-        worktreePath: options.runWorkspace.worktreePath,
-        branchName: options.runWorkspace.branchName ?? null
-      }
+      metadata: nextMetadata
     },
     runWorkspace: options.runWorkspace
   };
@@ -333,9 +343,10 @@ export async function upsertPlatformProject(
         risk_path,
         default_branch,
         branch_prefix,
+        adapter_profile,
         workspace_policy,
         metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb)
       ON CONFLICT (project_id)
       DO UPDATE SET
         repository_id = EXCLUDED.repository_id,
@@ -347,6 +358,7 @@ export async function upsertPlatformProject(
         risk_path = EXCLUDED.risk_path,
         default_branch = EXCLUDED.default_branch,
         branch_prefix = EXCLUDED.branch_prefix,
+        adapter_profile = EXCLUDED.adapter_profile,
         workspace_policy = EXCLUDED.workspace_policy,
         metadata = EXCLUDED.metadata,
         updated_at = NOW()
@@ -362,6 +374,7 @@ export async function upsertPlatformProject(
       project.riskPath ?? null,
       project.defaultBranch ?? null,
       project.branchPrefix ?? null,
+      JSON.stringify(project.adapterProfile ?? null),
       JSON.stringify(project.workspacePolicy),
       JSON.stringify(project.metadata ?? {})
     ]

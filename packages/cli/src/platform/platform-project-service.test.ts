@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { listPlatformProjects, registerPlatformProject } from './platform-project-service.js';
@@ -55,6 +58,10 @@ describe('platform-project-service', () => {
             risk_path: '/workspace/Spec2Flow/risk.yaml',
             default_branch: 'main',
             branch_prefix: 'spec2flow/',
+            adapter_profile: {
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+              capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
+            },
             workspace_policy: {
               allowedReadGlobs: ['**/*'],
               allowedWriteGlobs: ['src/**'],
@@ -73,11 +80,43 @@ describe('platform-project-service', () => {
     expect(result).toEqual([expect.objectContaining({
       projectId: 'spec2flow-local',
       repositoryName: 'Spec2Flow',
-      branchPrefix: 'spec2flow/'
+      branchPrefix: 'spec2flow/',
+      adapterProfile: {
+        runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json',
+        capabilityPath: '/workspace/Spec2Flow/.spec2flow/model-adapter-capability.json'
+      }
     })]);
   });
 
   it('registers a project by upserting repository and project records', async () => {
+    const repositoryRootPath = fs.mkdtempSync(path.join(os.tmpdir(), 'spec2flow-project-'));
+    const adapterDir = path.join(repositoryRootPath, '.spec2flow');
+
+    fs.mkdirSync(adapterDir, { recursive: true });
+    fs.writeFileSync(path.join(adapterDir, 'model-adapter-runtime.json'), JSON.stringify({
+      adapterRuntime: {
+        name: 'github-copilot',
+        provider: 'github',
+        command: 'copilot',
+        outputMode: 'stdout'
+      }
+    }));
+    fs.writeFileSync(path.join(adapterDir, 'model-adapter-capability.json'), JSON.stringify({
+      adapter: {
+        name: 'github-copilot',
+        provider: 'github',
+        supports: {
+          toolCalling: true,
+          jsonMode: true,
+          multiAgentDispatch: true,
+          codeEditing: true
+        },
+        limits: {
+          maxContextTokens: 128000
+        }
+      }
+    }));
+
     const executor = new SequentialExecutor([
       {
         match: 'INSERT INTO "spec2flow_platform".repositories',
@@ -96,13 +135,17 @@ describe('platform-project-service', () => {
     ]);
 
     const result = await registerPlatformProject(executor, 'spec2flow_platform', {
-      repositoryRootPath: '/workspace/Spec2Flow',
+      repositoryRootPath,
       projectName: 'Spec2Flow Local',
-      workspaceRootPath: '/workspace/Spec2Flow',
+      workspaceRootPath: repositoryRootPath,
       repositoryName: 'Spec2Flow',
       repositoryId: 'spec2flow',
       defaultBranch: 'main',
       branchPrefix: 'spec2flow/',
+      adapterProfile: {
+        runtimePath: '.spec2flow/model-adapter-runtime.json',
+        capabilityPath: '.spec2flow/model-adapter-capability.json'
+      },
       workspacePolicy: {
         allowedReadGlobs: ['**/*'],
         allowedWriteGlobs: ['src/**'],
@@ -115,7 +158,11 @@ describe('platform-project-service', () => {
       project: expect.objectContaining({
         projectId: 'spec2flow-local',
         repositoryId: 'spec2flow',
-        workspaceRootPath: '/workspace/Spec2Flow'
+        workspaceRootPath: repositoryRootPath,
+        adapterProfile: {
+          runtimePath: path.join(repositoryRootPath, '.spec2flow', 'model-adapter-runtime.json'),
+          capabilityPath: path.join(repositoryRootPath, '.spec2flow', 'model-adapter-capability.json')
+        }
       })
     }));
   });

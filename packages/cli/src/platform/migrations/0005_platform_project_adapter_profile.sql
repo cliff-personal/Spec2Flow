@@ -1,0 +1,2 @@
+ALTER TABLE __SPEC2FLOW_SCHEMA__.projects
+  ADD COLUMN IF NOT EXISTS adapter_profile JSONB;
