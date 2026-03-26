@@ -78,6 +78,17 @@ describe('task-claim-service', () => {
           requirementText: 'Implement provider registration with KYC.',
           routeSelectionMode: 'requirement',
           selectedRoutes: ['provider-registration-flow'],
+          taskPlans: [
+            {
+              id: 'provider-registration-flow',
+              title: 'Deliver provider registration flow',
+              goal: 'Complete the provider registration flow subtask with focus on provider, kyc, registration',
+              routeName: 'provider-registration-flow',
+              entryServices: ['provider_service', 'gateway'],
+              targetFiles: ['services/provider-service', 'services/gateway'],
+              matchedRequirementKeywords: ['provider', 'kyc', 'registration']
+            }
+          ],
           projectAdapterRef: 'project.yaml',
           topologyRef: 'topology.yaml',
           riskPolicyRef: 'risk.yaml',
@@ -159,6 +170,12 @@ describe('task-claim-service', () => {
       requirementRef: 'requirements/provider-registration.md',
       routeSelectionMode: 'requirement',
       selectedRoutes: ['provider-registration-flow'],
+      taskPlans: [
+        expect.objectContaining({
+          id: 'provider-registration-flow',
+          routeName: 'provider-registration-flow'
+        })
+      ],
       docs: ['AGENTS.md', '.github/copilot-instructions.md', 'docs/vision.md', 'docs/architecture.md'],
       changedFiles: ['services/provider-service/app.ts']
     });

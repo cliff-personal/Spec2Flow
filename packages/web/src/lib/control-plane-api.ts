@@ -142,6 +142,10 @@ export interface PlatformObservabilityTimelineEntry {
   payload: Record<string, unknown>;
 }
 
+export type PlatformEventSeverity = 'info' | 'warning' | 'error';
+
+export type PlatformReviewDecisionStatus = 'awaiting-decision' | 'accepted' | 'follow-up-required' | 'not-required';
+
 export interface PlatformTaskObservabilitySummary {
   taskId: string;
   stage: string;
@@ -154,7 +158,7 @@ export interface PlatformTaskObservabilitySummary {
   missingExpectedArtifactCount: number;
   latestEventType?: string | null;
   latestEventAt?: string | null;
-  latestEventSeverity?: 'info' | 'warning' | 'error' | null;
+  latestEventSeverity?: PlatformEventSeverity | null;
   recentEvents: PlatformObservabilityTimelineEntry[];
   leasedByWorkerId?: string | null;
   leaseExpiresAt?: string | null;
@@ -170,9 +174,29 @@ export interface PlatformPublicationObservabilitySummary {
   prUrl?: string | null;
   approvalRequired: boolean;
   gateReason?: string | null;
+  reviewDecision: PlatformReviewDecisionStatus;
+  reviewDecisionAt?: string | null;
+  reviewDecisionBy?: string | null;
+  reviewDecisionNote?: string | null;
   latestEventType?: string | null;
   latestEventAt?: string | null;
-  latestEventSeverity?: 'info' | 'warning' | 'error' | null;
+  latestEventSeverity?: PlatformEventSeverity | null;
+  recentEvents?: PlatformObservabilityTimelineEntry[];
+}
+
+export interface PlatformRepairObservabilitySummary {
+  repairAttemptId: string;
+  taskId: string;
+  triggerTaskId: string;
+  sourceStage: string;
+  failureClass: string;
+  attemptNumber: number;
+  status: string;
+  recommendedAction?: string | null;
+  latestEventType?: string | null;
+  latestEventAt?: string | null;
+  latestEventSeverity?: PlatformEventSeverity | null;
+  recentEvents: PlatformObservabilityTimelineEntry[];
 }
 
 export interface PlatformObservabilityApprovalItem {
@@ -224,6 +248,7 @@ export interface PlatformObservability {
   }>;
   timeline: PlatformObservabilityTimelineEntry[];
   taskSummaries: PlatformTaskObservabilitySummary[];
+  repairSummaries: PlatformRepairObservabilitySummary[];
   publicationSummaries: PlatformPublicationObservabilitySummary[];
   approvals: PlatformObservabilityApprovalItem[];
 }
@@ -394,6 +419,11 @@ export interface ApiError {
   };
 }
 
+export interface ArtifactContent {
+  content: string;
+  contentType: string;
+}
+
 const DEFAULT_BASE_URL = 'http://127.0.0.1:4310';
 
 export function getControlPlaneBaseUrl(): string {
@@ -427,6 +457,33 @@ async function requestJson<T>(pathname: string, init?: RequestInit): Promise<T> 
   return response.json() as Promise<T>;
 }
 
+async function requestText(pathname: string, init?: RequestInit): Promise<ArtifactContent> {
+  const response = await fetch(`${getControlPlaneBaseUrl()}${pathname}`, {
+    headers: {
+      accept: 'text/plain, application/json',
+      ...init?.headers
+    },
+    ...init
+  });
+
+  if (!response.ok) {
+    let message = `Request failed: ${response.status}`;
+    try {
+      const payload = await response.json() as ApiError;
+      message = payload.error.message;
+    } catch {
+      message = response.statusText || message;
+    }
+
+    throw new Error(message);
+  }
+
+  return {
+    content: await response.text(),
+    contentType: response.headers.get('content-type') ?? 'text/plain; charset=utf-8'
+  };
+}
+
 export async function listRuns(): Promise<RunListItem[]> {
   const payload = await requestJson<{ runs: RunListItem[] }>('/api/runs');
   return payload.runs;
@@ -437,8 +494,9 @@ export async function listProjects(): Promise<ProjectListItem[]> {
   return payload.projects;
 }
 
-export async function getRunDetail(runId: string): Promise<RunDetail> {
-  const payload = await requestJson<{ run: RunDetail }>(`/api/runs/${encodeURIComponent(runId)}`);
+export async function getRunDetail(runId: string, eventLimit?: number): Promise<RunDetail> {
+  const query = eventLimit ? `?eventLimit=${encodeURIComponent(String(eventLimit))}` : '';
+  const payload = await requestJson<{ run: RunDetail }>(`/api/runs/${encodeURIComponent(runId)}${query}`);
   return payload.run;
 }
 
@@ -447,9 +505,10 @@ export async function getRunTasks(runId: string): Promise<PlatformTaskRecord[]> 
   return payload.tasks;
 }
 
-export async function getRunObservability(runId: string): Promise<PlatformObservability> {
+export async function getRunObservability(runId: string, eventLimit?: number): Promise<PlatformObservability> {
+  const query = eventLimit ? `?eventLimit=${encodeURIComponent(String(eventLimit))}` : '';
   const payload = await requestJson<{ platformObservability: PlatformObservability }>(
-    `/api/runs/${encodeURIComponent(runId)}/observability`
+    `/api/runs/${encodeURIComponent(runId)}/observability${query}`
   );
   return payload.platformObservability;
 }
@@ -459,6 +518,10 @@ export async function getTaskArtifactCatalog(runId: string, taskId: string): Pro
     `/api/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/artifact-catalog`
   );
   return payload.artifactCatalog;
+}
+
+export async function getArtifactContent(artifactId: string): Promise<ArtifactContent> {
+  return requestText(`/api/artifacts/${encodeURIComponent(artifactId)}/content`);
 }
 
 export async function submitRun(payload: RunSubmissionPayload): Promise<RunSubmissionResult> {

@@ -65,6 +65,12 @@
                 "type": "string",
                 "minLength": 1
               }
+            },
+            "taskPlans": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/requirementTaskPlan"
+              }
             }
           }
         },
@@ -97,7 +103,8 @@
             "test-design",
             "automated-execution",
             "defect-feedback",
-            "collaboration"
+            "collaboration",
+            "evaluation"
           ]
         },
         "title": {
@@ -117,7 +124,8 @@
             "test-design-agent",
             "execution-agent",
             "defect-agent",
-            "collaboration-agent"
+            "collaboration-agent",
+            "evaluator-agent"
           ]
         },
         "roleProfile": {
@@ -202,6 +210,68 @@
         }
       }
     },
+    "requirementTaskPlan": {
+      "type": "object",
+      "required": ["id", "title", "goal", "routeName", "entryServices", "targetFiles"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "routeName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entryServices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "targetFiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "dependencyIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "requirementSummary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "matchedRequirementPhrases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "matchedRequirementKeywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
     "taskRoleProfile": {
       "type": "object",
       "required": [
@@ -231,7 +301,8 @@
             "test-design-agent",
             "execution-agent",
             "defect-agent",
-            "collaboration-agent"
+            "collaboration-agent",
+            "evaluator-agent"
           ]
         },
         "commandPolicy": {

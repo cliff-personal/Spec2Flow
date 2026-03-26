@@ -15,6 +15,7 @@ function createProjectPayload() {
       },
       services: {
         frontend: { path: 'apps/frontend', type: 'frontend' },
+        admin_console: { path: 'apps/admin-console', type: 'admin-frontend', dependsOn: ['gateway'] },
         provider_service: { path: 'services/provider-service', type: 'provider' },
         gateway: { path: 'services/gateway', type: 'backend' }
       }
@@ -27,6 +28,7 @@ function createTopologyPayload() {
     topology: {
       services: [
         { name: 'frontend', kind: 'frontend' },
+        { name: 'admin_console', kind: 'admin-frontend', dependsOn: ['gateway'] },
         { name: 'provider_service', kind: 'provider' },
         { name: 'gateway', kind: 'backend' }
       ],
@@ -57,6 +59,15 @@ function createTopologyPayload() {
           requirementSignals: {
             phrases: ['frontend smoke'],
             keywords: ['ui', 'frontend']
+          }
+        },
+        {
+          name: 'admin-console-flow',
+          entryServices: ['admin_console'],
+          verifyCommands: ['npm run ci:admin'],
+          requirementSignals: {
+            phrases: ['admin console'],
+            keywords: ['admin', 'console', 'status']
           }
         },
         {
@@ -100,10 +111,19 @@ describe('task-graph-service route selection', () => {
 
     expect(taskGraph.taskGraph.source?.routeSelectionMode).toBe('requirement');
     expect(taskGraph.taskGraph.source?.selectedRoutes).toEqual(['provider-registration-flow']);
+    expect(taskGraph.taskGraph.source?.taskPlans).toEqual([
+      expect.objectContaining({
+        id: 'provider-registration-flow',
+        routeName: 'provider-registration-flow',
+        entryServices: ['provider_service', 'gateway']
+      })
+    ]);
 
     const requirementsTask = taskGraph.taskGraph.tasks.find((task) => task.id === 'provider-registration-flow--requirements-analysis');
     expect(requirementsTask?.inputs).toMatchObject({
-      routeSelectionMode: 'requirement'
+      routeSelectionMode: 'requirement',
+      taskPlanId: 'provider-registration-flow',
+      taskPlanTitle: 'Deliver provider registration flow'
     });
     expect((requirementsTask?.inputs?.matchedRequirementKeywords as string[]) ?? []).toEqual(
       expect.arrayContaining(['provider', 'kyc', 'registration'])
@@ -127,6 +147,12 @@ describe('task-graph-service route selection', () => {
 
     expect(taskGraph.taskGraph.source?.routeSelectionMode).toBe('changed-files');
     expect(taskGraph.taskGraph.source?.selectedRoutes).toEqual(['frontend-smoke']);
+    expect(taskGraph.taskGraph.source?.taskPlans).toEqual([
+      expect.objectContaining({
+        id: 'frontend-smoke',
+        routeName: 'frontend-smoke'
+      })
+    ]);
     expect(taskGraph.taskGraph.tasks.map((task) => task.id)).toContain('frontend-smoke--requirements-analysis');
     expect(taskGraph.taskGraph.tasks.map((task) => task.id)).not.toContain('provider-registration-flow--requirements-analysis');
   });
@@ -193,6 +219,8 @@ describe('task-graph-service route selection', () => {
 
     const executionTask = taskGraph.taskGraph.tasks.find((task) => task.id === 'frontend-smoke--automated-execution');
     expect(executionTask?.inputs).toMatchObject({
+      taskPlanId: 'frontend-smoke',
+      taskPlanTitle: 'Deliver frontend smoke',
       routeName: 'frontend-smoke',
       entryServices: ['frontend'],
       browserAutomationRequired: true,
@@ -215,5 +243,105 @@ describe('task-graph-service route selection', () => {
         })
       ]
     });
+  });
+
+  it('creates one task plan per selected route before expanding the evaluator-backed DAG', () => {
+    const taskGraph = buildTaskGraph(
+      createProjectPayload(),
+      createTopologyPayload(),
+      createRiskPayload(),
+      {
+        project: 'project.yaml',
+        topology: 'topology.yaml',
+        risk: 'risk.yaml',
+        requirement: 'requirements/all.md'
+      },
+      {
+        requirementText: 'Refresh the frontend smoke flow and add KYC validation to provider registration.'
+      }
+    );
+
+    expect(taskGraph.taskGraph.source?.selectedRoutes).toHaveLength(2);
+    expect(taskGraph.taskGraph.source?.selectedRoutes).toEqual(expect.arrayContaining([
+      'frontend-smoke',
+      'provider-registration-flow'
+    ]));
+    expect(taskGraph.taskGraph.source?.taskPlans).toHaveLength(2);
+    expect(taskGraph.taskGraph.source?.taskPlans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'frontend-smoke', routeName: 'frontend-smoke' }),
+      expect.objectContaining({ id: 'provider-registration-flow', routeName: 'provider-registration-flow' })
+    ]));
+    expect(taskGraph.taskGraph.tasks.map((task) => task.id)).toEqual(expect.arrayContaining([
+      'frontend-smoke--requirements-analysis',
+      'provider-registration-flow--requirements-analysis'
+    ]));
+  });
+
+  it('infers conservative task plan dependencies from service topology and gates dependent plans behind upstream evaluation completion', () => {
+    const taskGraph = buildTaskGraph(
+      createProjectPayload(),
+      createTopologyPayload(),
+      createRiskPayload(),
+      {
+        project: 'project.yaml',
+        topology: 'topology.yaml',
+        risk: 'risk.yaml',
+        requirement: 'requirements/admin-provider.md'
+      },
+      {
+        requirementText: 'Add KYC validation to provider registration and surface provider status in the admin console.'
+      }
+    );
+
+    expect(taskGraph.taskGraph.source?.selectedRoutes).toEqual(expect.arrayContaining([
+      'provider-registration-flow',
+      'admin-console-flow'
+    ]));
+    expect(taskGraph.taskGraph.source?.taskPlans).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'provider-registration-flow',
+        dependencyIds: []
+      }),
+      expect.objectContaining({
+        id: 'admin-console-flow',
+        dependencyIds: ['provider-registration-flow']
+      })
+    ]));
+
+    const adminRequirementsTask = taskGraph.taskGraph.tasks.find((task) => task.id === 'admin-console-flow--requirements-analysis');
+    expect(adminRequirementsTask?.dependsOn).toEqual([
+      'environment-preparation',
+      'provider-registration-flow--evaluation'
+    ]);
+    expect(adminRequirementsTask?.inputs).toMatchObject({
+      taskPlanDependencyIds: ['provider-registration-flow'],
+      taskPlanDependencyTaskIds: ['provider-registration-flow--evaluation']
+    });
+  });
+
+  it('adds a dedicated evaluator task after collaboration for each selected route', () => {
+    const taskGraph = buildTaskGraph(
+      createProjectPayload(),
+      createTopologyPayload(),
+      createRiskPayload(),
+      {
+        project: 'project.yaml',
+        topology: 'topology.yaml',
+        risk: 'risk.yaml',
+        requirement: 'requirements/provider-registration.md'
+      },
+      {
+        requirementText: 'Add KYC validation to the provider registration workflow handled by gateway and provider services.'
+      }
+    );
+
+    const evaluationTask = taskGraph.taskGraph.tasks.find((task) => task.id === 'provider-registration-flow--evaluation');
+    expect(evaluationTask).toMatchObject({
+      stage: 'evaluation',
+      executorType: 'evaluator-agent',
+      dependsOn: ['provider-registration-flow--collaboration']
+    });
+    expect(evaluationTask?.roleProfile.specialistRole).toBe('evaluator-agent');
+    expect(evaluationTask?.roleProfile.expectedArtifacts).toEqual(['evaluation-summary']);
   });
 });

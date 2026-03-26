@@ -13,6 +13,15 @@ const TAB_LABELS: Record<TaskDetailTab, string> = {
   tokens: 'Token Pulse'
 };
 
+function toTimestamp(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = new Date(value).valueOf();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function pickDefaultTask(tasks: PlatformTaskRecord[]): string | null {
   const preferredTask = tasks.find((task) => ['in-progress', 'leased', 'ready', 'blocked'].includes(task.status)) ?? tasks[0];
   return preferredTask?.taskId ?? null;
@@ -31,21 +40,22 @@ export function TaskDetailPanel(
     tasks: PlatformTaskRecord[];
     taskSummaries: PlatformTaskObservabilitySummary[];
     artifacts: PlatformArtifactRecord[];
+    filterStage?: string | null;
   }>
 ): JSX.Element {
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(pickDefaultTask(props.tasks));
+  const filteredTasks = props.filterStage
+    ? props.tasks.filter((task) => task.stage === props.filterStage)
+    : props.tasks;
+
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(pickDefaultTask(filteredTasks));
   const [selectedTab, setSelectedTab] = useState<TaskDetailTab>('summary');
 
   useEffect(() => {
-    if (!selectedTaskId && props.tasks[0]) {
-      setSelectedTaskId(pickDefaultTask(props.tasks));
-      return;
+    const isSelectionValid = selectedTaskId && filteredTasks.some((task) => task.taskId === selectedTaskId);
+    if (!isSelectionValid) {
+      setSelectedTaskId(pickDefaultTask(filteredTasks));
     }
-
-    if (selectedTaskId && !props.tasks.some((task) => task.taskId === selectedTaskId)) {
-      setSelectedTaskId(pickDefaultTask(props.tasks));
-    }
-  }, [props.tasks, selectedTaskId]);
+  }, [props.tasks, props.filterStage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setSelectedTab('summary');
@@ -54,7 +64,12 @@ export function TaskDetailPanel(
   const selectedTask = props.tasks.find((task) => task.taskId === selectedTaskId) ?? null;
   const selectedSummary = props.taskSummaries.find((summary) => summary.taskId === selectedTaskId) ?? null;
   const selectedArtifacts = props.artifacts.filter((artifact) => artifact.taskId === selectedTaskId);
-  const defectEvents = (selectedSummary?.recentEvents ?? []).filter((event) => event.category === 'repair' || event.type.includes('defect'));
+  const chronologicalRecentEvents = [...(selectedSummary?.recentEvents ?? [])].sort(
+    (left, right) => toTimestamp(left.createdAt) - toTimestamp(right.createdAt)
+  );
+  const defectEvents = chronologicalRecentEvents.filter(
+    (event) => event.category === 'repair' || event.type.includes('defect')
+  );
 
   return (
     <article className="panel panel--tall">
@@ -66,12 +81,12 @@ export function TaskDetailPanel(
         {selectedTask ? <StatusPill value={selectedTask.status} /> : null}
       </div>
 
-      {props.tasks.length === 0 ? (
+      {filteredTasks.length === 0 ? (
         <p>No task records available for this run.</p>
       ) : (
         <div className="detail-split-panel">
           <div className="detail-split-panel__list">
-            {props.tasks.map((task) => (
+            {filteredTasks.map((task) => (
               <button
                 key={task.taskId}
                 className={`detail-selector ${task.taskId === selectedTaskId ? 'detail-selector--active' : ''}`}
@@ -208,13 +223,13 @@ export function TaskDetailPanel(
                   <div className="panel-subsection">
                     <h4>Recent task events</h4>
                     <div className="mini-event-list">
-                      {(selectedSummary?.recentEvents ?? []).map((event) => (
+                      {chronologicalRecentEvents.map((event) => (
                         <div key={event.eventId} className={`mini-event mini-event--${event.severity}`}>
                           <strong>{event.title}</strong>
                           <span>{formatTimestamp(event.createdAt)}</span>
                         </div>
                       ))}
-                      {(selectedSummary?.recentEvents ?? []).length === 0 ? <p>No task-scoped events yet.</p> : null}
+                      {chronologicalRecentEvents.length === 0 ? <p>No task-scoped events yet.</p> : null}
                     </div>
                   </div>
                 ) : null}

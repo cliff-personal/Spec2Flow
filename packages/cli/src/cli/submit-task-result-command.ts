@@ -57,7 +57,8 @@ export function runSubmitTaskResult(options: CliOptions, dependencies: SubmitTas
     options.stage === 'test-design' ||
     options.stage === 'automated-execution' ||
     options.stage === 'defect-feedback' ||
-    options.stage === 'collaboration'
+    options.stage === 'collaboration' ||
+    options.stage === 'evaluation'
       ? options.stage
       : undefined;
 

@@ -215,7 +215,8 @@ describe('platform-observability-service', () => {
         publicationId: 'publication-1',
         taskId: 'frontend-smoke--collaboration',
         status: 'approval-required',
-        approvalRequired: true
+        approvalRequired: true,
+        reviewDecision: 'awaiting-decision'
       })
     ]));
     expect(result.approvals).toEqual(expect.arrayContaining([
@@ -233,6 +234,59 @@ describe('platform-observability-service', () => {
       expect.objectContaining({
         kind: 'publication',
         message: 'Approval is requested for publication publication-1'
+      })
+    ]));
+  });
+
+  it('projects accepted and follow-up decisions from publication approval metadata', () => {
+    const snapshot = createSnapshot();
+    snapshot.publications = [
+      {
+        publicationId: 'publication-accepted',
+        runId: 'run-1',
+        publishMode: 'manual-handoff',
+        status: 'published',
+        metadata: {
+          taskId: 'frontend-smoke--collaboration',
+          approvalRequired: true,
+          approvalStatus: 'approved',
+          approvalActionAt: '2026-03-24T10:06:00.000Z',
+          approvalActor: 'operator-1',
+          approvalNote: 'LGTM'
+        }
+      },
+      {
+        publicationId: 'publication-follow-up',
+        runId: 'run-1',
+        publishMode: 'manual-handoff',
+        status: 'blocked',
+        metadata: {
+          taskId: 'frontend-smoke--collaboration',
+          approvalRequired: true,
+          approvalStatus: 'rejected',
+          approvalActionAt: '2026-03-24T10:07:00.000Z',
+          approvalActor: 'operator-2',
+          approvalNote: 'Need follow-up changes'
+        }
+      }
+    ];
+
+    const result = buildPlatformObservabilityReadModel(snapshot, {
+      now: '2026-03-24T10:08:00.000Z'
+    });
+
+    expect(result.publicationSummaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        publicationId: 'publication-accepted',
+        reviewDecision: 'accepted',
+        reviewDecisionBy: 'operator-1',
+        reviewDecisionNote: 'LGTM'
+      }),
+      expect.objectContaining({
+        publicationId: 'publication-follow-up',
+        reviewDecision: 'follow-up-required',
+        reviewDecisionBy: 'operator-2',
+        reviewDecisionNote: 'Need follow-up changes'
       })
     ]));
   });

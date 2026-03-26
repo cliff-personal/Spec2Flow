@@ -3,7 +3,7 @@
 - Status: active
 - Source of truth: `docs/agent-orchestration-platform-design.md`, `docs/architecture.md`, `docs/object-store-local-first-design.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/platform/platform-control-plane-run-submission-service.ts`, `packages/cli/src/platform/platform-scheduler-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/collaboration-publication-service.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-26
 
 ## Goal
 
@@ -11,10 +11,11 @@ Define the V1 product shape for Spec2Flow as a locally deployed control plane th
 
 1. bind one project to one controlled workspace
 2. accept one feature request
-3. decompose the request into stage-scoped subtasks
-4. execute the full six-stage loop with minimal human intervention
+3. decompose the request into multiple independent task plans before expanding them into the six-stage DAG
+4. execute the full six-stage loop with minimal human intervention and a path toward unattended autonomous closure
 5. auto-repair bounded failures
 6. finish on a review-ready branch with evidence and a final delivery packet
+7. evolve toward true no-human-mid-loop operation through explicit evaluators and project-level adapter capability profiles
 
 This document answers a narrower question than the broader platform design:
 
@@ -46,6 +47,13 @@ The target V1 user experience is:
 
 Human review remains the last gate. Human orchestration should not be required in the middle of a healthy run.
 
+The longer-term system target is stronger than V1:
+
+- no-human-mid-loop orchestration for healthy low-risk runs
+- autonomous requirement-to-multi-task planning before DAG generation
+- evaluator-owned completion decisions instead of implementation-agent self-approval
+- project-level adapter profiles so AI runtime capability is part of project registration, not late file discovery
+
 ## Why The Current Design Is Not Yet Enough
 
 The current design already covers:
@@ -62,8 +70,10 @@ But the current product shape still leaves too much implicit:
 
 - `repositoryRootPath` is doing the job of a missing project model
 - workspace boundaries are not yet a first-class policy object
+- requirement decomposition is still too close to route selection and lacks a first-class task-plan layer
 - branch creation exists, but run isolation is not yet defined as a required lifecycle contract
-- completion is still too close to task state and not yet tied to a final delivery packet
+- completion is still too close to task state and not yet tied to evaluator-owned acceptance plus a final delivery packet
+- project AI capability is still discovered too late instead of being owned by the project profile
 - worker orchestration is still CLI-harness oriented rather than a long-running autonomous service model
 
 ## Core Domain Model
@@ -212,12 +222,23 @@ The product should normalize that into one run request and store the raw request
 
 ### 3. Planning
 
-The existing planner remains the right engine:
+The existing planner remains the right engine, but it needs one more layer:
 
-- match routes
-- build stage-scoped subtasks
+- decompose the requirement into explicit task plans
+- map each task plan onto one or more routes
+- build stage-scoped subtasks from those task plans
 - attach target files, verify commands, and specialist roles
 - persist the DAG
+
+V1.1 should treat `taskPlans` as first-class planning artifacts. They are the bridge between raw requirement text and the six-stage DAG. Without that bridge, the system is still a route expander, not an autonomous delivery planner.
+
+The first safe scheduling policy for task plans should be conservative:
+
+- infer task-plan dependencies from declared service dependencies in project and topology config
+- allow independent task plans to run in parallel
+- hold dependent task plans until upstream task plans finish collaboration handoff
+
+This is intentionally stricter than the final target scheduler. It gives the control plane a deterministic dependency spine before introducing plan-level parallel repair, evaluator feedback, or dynamic replanning.
 
 The planner should now also resolve workspace-scoped file permissions from the project profile.
 

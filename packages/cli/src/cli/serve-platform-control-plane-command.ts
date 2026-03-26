@@ -1,5 +1,6 @@
 import { createPlatformPool, resolvePlatformDatabaseConfig, withPlatformTransaction } from '../platform/platform-database.js';
 import {
+  getPlatformControlPlaneArtifactContent,
   getPlatformControlPlaneLocalArtifactContent,
   getPlatformControlPlaneRunDetail,
   getPlatformControlPlaneRunObservability,
@@ -29,6 +30,7 @@ export interface ServePlatformControlPlaneDependencies {
   createPlatformPool: typeof createPlatformPool;
   approvePlatformControlPlaneTask: typeof approvePlatformControlPlaneTaskAction;
   fail: (message: string) => void;
+  getPlatformControlPlaneArtifactContent?: typeof getPlatformControlPlaneArtifactContent;
   getPlatformControlPlaneLocalArtifactContent: typeof getPlatformControlPlaneLocalArtifactContent;
   getPlatformControlPlaneRunDetail: typeof getPlatformControlPlaneRunDetail;
   getPlatformControlPlaneRunObservability: typeof getPlatformControlPlaneRunObservability;
@@ -110,6 +112,13 @@ export async function runServePlatformControlPlane(
     getPlatformControlPlaneLocalArtifactContent: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.getPlatformControlPlaneLocalArtifactContent(client, config.schema, request)),
+    ...(dependencies.getPlatformControlPlaneArtifactContent
+      ? {
+          getPlatformControlPlaneArtifactContent: async (request: { artifactId: string }) =>
+            dependencies.withPlatformTransaction(pool, async (client) =>
+              dependencies.getPlatformControlPlaneArtifactContent?.(client, config.schema, request) ?? null)
+        }
+      : {}),
     submitPlatformRun: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.submitPlatformControlPlaneRun(client, config.schema, request)),

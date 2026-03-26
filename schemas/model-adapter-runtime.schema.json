@@ -44,7 +44,8 @@
             "test-design": { "type": "string", "minLength": 1 },
             "automated-execution": { "type": "string", "minLength": 1 },
             "defect-feedback": { "type": "string", "minLength": 1 },
-            "collaboration": { "type": "string", "minLength": 1 }
+            "collaboration": { "type": "string", "minLength": 1 },
+            "evaluation": { "type": "string", "minLength": 1 }
           }
         }
       }

@@ -17,6 +17,7 @@ import type {
   PlatformObservabilityTimelineEntry,
   PlatformRepairAttemptRecord,
   PlatformRepairObservabilitySummary,
+  PlatformReviewDecisionStatus,
   PlatformRunStateSnapshot,
   PlatformTaskObservabilitySummary
 } from '../types/index.js';
@@ -98,6 +99,64 @@ function getPayloadNumber(payload: Record<string, unknown>, key: string): number
 
 function getPayloadBoolean(payload: Record<string, unknown>, key: string): boolean {
   return payload[key] === true;
+}
+
+function derivePublicationReviewDecision(
+  publication: PlatformRunStateSnapshot['publications'][number],
+  approvalRequired: boolean
+): {
+  reviewDecision: PlatformReviewDecisionStatus;
+  reviewDecisionAt: string | null;
+  reviewDecisionBy: string | null;
+  reviewDecisionNote: string | null;
+} {
+  const approvalStatus = getPayloadString(publication.metadata ?? {}, 'approvalStatus');
+  const reviewDecisionAt = getPayloadString(publication.metadata ?? {}, 'approvalActionAt');
+  const reviewDecisionBy = getPayloadString(publication.metadata ?? {}, 'approvalActor');
+  const reviewDecisionNote = getPayloadString(publication.metadata ?? {}, 'approvalNote');
+
+  if (approvalStatus === 'approved') {
+    return {
+      reviewDecision: 'accepted',
+      reviewDecisionAt,
+      reviewDecisionBy,
+      reviewDecisionNote,
+    };
+  }
+
+  if (approvalStatus === 'rejected') {
+    return {
+      reviewDecision: 'follow-up-required',
+      reviewDecisionAt,
+      reviewDecisionBy,
+      reviewDecisionNote,
+    };
+  }
+
+  if (approvalRequired || publication.status === 'approval-required') {
+    return {
+      reviewDecision: 'awaiting-decision',
+      reviewDecisionAt,
+      reviewDecisionBy,
+      reviewDecisionNote,
+    };
+  }
+
+  if (publication.status === 'blocked') {
+    return {
+      reviewDecision: 'follow-up-required',
+      reviewDecisionAt,
+      reviewDecisionBy,
+      reviewDecisionNote,
+    };
+  }
+
+  return {
+    reviewDecision: 'not-required',
+    reviewDecisionAt,
+    reviewDecisionBy,
+    reviewDecisionNote,
+  };
 }
 
 function buildTaskSummaries(snapshot: PlatformRunStateSnapshot, timeline: PlatformObservabilityTimelineEntry[]): PlatformTaskObservabilitySummary[] {
@@ -300,6 +359,8 @@ function buildPublicationSummaries(
       .sort(sortTimelineEntriesDescending);
     const latestEvent = matchingEvents[0] ?? null;
     const taskId = typeof publication.metadata?.taskId === 'string' ? publication.metadata.taskId : null;
+    const approvalRequired = publication.status === 'approval-required' || getPayloadBoolean(publication.metadata ?? {}, 'approvalRequired');
+    const reviewDecision = derivePublicationReviewDecision(publication, approvalRequired);
 
     return {
       publicationId: publication.publicationId,
@@ -309,8 +370,12 @@ function buildPublicationSummaries(
       branchName: publication.branchName ?? null,
       commitSha: publication.commitSha ?? null,
       prUrl: publication.prUrl ?? null,
-      approvalRequired: publication.status === 'approval-required' || getPayloadBoolean(publication.metadata ?? {}, 'approvalRequired'),
+      approvalRequired,
       gateReason: getPayloadString(publication.metadata ?? {}, 'gateReason'),
+      reviewDecision: reviewDecision.reviewDecision,
+      reviewDecisionAt: reviewDecision.reviewDecisionAt,
+      reviewDecisionBy: reviewDecision.reviewDecisionBy,
+      reviewDecisionNote: reviewDecision.reviewDecisionNote,
       latestEventType: latestEvent?.type ?? null,
       latestEventAt: latestEvent?.createdAt ?? null,
       latestEventSeverity: latestEvent?.severity ?? null,

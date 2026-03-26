@@ -8,6 +8,7 @@ export interface AdapterRuntimeStageRuntimeRefs {
   'automated-execution'?: string;
   'defect-feedback'?: string;
   collaboration?: string;
+  evaluation?: string;
 }
 
 export interface AdapterRuntime {

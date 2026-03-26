@@ -299,6 +299,13 @@ describe('platform-control-plane-server', () => {
         localPath: fileURLToPath(new URL('./fixtures/platform-control-plane-local-artifact.json', import.meta.url)),
         contentType: 'application/json; charset=utf-8'
       }),
+      getPlatformControlPlaneArtifactContent: async () => ({
+        artifactId: 'artifact-1',
+        runId: 'run-1',
+        taskId: 'task-1',
+        localPath: fileURLToPath(new URL('./fixtures/platform-control-plane-local-artifact.json', import.meta.url)),
+        contentType: 'application/json; charset=utf-8'
+      }),
       submitPlatformRun: async () => ({
         platformRun: {
           schema: 'spec2flow_platform',
@@ -494,6 +501,13 @@ describe('platform-control-plane-server', () => {
     expect(artifactResponse.status).toBe(200);
     expect(artifactResponse.headers.get('content-type')).toContain('application/json');
     expect(await artifactResponse.json()).toEqual(expect.objectContaining({
+      status: 'ok'
+    }));
+
+    const genericArtifactResponse = await fetch(`${baseUrl}/api/artifacts/artifact-1/content`);
+    expect(genericArtifactResponse.status).toBe(200);
+    expect(genericArtifactResponse.headers.get('content-type')).toContain('application/json');
+    expect(await genericArtifactResponse.json()).toEqual(expect.objectContaining({
       status: 'ok'
     }));
 

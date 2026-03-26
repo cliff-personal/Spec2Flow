@@ -27,7 +27,8 @@
             "test-design",
             "automated-execution",
             "defect-feedback",
-            "collaboration"
+            "collaboration",
+            "evaluation"
           ]
         },
         "provider": {

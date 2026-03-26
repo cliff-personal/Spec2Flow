@@ -36,7 +36,29 @@ function deriveStageStatus(tasks: PlatformTaskRecord[], stage: string): string {
   return stageTasks[0]?.status ?? 'pending';
 }
 
-export function RunStageProgressPanel(props: Readonly<{ tasks: PlatformTaskRecord[] }>): JSX.Element {
+function getStageStateMarker(stageStatus: string): { icon: string; className: string } {
+  if (stageStatus === 'completed') {
+    return { icon: '✓', className: 'stage-strip__state stage-strip__state--completed' };
+  }
+
+  if (stageStatus === 'blocked' || stageStatus === 'failed' || stageStatus === 'cancelled') {
+    return { icon: '✗', className: 'stage-strip__state stage-strip__state--blocked' };
+  }
+
+  if (stageStatus === 'running' || stageStatus === 'ready' || stageStatus === 'leased' || stageStatus === 'in-progress') {
+    return { icon: '●', className: 'stage-strip__state stage-strip__state--running' };
+  }
+
+  return { icon: '·', className: 'stage-strip__state stage-strip__state--pending' };
+}
+
+export function RunStageProgressPanel(
+  props: Readonly<{
+    tasks: PlatformTaskRecord[];
+    selectedStage?: string | null;
+    onStageSelect?: (stage: string) => void;
+  }>
+): JSX.Element {
   return (
     <article className="panel">
       <div className="panel__header">
@@ -52,14 +74,22 @@ export function RunStageProgressPanel(props: Readonly<{ tasks: PlatformTaskRecor
           const stageTasks = props.tasks.filter((task) => task.stage === stage);
           const stageStatus = deriveStageStatus(props.tasks, stage);
           const activeCount = stageTasks.filter((task) => ['ready', 'leased', 'in-progress', 'running'].includes(task.status)).length;
+          const isActive = props.selectedStage === stage;
+          const marker = getStageStateMarker(stageStatus);
 
           return (
-            <div key={stage} className={`stage-strip__item stage-strip__item--${stageStatus}`}>
+            <button
+              key={stage}
+              type="button"
+              className={`stage-strip__item stage-strip__item--${stageStatus}${isActive ? ' stage-strip__item--active' : ''}`}
+              onClick={() => props.onStageSelect?.(stage)}
+            >
+              <span className={marker.className} aria-hidden="true">{marker.icon}</span>
               <span className="stage-strip__label">{formatStage(stage)}</span>
               <StatusPill value={stageStatus} />
               <strong>{stageTasks.length}</strong>
               <span className="stage-strip__hint">{activeCount > 0 ? `${activeCount} active` : 'tasks'}</span>
-            </div>
+            </button>
           );
         })}
       </div>

@@ -14,6 +14,7 @@ type SchemaBackedArtifactId =
   | 'execution-artifact-catalog'
   | 'defect-summary'
   | 'collaboration-handoff'
+  | 'evaluation-summary'
   | 'publication-record';
 
 interface SchemaBackedArtifactConfig {
@@ -36,6 +37,7 @@ const schemaBackedArtifactIds: SchemaBackedArtifactId[] = [
   'execution-artifact-catalog',
   'defect-summary',
   'collaboration-handoff',
+  'evaluation-summary',
   'publication-record'
 ];
 
@@ -79,6 +81,10 @@ const schemaBackedArtifactConfigs: Record<SchemaBackedArtifactId, SchemaBackedAr
   'collaboration-handoff': {
     validate: (validators, payload) => validators.collaborationHandoff(payload),
     getErrors: (validators) => validators.collaborationHandoff.errors ?? []
+  },
+  'evaluation-summary': {
+    validate: (validators, payload) => validators.evaluationSummary(payload),
+    getErrors: (validators) => validators.evaluationSummary.errors ?? []
   },
   'publication-record': {
     validate: (validators, payload) => validators.publicationRecord(payload),

@@ -263,6 +263,15 @@ describe('schema-registry', () => {
       }
     })).toBe(true);
 
+    expect(validators.evaluationSummary({
+      taskId: 'frontend-smoke--evaluation',
+      stage: 'evaluation',
+      summary: 'The route-level delivery is accepted for completion.',
+      decision: 'accepted',
+      artifactRefs: ['implementation-summary', 'execution-report', 'collaboration-handoff'],
+      findings: ['No open acceptance blockers remain.']
+    })).toBe(true);
+
     expect(validators.topology({
       topology: {
         services: [
@@ -350,22 +359,22 @@ describe('schema-registry', () => {
         workflowName: 'workflow',
         tasks: [
           {
-            id: 'provider-registration-flow--collaboration',
-            stage: 'collaboration',
-            title: 'Prepare collaboration handoff',
-            goal: 'Prepare collaboration handoff',
-            executorType: 'collaboration-agent',
+            id: 'provider-registration-flow--evaluation',
+            stage: 'evaluation',
+            title: 'Evaluate collaboration handoff',
+            goal: 'Evaluate collaboration handoff',
+            executorType: 'evaluator-agent',
             roleProfile: {
-              profileId: 'collaboration-specialist',
-              specialistRole: 'collaboration-agent',
-              commandPolicy: 'collaboration-only',
+              profileId: 'evaluation-specialist',
+              specialistRole: 'evaluator-agent',
+              commandPolicy: 'none',
               canReadRepository: true,
               canEditFiles: false,
               canRunCommands: false,
               canWriteArtifacts: true,
-              canOpenCollaboration: true,
+              canOpenCollaboration: false,
               requiredAdapterSupports: ['toolCalling', 'jsonMode'],
-              expectedArtifacts: ['collaboration-handoff']
+              expectedArtifacts: ['evaluation-summary']
             },
             status: 'ready',
             reviewPolicy: {

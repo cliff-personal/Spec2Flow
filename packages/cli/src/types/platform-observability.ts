@@ -72,6 +72,12 @@ export interface PlatformRepairObservabilitySummary {
   recentEvents: PlatformObservabilityTimelineEntry[];
 }
 
+export type PlatformReviewDecisionStatus =
+  | 'awaiting-decision'
+  | 'accepted'
+  | 'follow-up-required'
+  | 'not-required';
+
 export interface PlatformPublicationObservabilitySummary {
   publicationId: string;
   taskId?: string | null;
@@ -82,6 +88,10 @@ export interface PlatformPublicationObservabilitySummary {
   prUrl?: string | null;
   approvalRequired: boolean;
   gateReason?: string | null;
+  reviewDecision: PlatformReviewDecisionStatus;
+  reviewDecisionAt?: string | null;
+  reviewDecisionBy?: string | null;
+  reviewDecisionNote?: string | null;
   latestEventType?: string | null;
   latestEventAt?: string | null;
   latestEventSeverity?: PlatformEventSeverity | null;

@@ -1,4 +1,5 @@
 import { HeroPanel } from '../components/hero-panel';
+import { RunAttentionPanel } from '../components/run-attention-panel';
 import { RunsPanel } from '../components/runs-panel';
 import { useControlPlaneRunsPage } from '../hooks/use-control-plane-runs-page';
 
@@ -7,13 +8,14 @@ export function ControlPlaneRunsPage(): JSX.Element {
   const totalRuns = runsPage.runsQuery.data ?? [];
   const blockedRuns = totalRuns.filter((run) => run.status === 'blocked').length;
   const completedRuns = totalRuns.filter((run) => run.status === 'completed').length;
+  const attentionRuns = runsPage.attentionItems.filter((item) => item.attentionCount > 0 || item.status !== 'completed');
 
   return (
     <div className="page-stack">
       <HeroPanel
         eyebrow="Runs"
-        title="Inspect the global autonomous delivery queue"
-        description="The queue view is for cross-project monitoring only. Requirement intake stays project-scoped so runs inherit real workspace policy instead of freelancing against arbitrary paths."
+        title="Inspect the global attention deck and delivery queue"
+        description="The runs surface is attention-first: operators should see which autonomous delivery loops need intervention before scanning the full cross-project queue. Requirement intake still stays project-scoped so runs inherit real workspace policy instead of freelancing against arbitrary paths."
         statusItems={[
           {
             label: 'Runs API',
@@ -28,11 +30,22 @@ export function ControlPlaneRunsPage(): JSX.Element {
             value: String(blockedRuns)
           },
           {
+            label: 'Needs Attention',
+            value: String(attentionRuns.filter((item) => item.attentionCount > 0 || item.status === 'blocked').length)
+          },
+          {
             label: 'Completed',
             value: String(completedRuns)
           }
         ]}
       />
+
+      <section className="grid" id="attention">
+        <RunAttentionPanel
+          items={attentionRuns}
+          onOpenRun={(runId) => runsPage.openRun(`/runs/${runId}`)}
+        />
+      </section>
 
       <section className="grid" id="queue">
         <RunsPanel

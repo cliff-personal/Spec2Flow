@@ -1,9 +1,9 @@
 # Web Control Plane Product Design
 
 - Status: active
-- Source of truth: `docs/project-workspace-autonomous-delivery-design.md`, `docs/agent-orchestration-platform-design.md`, `docs/plans/web-control-plane-frontend-implementation.md`, `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/web/src/pages/control-plane-runs-page.tsx`, `packages/web/src/pages/control-plane-run-detail-page.tsx`
-- Verified with: `npm run validate:docs`
-- Last verified: 2026-03-25
+- Source of truth: `docs/project-workspace-autonomous-delivery-design.md`, `docs/agent-orchestration-platform-design.md`, `docs/plans/web-control-plane-frontend-implementation.md`, `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/web/src/components/projects/run-session-panel.tsx`, `packages/web/src/components/projects/stage-result-panel.tsx`, `packages/web/src/pages/control-plane-run-detail-page.tsx`
+- Verified with: `npm run validate:docs`, `npm run web:build`
+- Last verified: 2026-03-26
 
 ## Goal
 
@@ -49,6 +49,7 @@ It is a monitor-first, evidence-first, review-ready delivery console.
 - every visible state must map to backend truth, not frontend inference
 - evidence and code deltas matter more than decorative charts
 - approval and intervention controls stay available, but not visually dominant during healthy runs
+- final human sign-off must render as an explicit review decision state, not as leaked backend status jargon
 
 ## Information Architecture
 
@@ -61,6 +62,17 @@ The product should stabilize around five operator views:
 5. Review Packet
 
 The UI may still use drawers, tabs, and side panels, but the operator mental model should stay this simple.
+
+The supporting `/runs` surface is not a passive history page.
+It must open with an attention-first deck that answers one operator question immediately: which runs need intervention now, and what is the next action.
+
+Review packet contract:
+
+- if a collaboration handoff is waiting on human approval, the review packet must surface `Accept Result` and `Needs Follow-up` as first-class controls
+- once a reviewer acts, the packet must render a durable decision state such as `accepted`, `follow-up required`, or `awaiting decision`
+- final review actions should collect a structured operator note so the acceptance or follow-up rationale is auditable without reopening raw event payloads
+- project-level monitoring surfaces should reuse that same final review rationale so operators can spot accepted vs follow-up-required runs without drilling back into the packet first
+- primary review packet copy should stay human-facing; raw backend values like `approval-required` or `published` are supporting evidence, not the final-signoff headline
 
 ## App Shell
 
@@ -85,6 +97,13 @@ Recommended top command bar:
 - global search
 - `New Requirement` primary button
 - system health badge
+
+Global queue requirement:
+
+- the `/runs` surface must render an attention deck above the full queue
+- each attention card must compress one run into headline, blocker detail, and next action
+- when a final review decision exists, the `/runs` attention deck should surface that decision and its operator rationale directly instead of collapsing everything back to generic `review-ready` copy
+- the full queue remains available below as the audit and navigation list
 
 Recommended right drawer usage:
 
@@ -231,6 +250,22 @@ Recommended top summary strip:
 - token usage
 - approval state
 
+Run detail must also expose a handoff-readiness decision, not only raw state.
+
+Required run-level decision signals:
+
+- autonomy score derived from observable delivery health, evidence completeness, and unresolved gates
+- handoff readiness state: `review-ready`, `attention-required`, `blocked`, or `in-flight`
+- next action explaining whether the operator should review, approve, inspect a repair path, or simply keep monitoring
+
+Required run-level operator behavior:
+
+- the `Next Action` judgment must render a real control or navigation CTA, not only text
+- pending publication approval must expose `Approve Publication` and `Reject Publication` directly from run detail and review packet
+- blocked repair or blocked task states must expose a direct retry control from run detail and review packet
+- missing-evidence states must deep-link the operator to the evidence section instead of forcing manual scanning
+- healthy completed runs must expose a direct `Open Review Packet` CTA from the run summary band
+
 Recommended stage progress strip:
 
 - requirements analysis
@@ -246,6 +281,31 @@ Each stage should show:
 - owning task count
 - latest updated time
 - whether blocked
+
+Run detail and project-session surfaces must use the stage strip as a top tab bar, not as a passive decoration.
+
+Required behavior:
+
+- the current stage is selected by default and visibly highlighted
+- clicking any stage switches the lower execution view to that stage only
+- the lower execution view shows that stage's timeline, task activity, artifacts, and block/completion outcome
+- the stage strip remains the primary state-machine navigation for the six-stage pipeline
+- the event log inside the selected stage must be rendered in chronological order from top to bottom
+
+The selected-stage session surface must expose both process data and result data.
+
+Required data sources for each stage view:
+
+- process data: leased, started, completed, blocked, retry, approval, and artifact-attached events from platform observability
+- result data: task summaries, task status, expected-vs-produced artifact counts, and stage artifacts returned by run detail
+- selected-stage artifacts must support inline preview for text and JSON outputs so operators can inspect the actual agent result without leaving the session surface
+- the selected-stage result surface must expose the autonomy loop state for that stage: repair attempts, approval gates, and collaboration publication status when those flows exist
+- the selected-stage result surface must also compress the autonomy loop into operator-facing command signals: self-heal recovery rate, current blocker, and next automatic action
+- when defect-closure signals exist, the stage surface must render a single chronological closure timeline that merges defect discovery, repair, approval, and publication recovery into one visible path
+- requirement and planning stages must not appear blank merely because recent-event windows excluded their older timeline entries; the UI must still render task goals and generated artifacts for that stage
+
+Do not collapse all six stages into one mixed conversation stream.
+The mixed stream is useful only as a supporting audit view, not as the primary operator navigation model.
 
 Recommended main body layout:
 
@@ -277,6 +337,12 @@ Primary actions:
 - `Needs Follow-up`
 - `Open Branch`
 - `Open Evidence`
+
+The first review-packet implementation must live on a dedicated route under the run, so the operator can move from run detail into one approval-grade summary surface without reconstructing the story from six panels.
+
+The first review-packet implementation must also make `Open Branch` and `Open Evidence` real links backed by run data, not placeholder buttons.
+
+The review packet must also reuse the same derived operator CTA model as run detail, so approval, retry, and evidence-inspection actions remain executable from the final handoff surface.
 
 ## Task Detail Design
 

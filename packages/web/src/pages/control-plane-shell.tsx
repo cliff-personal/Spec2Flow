@@ -7,6 +7,14 @@ function deriveShellHeading(pathname: string, projectId: string | null, runId: s
   title: string;
   description: string;
 } {
+  if (pathname.startsWith('/runs/') && pathname.endsWith('/review') && runId) {
+    return {
+      eyebrow: 'Review Packet',
+      title: `Review ${runId.slice(0, 8)}`,
+      description: 'Validate the final delivery packet, evidence set, and publication outcome for one autonomous run.'
+    };
+  }
+
   if (pathname.startsWith('/runs/') && runId) {
     return {
       eyebrow: 'Run Command',

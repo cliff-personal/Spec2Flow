@@ -96,7 +96,7 @@ function readDefectSummaryPayload(artifacts: ArtifactRef[], artifactBaseDir: str
   }
 }
 
-function getRepairTargetStageFromDefectSummary(defectSummaryPayload: DefectSummaryPayload | null): Exclude<TaskStage, 'environment-preparation' | 'defect-feedback' | 'collaboration'> | null {
+function getRepairTargetStageFromDefectSummary(defectSummaryPayload: DefectSummaryPayload | null): Exclude<TaskStage, 'environment-preparation' | 'defect-feedback' | 'collaboration' | 'evaluation'> | null {
   switch (defectSummaryPayload?.recommendedAction) {
     case 'clarify-requirements':
       return 'requirements-analysis';
@@ -246,7 +246,8 @@ export function applyAutoRepairPolicy(options: ApplyAutoRepairPolicyOptions): Au
     'test-design': 3,
     'automated-execution': 4,
     'defect-feedback': 5,
-    'collaboration': 6
+    'collaboration': 6,
+    'evaluation': 7
   };
 
   resetTaskStateForRetry(targetTaskState, 'ready');

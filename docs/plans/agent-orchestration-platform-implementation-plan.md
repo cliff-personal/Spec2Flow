@@ -3,7 +3,7 @@
 - Status: active
 - Source of truth: `docs/agent-orchestration-platform-design.md`, `docs/architecture.md`, `docs/plans/architecture-gap-matrix.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/platform/platform-scheduler-service.ts`, `packages/cli/src/platform/platform-worker-service.ts`, `packages/cli/src/platform/platform-control-plane-server.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/auto-repair-policy-service.ts`, `packages/cli/src/runtime/collaboration-publication-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-26
 
 ## Goal
 
@@ -22,12 +22,15 @@ This document is the working implementation plan for the platform-shaped version
 | Capability | Target Outcome | Current Evidence | Status | Unimplemented Marker |
 | --- | --- | --- | --- | --- |
 | Task intake from one requirement | Accept one task and create one workflow run | `generate-task-graph --requirement`; `POST /api/runs`; `POST /api/projects`; `register-platform-project`; `packages/cli/src/planning/task-graph-service.ts`; `packages/cli/src/platform/platform-control-plane-run-submission-service.ts`; `packages/cli/src/platform/platform-project-service.ts` | `partial` | Project registration command and API, project/workspace metadata persistence, and run worktree provisioning now exist, but there is still no standalone project registry UI or long-running intake daemon |
-| DAG decomposition into six-stage subtasks | One request expands into stage-aware tasks | `packages/cli/src/planning/task-graph-service.ts` | `implemented` | None for the local controller path |
+| Requirement to multi-task planning | One feature request decomposes into explicit independent task plans before DAG expansion | `packages/cli/src/planning/task-graph-service.ts`; `schemas/task-graph.schema.json`; `packages/cli/src/types/task-graph.ts` | `partial` | `taskPlans` now exist as a first-class planning artifact and infer conservative dependency order from service topology, but richer requirement slicing, dependency confidence scoring, and dynamic replanning are still missing |
+| DAG decomposition into six-stage subtasks | One request expands into stage-aware tasks from task plans | `packages/cli/src/planning/task-graph-service.ts` | `implemented` | The six-stage expander exists and now gates dependent plans behind upstream collaboration completion, but it still depends on route-scoped task ids and does not yet support plan-level stage-aligned parallelism |
 | Persisted workflow truth outside model memory | Controller remains the system of record | `execution-state.json`; `packages/cli/src/runtime/execution-state-service.ts` | `implemented` | Shared PostgreSQL truth is still missing |
 | Shared multi-run persistence | Multiple runs and tasks persist durably for many workers | `migrate-platform-db`; `init-platform-run`; `lease-next-platform-task`; `get-platform-run-state`; `register-platform-project`; `packages/cli/src/platform/` | `partial` | PostgreSQL schema, repository layer, lease state, snapshot queries, explicit `project/workspace` read models, `projects`, and `run_workspaces` now exist, but DB-backed worker execution and richer query APIs are still incomplete |
 | Scheduler with task leasing | Ready tasks can be leased safely to concurrent workers | `lease-next-platform-task`; `heartbeat-platform-task`; `start-platform-task`; `expire-platform-leases`; `packages/cli/src/platform/platform-scheduler-service.ts` | `partial` | Lease ownership, heartbeat, and timeout recovery now exist, but there is still no worker registry or dead-letter queue service |
 | Stage-specialized workers | Requirements, implementation, test, execution, defect, and collaboration run as role-scoped workers | `run-platform-worker-task`; `run-platform-requirements-worker`; `run-platform-implementation-worker`; `run-platform-test-design-worker`; `run-platform-execution-worker`; `run-platform-defect-worker`; `run-platform-collaboration-worker` | `partial` | DB-backed worker harness, execution-time heartbeat auto-renew, and stage entrypoints now exist, but there is still no long-running worker service or worker registry |
 | Automatic defect repair loop | Failed work reroutes and retries under policy control | `packages/cli/src/runtime/auto-repair-policy-service.ts`; `packages/cli/src/runtime/task-result-service.ts`; `packages/cli/src/platform/platform-auto-repair-service.ts`; `packages/cli/src/platform/migrations/0003_platform_auto_repair.sql` | `partial` | Auto-repair policy fields, downstream rerun invalidation, repair escalation, repair-attempt records, and retry-budget persistence now exist, but there is still no background orchestration daemon or operator-facing repair console |
+| Evaluator layer | Completion decisions come from dedicated evaluators instead of implementation workers | None | `gap` | No evaluator-owned acceptance model, no completion scorer, and no plan-level acceptance budget |
+| Project adapter profile | AI runtime capability is part of project registration and scheduling truth | `register-platform-project`; `POST /api/projects`; `packages/cli/src/platform/platform-project-service.ts`; `packages/cli/src/platform/platform-auto-runner-service.ts` | `gap` | Adapter runtime is still discovered from `.spec2flow/model-adapter-runtime.json` instead of a first-class project profile with scheduler-visible capabilities |
 | Deterministic execution and evidence | Approved commands run and produce evidence | `packages/cli/src/runtime/deterministic-execution-service.ts`; `packages/cli/src/runtime/service-orchestration-service.ts`; `packages/cli/src/runtime/browser-automation-service.ts`; `packages/cli/src/runtime/execution-evidence-index-service.ts`; `packages/cli/src/runtime/execution-lifecycle-service.ts`; `packages/cli/src/runtime/execution-artifact-store-service.ts` | `partial` | Service orchestration, browser checks, execution lifecycle timeout, managed-service teardown, generic HTTP object-store uploads, and execution artifact-store indexing now exist, but full Playwright capture availability and non-HTTP provider implementations are still missing |
 | Collaboration publish flow | Commit code, create branch, optionally draft PR | `packages/cli/src/runtime/collaboration-publication-service.ts`; `packages/cli/src/platform/platform-publication-service.ts`; `publications` table | `partial` | Controller-side branch creation, scoped auto-commit, publication records, and PR-draft artifacts now exist, but there is still no remote push, PR API integration, or operator approval UI |
 | Approval gates and risk policy | High-risk tasks block for review | `reviewPolicy`; `packages/cli/src/runtime/task-result-service.ts` | `implemented` | Approval records and operator actions are still shallow |
@@ -51,12 +54,30 @@ This document is the working implementation plan for the platform-shaped version
 The cleanest path is a progressive upgrade:
 
 1. keep the current CLI as the local-dev and fixture-generation surface
-2. add platform persistence behind new service modules
-3. add a real scheduler with leases and retries
-4. add worker runtimes that consume leased tasks
-5. add collaboration publish automation
-6. add the web control plane
-7. harden auto-repair and operational observability
+2. add requirement-to-multi-task planning ahead of the current route-scoped DAG expander
+3. add evaluator-owned acceptance so completion is controller truth instead of worker self-assertion
+4. add project adapter profiles so scheduling sees runtime capability before runs start
+5. add platform persistence behind new service modules
+6. add a real scheduler with leases and retries
+7. add worker runtimes that consume leased tasks
+8. add collaboration publish automation
+9. add the web control plane
+10. harden auto-repair and operational observability
+
+## Near-Term Priorities
+
+These are the next leverage points for turning Spec2Flow into a true unattended control plane:
+
+1. `Requirement to Multi-Task Planner`
+  - turn one feature request into explicit `taskPlans`
+  - map task plans into the six-stage DAG
+  - keep route expansion as an implementation detail, not the planning headline
+2. `Evaluator Layer`
+  - introduce evaluator-owned completion signals
+  - move acceptance and “done” semantics out of implementation workers
+3. `Project Adapter Profile`
+  - register adapter/runtime capability with the project
+  - make scheduler and planner aware of AI runtime availability before an AI stage is leased
 
 ## Phase 1: PostgreSQL Runtime Truth
 

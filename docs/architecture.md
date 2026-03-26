@@ -3,9 +3,9 @@
 - Status: active
 - Source of truth: `AGENTS.md`, `packages/cli/src/planning/task-graph-service.ts`, `packages/cli/src/runtime/execution-state-service.ts`, `packages/cli/src/runtime/task-result-service.ts`, `packages/cli/src/runtime/workflow-loop-service.ts`, `packages/cli/src/adapters/adapter-runner.ts`, `packages/cli/src/shared/task-role-profile.ts`
 - Verified with: `npm run build`, `npm run test:unit`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-26
 
-Spec2Flow is organized around a six-stage workflow implemented through five cooperating parts:
+Spec2Flow is organized around an eight-stage workflow implemented through five cooperating parts:
 
 1. orchestration
 2. adapter
@@ -17,16 +17,38 @@ The six stages explain what work happens. These five parts explain where each re
 
 ## Workflow Stages
 
-1. Requirements analysis
-2. Code implementation
-3. Test design
-4. Automated execution
-5. Defect feedback
-6. Collaboration workflow
+1. Environment preparation
+2. Requirements analysis
+3. Code implementation
+4. Test design
+5. Automated execution
+6. Defect feedback
+7. Collaboration workflow
+8. Evaluation
+
+## Product Diagram
+
+```mermaid
+flowchart LR
+	Intake[Requirement Intake] --> Planner[Requirement to Multi-Task Planner]
+	Planner --> Plans[Task Plans + Dependency Spine]
+	Plans --> Env[Environment Preparation]
+	Env --> Req[Requirements Analysis]
+	Req --> Impl[Code Implementation]
+	Impl --> Test[Test Design]
+	Test --> Exec[Automated Execution]
+	Exec --> Defect[Defect Feedback]
+	Defect --> Collab[Collaboration Handoff + Publication]
+	Collab --> Eval[Evaluator Layer]
+	Eval -->|accepted| Complete[Run Completed]
+	Eval -->|rejected / needs-repair| Blocked[Run Blocked]
+	Defect -->|auto-repair policy| Impl
+	Plans -->|cross-plan gating| Eval
+```
 
 ## Runtime Orchestration Model
 
-The six stages explain what work happens. The runtime orchestration model explains how a single development request is persisted and executed.
+The eight stages explain what work happens. The runtime orchestration model explains how a single development request is persisted and executed.
 
 Core runtime objects:
 - repository inputs stored in `.spec2flow/project.yaml`, `.spec2flow/topology.yaml`, `.spec2flow/policies/risk.yaml`, and workflow files such as `.spec2flow/workflows/smoke.yaml`

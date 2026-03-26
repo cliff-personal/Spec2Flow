@@ -7,7 +7,8 @@ export type TaskStage =
   | 'test-design'
   | 'automated-execution'
   | 'defect-feedback'
-  | 'collaboration';
+  | 'collaboration'
+  | 'evaluation';
 
 export type TaskExecutorType =
   | 'controller-agent'
@@ -16,7 +17,8 @@ export type TaskExecutorType =
   | 'test-design-agent'
   | 'execution-agent'
   | 'defect-agent'
-  | 'collaboration-agent';
+  | 'collaboration-agent'
+  | 'evaluator-agent';
 
 export type AdapterSupportName =
   | 'toolCalling'
@@ -69,6 +71,20 @@ export interface TaskGraphSource {
   changeSet?: string[];
   routeSelectionMode?: string | null;
   selectedRoutes?: string[];
+  taskPlans?: RequirementTaskPlan[];
+}
+
+export interface RequirementTaskPlan {
+  id: string;
+  title: string;
+  goal: string;
+  routeName: string;
+  entryServices: string[];
+  targetFiles: string[];
+  dependencyIds?: string[];
+  requirementSummary?: string;
+  matchedRequirementPhrases?: string[];
+  matchedRequirementKeywords?: string[];
 }
 
 export interface Task {

@@ -75,6 +75,7 @@ type TestPlanCaseLevel = 'smoke' | 'integration' | 'regression' | 'edge';
 type TestCasePriority = 'low' | 'medium' | 'high' | 'critical';
 type CollaborationHandoffType = 'pull-request' | 'issue' | 'review' | 'status-update';
 type CollaborationReadiness = 'ready' | 'blocked' | 'awaiting-approval';
+type EvaluationDecision = 'accepted' | 'rejected' | 'needs-repair';
 
 interface NormalizedTestPlanCase {
   id: string;
@@ -553,6 +554,11 @@ function isValidCollaborationHandoffPayload(payload: unknown): boolean {
   return validators.collaborationHandoff(payload);
 }
 
+function isValidEvaluationSummaryPayload(payload: unknown): boolean {
+  const validators = getSchemaValidators();
+  return validators.evaluationSummary(payload);
+}
+
 function isCollaborationHandoffType(value: string | undefined): value is CollaborationHandoffType {
   return value === 'pull-request'
     || value === 'issue'
@@ -742,6 +748,87 @@ function buildCollaborationHandoffPayload(
     artifactRefs: collectCollaborationArtifactRefs(normalizedSource, claim, runOutput),
     nextActions,
     reviewPolicy
+  };
+}
+
+function inferEvaluationDecision(sourcePayload: Record<string, unknown>, runStatus: string): EvaluationDecision {
+  const explicitDecision = getObjectStringProperty(sourcePayload, 'decision')?.toLowerCase().replaceAll(/[_\s]+/g, '-');
+  if (explicitDecision === 'accepted' || explicitDecision === 'rejected' || explicitDecision === 'needs-repair') {
+    return explicitDecision;
+  }
+
+  const statusValue = getObjectStringProperty(sourcePayload, 'status')?.toLowerCase().replaceAll(/[_\s]+/g, '-');
+  if (statusValue === 'accepted' || statusValue === 'approved' || statusValue === 'passed') {
+    return 'accepted';
+  }
+  if (statusValue === 'rejected' || statusValue === 'failed' || statusValue === 'blocked') {
+    return 'rejected';
+  }
+  if (statusValue === 'needs-repair' || statusValue === 'changes-requested' || statusValue === 'repair-required') {
+    return 'needs-repair';
+  }
+
+  return runStatus === 'completed' ? 'accepted' : 'rejected';
+}
+
+function collectEvaluationArtifactRefs(
+  sourcePayload: Record<string, unknown>,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  runOutput: AdapterRunDocument
+): string[] {
+  const artifactRefs = new Set<string>();
+  const candidateRefs = [
+    ...(normalizeStringList(sourcePayload.artifactRefs) ?? []),
+    ...claim.runtimeContext.artifactRefs,
+    ...claim.runtimeContext.taskArtifacts
+      .map((artifact) => artifact.path)
+      .filter((artifactPath): artifactPath is string => typeof artifactPath === 'string' && artifactPath.trim().length > 0),
+    ...runOutput.adapterRun.artifacts.map((artifact) => artifact.path)
+  ];
+
+  for (const artifactRef of candidateRefs) {
+    const normalizedArtifactRef = artifactRef.trim();
+    const normalizedArtifactRefKey = normalizedArtifactRef.toLowerCase();
+    if (!normalizedArtifactRef
+      || normalizedArtifactRefKey.includes('evaluation-summary')
+      || normalizedArtifactRefKey.includes('model-output')
+      || normalizedArtifactRefKey.includes('copilot-cli-output')) {
+      continue;
+    }
+
+    artifactRefs.add(normalizedArtifactRef);
+  }
+
+  return [...artifactRefs];
+}
+
+function buildEvaluationSummaryPayload(
+  sourcePayload: Record<string, unknown> | null,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  runOutput: AdapterRunDocument
+): Record<string, unknown> | null {
+  const normalizedSource = sourcePayload ?? {};
+  const summary = getObjectStringProperty(normalizedSource, 'summary')
+    ?? getObjectStringProperty(normalizedSource, 'title')
+    ?? runOutput.adapterRun.summary
+    ?? claim.goal;
+  const artifactRefs = collectEvaluationArtifactRefs(normalizedSource, claim, runOutput);
+  const findings = normalizeStringList(normalizedSource.findings);
+  const nextActions = normalizeStringList(normalizedSource.nextActions);
+
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    taskId: claim.taskId,
+    stage: 'evaluation',
+    summary,
+    decision: inferEvaluationDecision(normalizedSource, runOutput.adapterRun.status),
+    artifactRefs,
+    ...(findings ? { findings } : {}),
+    ...(nextActions ? { nextActions } : {})
   };
 }
 
@@ -1545,6 +1632,63 @@ function enrichCollaborationRunOutput(
   };
 }
 
+function enrichEvaluationRunOutput(
+  runOutput: AdapterRunDocument,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  adapterRuntimePayload: AdapterRuntimeDocument | null
+): AdapterRunDocument {
+  if (claim.stage !== 'evaluation') {
+    return runOutput;
+  }
+
+  const artifactsDir = claim.runtimeContext.artifactsDir?.trim();
+  if (!artifactsDir) {
+    return runOutput;
+  }
+
+  const repositoryRoot = inferRepositoryRoot(claim, adapterRuntimePayload);
+  const artifacts = [...runOutput.adapterRun.artifacts];
+  const existingEvaluationArtifact = findStructuredArtifactReference(artifacts, 'evaluation-summary');
+  if (existingEvaluationArtifact) {
+    const existingPayload = loadOptionalStructuredFileFrom(repositoryRoot, existingEvaluationArtifact.path);
+    if (existingPayload && isValidEvaluationSummaryPayload(existingPayload)) {
+      return runOutput;
+    }
+  }
+
+  const deliverablePayload = extractModelOutputDeliverablePayloadFrom(runOutput, repositoryRoot);
+  const evaluationSummaryPayload = buildEvaluationSummaryPayload(deliverablePayload, claim, runOutput);
+  if (!evaluationSummaryPayload) {
+    return runOutput;
+  }
+
+  const evaluationSummaryPath = existingEvaluationArtifact?.path ?? path.join(artifactsDir, 'evaluation-summary.json');
+  writeJsonFrom(repositoryRoot, evaluationSummaryPath, evaluationSummaryPayload);
+
+  return {
+    adapterRun: {
+      ...runOutput.adapterRun,
+      notes: [
+        ...runOutput.adapterRun.notes,
+        existingEvaluationArtifact
+          ? 'controller-normalized:evaluation-summary'
+          : 'controller-generated:evaluation-summary'
+      ],
+      artifacts: existingEvaluationArtifact
+        ? artifacts
+        : [
+            ...artifacts,
+            {
+              id: 'evaluation-summary',
+              kind: 'report',
+              path: evaluationSummaryPath,
+              taskId: claim.taskId
+            }
+          ]
+    }
+  };
+}
+
 function buildAdapterTimeoutMessage(timeout: number | undefined): string {
   return timeout === undefined
     ? 'Adapter runtime exceeded timeout.'
@@ -1956,7 +2100,8 @@ export function executeTaskRun(
     resolvedOptions.stage === 'test-design' ||
     resolvedOptions.stage === 'automated-execution' ||
     resolvedOptions.stage === 'defect-feedback' ||
-    resolvedOptions.stage === 'collaboration'
+    resolvedOptions.stage === 'collaboration' ||
+    resolvedOptions.stage === 'evaluation'
       ? resolvedOptions.stage
       : undefined;
   const runOutput = adapterRuntimePayload
@@ -1975,7 +2120,8 @@ export function executeTaskRun(
   const testDesignEnrichedRunOutput = enrichTestDesignRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
   const defectEnrichedRunOutput = enrichDefectFeedbackRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
   const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(defectEnrichedRunOutput, claim, adapterRuntimePayload);
-  const validatedRunOutput = applyRolePolicyToRunOutput(claim, collaborationEnrichedRunOutput);
+  const evaluationEnrichedRunOutput = enrichEvaluationRunOutput(collaborationEnrichedRunOutput, claim, adapterRuntimePayload);
+  const validatedRunOutput = applyRolePolicyToRunOutput(claim, evaluationEnrichedRunOutput);
 
   const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
     taskId: claim.taskId,
@@ -2045,7 +2191,8 @@ export async function executeTaskRunAsync(
     resolvedOptions.stage === 'test-design' ||
     resolvedOptions.stage === 'automated-execution' ||
     resolvedOptions.stage === 'defect-feedback' ||
-    resolvedOptions.stage === 'collaboration'
+    resolvedOptions.stage === 'collaboration' ||
+    resolvedOptions.stage === 'evaluation'
       ? resolvedOptions.stage
       : undefined;
   const runOutput = adapterRuntimePayload
@@ -2065,7 +2212,8 @@ export async function executeTaskRunAsync(
   const testDesignEnrichedRunOutput = enrichTestDesignRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
   const defectEnrichedRunOutput = enrichDefectFeedbackRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
   const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(defectEnrichedRunOutput, claim, adapterRuntimePayload);
-  const validatedRunOutput = applyRolePolicyToRunOutput(claim, collaborationEnrichedRunOutput);
+  const evaluationEnrichedRunOutput = enrichEvaluationRunOutput(collaborationEnrichedRunOutput, claim, adapterRuntimePayload);
+  const validatedRunOutput = applyRolePolicyToRunOutput(claim, evaluationEnrichedRunOutput);
 
   const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
     taskId: claim.taskId,

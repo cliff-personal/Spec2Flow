@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRunDetail, getRunObservability, getRunTasks, postTaskAction } from '../lib/control-plane-api';
+import { getRunDetail, getRunObservability, getRunTasks, postRunAction, postTaskAction } from '../lib/control-plane-api';
 import type { TaskActionType } from '../lib/control-plane-ui-types';
 
 export function useControlPlaneRunDetailPage(runId: string) {
@@ -30,22 +30,47 @@ export function useControlPlaneRunDetailPage(runId: string) {
   });
 
   const actionMutation = useMutation({
-    mutationFn: async (payload: { taskId: string; action: TaskActionType }) => {
-      await postTaskAction(payload.taskId, payload.action, runId);
+    mutationFn: async (payload: { taskId: string; action: TaskActionType; note?: string }) => {
+      await postTaskAction(payload.taskId, payload.action, runId, payload.note);
     },
-    onSuccess: async () => {
-      setActionMessage('Task action completed');
+    onSuccess: async (_result, payload) => {
+      if (payload.action === 'approve') {
+        setActionMessage('Acceptance decision recorded');
+      } else if (payload.action === 'reject') {
+        setActionMessage('Follow-up decision recorded');
+      } else {
+        setActionMessage('Task action completed');
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-detail', runId] }),
         queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-tasks', runId] }),
-        queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-observability', runId] })
+        queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-observability', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane', 'runs'] })
       ]);
     }
   });
 
-  function triggerTaskAction(taskId: string, action: TaskActionType): void {
+  const runActionMutation = useMutation({
+    mutationFn: async (action: 'pause' | 'resume') => postRunAction(runId, action),
+    onSuccess: async (_result, action) => {
+      setActionMessage(action === 'pause' ? 'Run paused' : 'Run resumed');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-detail', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-tasks', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane', 'run-observability', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['control-plane', 'runs'] })
+      ]);
+    }
+  });
+
+  function triggerTaskAction(taskId: string, action: TaskActionType, note?: string): void {
     setActionMessage(null);
-    actionMutation.mutate({ taskId, action });
+    actionMutation.mutate({ taskId, action, ...(note ? { note } : {}) });
+  }
+
+  function triggerRunAction(action: 'pause' | 'resume'): void {
+    setActionMessage(null);
+    runActionMutation.mutate(action);
   }
 
   return {
@@ -53,7 +78,9 @@ export function useControlPlaneRunDetailPage(runId: string) {
     tasksQuery,
     observabilityQuery,
     actionMutation,
+    runActionMutation,
     actionMessage,
-    triggerTaskAction
+    triggerTaskAction,
+    triggerRunAction
   };
 }

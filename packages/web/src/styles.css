@@ -902,6 +902,70 @@ textarea {
   border-radius: 22px;
   border: 1px solid rgba(99, 231, 255, 0.1);
   background: linear-gradient(180deg, rgba(15, 29, 52, 0.8), rgba(8, 17, 31, 0.92));
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.stage-strip__item:hover {
+  border-color: rgba(99, 231, 255, 0.3);
+}
+
+.stage-strip__item--active {
+  border-color: var(--accent-cyan);
+  background: linear-gradient(180deg, rgba(15, 29, 52, 0.95), rgba(99, 231, 255, 0.06));
+  box-shadow: 0 0 0 1px rgba(99, 231, 255, 0.24), 0 0 24px rgba(99, 231, 255, 0.18), 0 4px 24px rgba(99, 231, 255, 0.1);
+}
+
+.stage-strip__item--active.stage-strip__item--running,
+.stage-strip__item--active.stage-strip__item--ready,
+.stage-strip__item--active.stage-strip__item--leased,
+.stage-strip__item--active.stage-strip__item--in-progress {
+  box-shadow: 0 0 0 1px rgba(99, 231, 255, 0.28), 0 0 28px rgba(99, 231, 255, 0.24), 0 8px 28px rgba(29, 207, 255, 0.12);
+}
+
+.stage-strip__state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stage-strip__state--completed {
+  color: var(--accent-green);
+  border-color: rgba(73, 214, 163, 0.22);
+  background: rgba(73, 214, 163, 0.1);
+  box-shadow: 0 0 12px rgba(73, 214, 163, 0.16);
+}
+
+.stage-strip__state--blocked {
+  color: var(--accent-red);
+  border-color: rgba(255, 126, 133, 0.22);
+  background: rgba(255, 126, 133, 0.1);
+  box-shadow: 0 0 12px rgba(255, 126, 133, 0.14);
+}
+
+.stage-strip__state--running {
+  color: var(--accent-cyan);
+  border-color: rgba(99, 231, 255, 0.24);
+  background: rgba(99, 231, 255, 0.08);
+  box-shadow: 0 0 12px rgba(99, 231, 255, 0.16);
+}
+
+.stage-strip__state--pending {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .stage-strip__item::after {

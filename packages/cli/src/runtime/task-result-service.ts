@@ -250,6 +250,23 @@ function readCollaborationHandoffPayload(artifacts: ArtifactRef[], artifactBaseD
   }
 }
 
+function readEvaluationSummaryPayload(artifacts: ArtifactRef[], artifactBaseDir: string): Record<string, unknown> | null {
+  const evaluationArtifact = artifacts.find((artifact) => {
+    const searchableValues = [artifact.id, artifact.path].map((value) => normalizeArtifactSearchValue(String(value)));
+    return searchableValues.some((value) => value.includes('evaluation-summary'));
+  });
+
+  if (!evaluationArtifact) {
+    return null;
+  }
+
+  try {
+    return readStructuredFileFrom(artifactBaseDir, evaluationArtifact.path) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 function enforceCollaborationApprovalGate(
   taskGraphTask: Task,
   taskState: TaskState,
@@ -281,6 +298,34 @@ function enforceCollaborationApprovalGate(
     `route-class:${getFailureClassForStage('collaboration')}`,
     `route-reason:${artifactContract.status === 'missing' ? 'artifact-contract-missing' : readiness ?? 'awaiting-approval'}`
   ]);
+}
+
+function enforceEvaluationAcceptanceGate(
+  taskGraphTask: Task,
+  taskState: TaskState,
+  artifacts: ArtifactRef[],
+  artifactContract: ArtifactContractSummary,
+  now: string,
+  artifactBaseDir: string
+): void {
+  if (taskGraphTask.stage !== 'evaluation') {
+    return;
+  }
+
+  const evaluationPayload = readEvaluationSummaryPayload(artifacts, artifactBaseDir);
+  const decision = typeof evaluationPayload?.decision === 'string' ? evaluationPayload.decision : null;
+  const accepted = decision === 'accepted';
+
+  if (artifactContract.status === 'missing' || !accepted) {
+    setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
+    addTaskNotes(taskState, [
+      'evaluation-gate:not-accepted',
+      `evaluation-decision:${artifactContract.status === 'missing' ? 'artifact-contract-missing' : decision ?? 'missing-decision'}`
+    ]);
+    return;
+  }
+
+  addTaskNotes(taskState, ['evaluation-gate:accepted']);
 }
 
 function routeAutomatedExecutionOutcome(
@@ -385,6 +430,7 @@ export function applyTaskResult(
   }
 
   enforceCollaborationApprovalGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
+  enforceEvaluationAcceptanceGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
   const publicationDecision = applyCollaborationPublicationPolicy({
     taskGraphTask,
     taskState,

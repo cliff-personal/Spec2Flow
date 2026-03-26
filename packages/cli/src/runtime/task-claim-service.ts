@@ -109,6 +109,7 @@ export function buildTaskClaim(
         requirementText: source.requirementText ?? null,
         routeSelectionMode: source.routeSelectionMode ?? null,
         selectedRoutes: source.selectedRoutes ?? [],
+        taskPlans: source.taskPlans ?? [],
         projectAdapterRef: source.projectAdapterRef ?? null,
         topologyRef: source.topologyRef ?? null,
         riskPolicyRef: source.riskPolicyRef ?? null,

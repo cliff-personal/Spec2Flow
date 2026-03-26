@@ -35,7 +35,8 @@ describe('adapter-runtime-resolver', () => {
         command: 'root-command',
         outputMode: 'stdout',
         stageRuntimeRefs: {
-          'environment-preparation': './deterministic-runtime.json'
+          'environment-preparation': './deterministic-runtime.json',
+          'evaluation': './deterministic-runtime.json'
         }
       }
     };
@@ -74,7 +75,8 @@ describe('adapter-runtime-resolver', () => {
         outputMode: 'stdout',
         stageRuntimeRefs: {
           'environment-preparation': './deterministic-runtime.json',
-          'automated-execution': './deterministic-runtime.json'
+          'automated-execution': './deterministic-runtime.json',
+          'evaluation': './deterministic-runtime.json'
         }
       }
     };

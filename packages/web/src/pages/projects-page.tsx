@@ -102,6 +102,8 @@ export function ProjectsPage(): JSX.Element {
             run={projectsPage.sessionRun!}
             tasks={projectsPage.sessionTasks}
             observability={projectsPage.sessionObservabilityQuery.data}
+            taskSummaries={projectsPage.sessionObservabilityQuery.data?.taskSummaries ?? []}
+            artifacts={projectsPage.sessionRunDetailQuery.data?.runState.artifacts ?? []}
             pendingConfirmations={projectsPage.sessionPendingConfirmations}
             blockedTaskId={projectsPage.sessionBlockedTaskId}
             isActionPending={projectsPage.taskActionMutation.isPending}

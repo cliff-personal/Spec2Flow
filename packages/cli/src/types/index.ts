@@ -1,6 +1,7 @@
 export type { ReviewPolicy } from './review-policy.js';
 export type {
   AdapterSupportName,
+  RequirementTaskPlan,
   RiskLevel,
   Task,
   TaskCommandPolicy,
@@ -87,6 +88,7 @@ export type {
   PlatformObservabilityEventTypeCount,
   PlatformObservabilityMetrics,
   PlatformPublicationObservabilitySummary,
+  PlatformReviewDecisionStatus,
   PlatformRepairObservabilitySummary,
   PlatformObservabilityReadModel,
   PlatformObservabilityTimelineEntry,

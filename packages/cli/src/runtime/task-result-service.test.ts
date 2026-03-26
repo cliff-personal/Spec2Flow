@@ -65,6 +65,16 @@ function createWorkflowDocuments(): { taskGraphPayload: TaskGraphDocument; execu
             roleProfile: createRoleProfile('collaboration-agent', 'collaboration-specialist', ['collaboration-handoff'], 'collaboration-only'),
             status: 'pending',
             dependsOn: ['frontend-smoke--defect-feedback']
+          },
+          {
+            id: 'frontend-smoke--evaluation',
+            stage: 'evaluation',
+            title: 'Evaluate',
+            goal: 'Evaluate',
+            executorType: 'evaluator-agent',
+            roleProfile: createRoleProfile('evaluator-agent', 'evaluation-specialist', ['evaluation-summary'], 'none'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--collaboration']
           }
         ]
       }
@@ -93,6 +103,13 @@ function createWorkflowDocuments(): { taskGraphPayload: TaskGraphDocument; execu
             taskId: 'frontend-smoke--collaboration',
             status: 'pending',
             executor: 'collaboration-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--evaluation',
+            status: 'pending',
+            executor: 'evaluator-agent',
             artifactRefs: [],
             notes: []
           }
@@ -204,6 +221,21 @@ function createPhaseTwoWorkflowDocuments(): { taskGraphPayload: TaskGraphDocumen
               reviewAgentCount: 1,
               requireHumanApproval: true
             }
+          },
+          {
+            id: 'frontend-smoke--evaluation',
+            stage: 'evaluation',
+            title: 'Evaluate delivery',
+            goal: 'Evaluate delivery',
+            executorType: 'evaluator-agent',
+            roleProfile: createRoleProfile('evaluator-agent', 'evaluation-specialist', ['evaluation-summary'], 'none'),
+            status: 'pending',
+            dependsOn: ['frontend-smoke--collaboration'],
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true
+            }
           }
         ]
       }
@@ -253,6 +285,13 @@ function createPhaseTwoWorkflowDocuments(): { taskGraphPayload: TaskGraphDocumen
             taskId: 'frontend-smoke--collaboration',
             status: 'pending',
             executor: 'collaboration-agent',
+            artifactRefs: [],
+            notes: []
+          },
+          {
+            taskId: 'frontend-smoke--evaluation',
+            status: 'pending',
+            executor: 'evaluator-agent',
             artifactRefs: [],
             notes: []
           }
@@ -385,6 +424,23 @@ function writeCollaborationHandoff(
       reviewAgentCount: 1,
       requireHumanApproval: options.approvalRequired ?? true
     }
+  }, null, 2)}\n`, 'utf8');
+}
+
+function writeEvaluationSummary(
+  filePath: string,
+  taskId: string,
+  decision: 'accepted' | 'rejected' | 'needs-repair'
+): void {
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    taskId,
+    stage: 'evaluation',
+    summary: decision === 'accepted'
+      ? 'The route is accepted for workflow completion.'
+      : 'The route cannot be accepted yet.',
+    decision,
+    artifactRefs: ['implementation-summary', 'execution-report', 'collaboration-handoff'],
+    nextActions: decision === 'accepted' ? ['Finalize the run.'] : ['Address the evaluation findings and resubmit.']
   }, null, 2)}\n`, 'utf8');
 }
 
@@ -755,6 +811,7 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('blocked');
     expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('approval-gate:human-approval-required');
     expect(executionStatePayload.executionState.status).toBe('blocked');
+    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('pending');
   });
 
   it('publishes the collaboration handoff into a branch, commit, and PR draft when auto-commit is allowed', () => {
@@ -811,7 +868,9 @@ describe('task-result-service', () => {
     expect(receipt.taskResult.artifacts.map((artifact) => artifact.id)).toEqual(expect.arrayContaining(['publication-record', 'pr-draft']));
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('completed');
     expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('publication-status:published');
-    expect(executionStatePayload.executionState.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.status).toBe('running');
+    expect(executionStatePayload.executionState.currentStage).toBe('evaluation');
 
     const currentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
     expect(currentBranch).toMatch(/^spec2flow\/frontend-smoke-/);
@@ -870,6 +929,7 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[3]?.status).toBe('pending');
     expect(executionStatePayload.executionState.tasks[4]?.status).toBe('pending');
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('pending');
     expect(executionStatePayload.executionState.currentStage).toBe('code-implementation');
   });
 
@@ -917,6 +977,74 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.tasks[5]?.status).toBe('ready');
     expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('auto-repair-escalated:budget-exhausted');
     expect(executionStatePayload.executionState.currentStage).toBe('collaboration');
+  });
+
+  it('blocks workflow completion when evaluator decision is not accepted', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const evaluationSummaryPath = path.join(path.dirname(statePath), 'evaluation-summary.json');
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'completed';
+    getTaskState(executionStatePayload, 3).status = 'completed';
+    getTaskState(executionStatePayload, 4).status = 'completed';
+    getTaskState(executionStatePayload, 5).status = 'completed';
+    getTaskState(executionStatePayload, 6).status = 'ready';
+    writeEvaluationSummary(evaluationSummaryPath, 'frontend-smoke--evaluation', 'needs-repair');
+
+    const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--evaluation',
+      taskStatus: 'completed',
+      notes: ['summary:evaluation-requested-repair'],
+      artifacts: [
+        {
+          id: 'evaluation-summary',
+          kind: 'report',
+          path: evaluationSummaryPath,
+          taskId: 'frontend-smoke--evaluation'
+        }
+      ],
+      errors: []
+    });
+
+    expect(receipt.taskResult.status).toBe('blocked');
+    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('blocked');
+    expect(executionStatePayload.executionState.tasks[6]?.notes).toContain('evaluation-gate:not-accepted');
+    expect(executionStatePayload.executionState.status).toBe('blocked');
+  });
+
+  it('completes the workflow only after evaluator acceptance lands', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
+    const evaluationSummaryPath = path.join(path.dirname(statePath), 'evaluation-summary.json');
+
+    getTaskState(executionStatePayload, 0).status = 'completed';
+    getTaskState(executionStatePayload, 1).status = 'completed';
+    getTaskState(executionStatePayload, 2).status = 'completed';
+    getTaskState(executionStatePayload, 3).status = 'completed';
+    getTaskState(executionStatePayload, 4).status = 'completed';
+    getTaskState(executionStatePayload, 5).status = 'completed';
+    getTaskState(executionStatePayload, 6).status = 'ready';
+    writeEvaluationSummary(evaluationSummaryPath, 'frontend-smoke--evaluation', 'accepted');
+
+    const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--evaluation',
+      taskStatus: 'completed',
+      notes: ['summary:evaluation-accepted'],
+      artifacts: [
+        {
+          id: 'evaluation-summary',
+          kind: 'report',
+          path: evaluationSummaryPath,
+          taskId: 'frontend-smoke--evaluation'
+        }
+      ],
+      errors: []
+    });
+
+    expect(receipt.taskResult.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[6]?.notes).toContain('evaluation-gate:accepted');
+    expect(executionStatePayload.executionState.status).toBe('completed');
   });
 
   it('resolves schema-backed artifact paths from the repository root for nested .spec2flow worker state', () => {

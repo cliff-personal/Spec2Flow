@@ -6,6 +6,7 @@ import type {
 } from './execution-state.js';
 import type {
   AdapterSupportName,
+  RequirementTaskPlan,
   RiskLevel,
   TaskExecutorType,
   TaskRoleProfile,
@@ -45,6 +46,7 @@ export interface TaskClaimRepositoryContext {
   requirementText?: string | null;
   routeSelectionMode?: string | null;
   selectedRoutes?: string[];
+  taskPlans?: RequirementTaskPlan[];
   projectAdapterRef?: string | null;
   topologyRef?: string | null;
   riskPolicyRef?: string | null;

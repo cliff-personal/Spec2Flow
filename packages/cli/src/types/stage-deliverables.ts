@@ -143,6 +143,17 @@ export interface CollaborationHandoff {
   reviewPolicy: ReviewPolicy;
 }
 
+export interface EvaluationSummary {
+  generatedAt?: string;
+  taskId: string;
+  stage: 'evaluation';
+  summary: string;
+  decision: 'accepted' | 'rejected' | 'needs-repair';
+  artifactRefs: string[];
+  findings?: string[];
+  nextActions?: string[];
+}
+
 export interface PublicationRecord {
   generatedAt?: string;
   publicationId: string;

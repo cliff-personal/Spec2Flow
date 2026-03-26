@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  getRunDetail,
   getRunObservability,
   getRunTasks,
   listProjects,
@@ -20,8 +21,10 @@ import {
   type RunSubmissionPayload
 } from '../lib/control-plane-api';
 import { parseChangedFiles } from '../lib/control-plane-formatters';
+import { summarizeReviewDecision } from '../lib/review-decision-summary';
 import type { ProjectRegistrationFormState, SubmissionFormState, TaskActionType } from '../lib/control-plane-ui-types';
 const APPROVAL_PREFERENCES_STORAGE_KEY = 'spec2flow.approval-preferences.v1';
+const SESSION_EVENT_LIMIT = 1000;
 
 const INITIAL_REGISTRATION_STATE: ProjectRegistrationFormState = {
   projectName: 'Spec2Flow',
@@ -288,6 +291,16 @@ function buildExecutionFeed(
     detail: buildRunStatusSummary(run, tasks),
   }];
 
+  const reviewDecision = summarizeReviewDecision(observability?.publicationSummaries[0], observability);
+  if (reviewDecision.status !== 'not-required') {
+    items.push({
+      id: `review-${run.runId}`,
+      tone: reviewDecision.tone,
+      title: reviewDecision.headline,
+      detail: reviewDecision.detail,
+    });
+  }
+
   if (blockedReason) {
     items.push({
       id: `blocked-${run.runId}`,
@@ -436,10 +449,18 @@ export function useControlPlaneProjectsPage() {
 
   const sessionObservabilityQuery = useQuery({
     queryKey: ['control-plane', 'session-observability', sessionRun?.runId],
-    queryFn: () => getRunObservability(sessionRun?.runId ?? ''),
+    queryFn: () => getRunObservability(sessionRun?.runId ?? '', SESSION_EVENT_LIMIT),
     enabled: Boolean(sessionRun?.runId),
     retry: false,
     refetchInterval: sessionIsLive ? 4000 : false
+  });
+
+  const sessionRunDetailQuery = useQuery({
+    queryKey: ['control-plane', 'session-run-detail', sessionRun?.runId],
+    queryFn: () => getRunDetail(sessionRun?.runId ?? '', SESSION_EVENT_LIMIT),
+    enabled: Boolean(sessionRun?.runId),
+    retry: false,
+    refetchInterval: sessionIsLive ? 5000 : false
   });
 
   const sessionTasksQuery = useQuery({
@@ -533,7 +554,7 @@ export function useControlPlaneProjectsPage() {
 
   // Blocked task that has no pending approval gate — can be retried directly
   const blockedTaskId = useMemo(() => {
-    if (!activeProjectRun || activeProjectRun.status !== 'blocked') {
+    if (activeProjectRun?.status !== 'blocked') {
       return null;
     }
 
@@ -571,7 +592,7 @@ export function useControlPlaneProjectsPage() {
   }, [sessionRun, sessionTasks, sessionObservabilityQuery.data?.approvals, rememberedApprovalKeys]);
 
   const sessionBlockedTaskId = useMemo(() => {
-    if (!sessionRun || sessionRun.status !== 'blocked') return null;
+    if (sessionRun?.status !== 'blocked') return null;
     const approvalTaskIds = new Set(
       (sessionObservabilityQuery.data?.approvals ?? [])
         .filter(isRequestedApprovalWithTaskId)
@@ -717,6 +738,7 @@ export function useControlPlaneProjectsPage() {
     pendingConfirmations,
     sessionRunIdParam: sessionRunIdParam ?? null,
     sessionRun,
+    sessionRunDetailQuery,
     sessionObservabilityQuery,
     sessionTasksQuery,
     sessionTasks,

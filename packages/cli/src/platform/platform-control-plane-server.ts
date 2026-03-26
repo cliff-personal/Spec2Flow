@@ -66,6 +66,15 @@ export interface StartPlatformControlPlaneServerOptions {
     localPath: string;
     contentType: string;
   } | null>;
+  getPlatformControlPlaneArtifactContent?: (options: {
+    artifactId: string;
+  }) => Promise<{
+    artifactId: string;
+    runId: string;
+    taskId: string | null;
+    localPath: string;
+    contentType: string;
+  } | null>;
   registerPlatformProject: (
     options: PlatformControlPlaneProjectRegistrationRequest
   ) => Promise<PlatformControlPlaneProjectRegistrationResult>;
@@ -113,6 +122,7 @@ const RUN_TASK_ARTIFACT_CATALOG_ROUTE = /^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/
 const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
 const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume)$/u;
 const TASK_ACTION_ROUTE = /^\/api\/tasks\/([^/]+)\/actions\/(retry|approve|reject)$/u;
+const ARTIFACT_CONTENT_ROUTE = /^\/api\/artifacts\/([^/]+)\/content$/u;
 const LOCAL_ARTIFACT_ROUTE_PREFIX = '/artifacts/';
 
 function logRequest(method: string, pathname: string, statusCode: number, durationMs: number): void {
@@ -648,6 +658,37 @@ async function handleLocalArtifactRequest(
   return true;
 }
 
+async function handleArtifactContentRequest(
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = ARTIFACT_CONTENT_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const artifactIdParam = match[1];
+  if (!artifactIdParam || !options.getPlatformControlPlaneArtifactContent) {
+    writeError(response, 404, 'artifact-not-found', 'Artifact preview is unavailable');
+    return true;
+  }
+
+  const artifactId = decodeURIComponent(artifactIdParam);
+  const artifact = await options.getPlatformControlPlaneArtifactContent({ artifactId });
+  if (!artifact) {
+    writeError(response, 404, 'artifact-not-found', `Unknown artifact: ${artifactId}`, { artifactId });
+    return true;
+  }
+
+  const content = await fs.promises.readFile(artifact.localPath);
+  response.statusCode = 200;
+  response.setHeader('content-type', artifact.contentType);
+  response.setHeader('content-length', content.byteLength);
+  response.end(content);
+  return true;
+}
+
 async function handleRunActionRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -768,6 +809,10 @@ async function handleGetRequest(
   }
 
   if (await handleLocalArtifactRequest(response, pathname, options)) {
+    return true;
+  }
+
+  if (await handleArtifactContentRequest(response, pathname, options)) {
     return true;
   }
 

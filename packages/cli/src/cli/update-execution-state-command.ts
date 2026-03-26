@@ -53,7 +53,8 @@ function parseTaskStage(value: string | boolean | undefined): TaskStage | undefi
     value === 'test-design' ||
     value === 'automated-execution' ||
     value === 'defect-feedback' ||
-    value === 'collaboration'
+    value === 'collaboration' ||
+    value === 'evaluation'
     ? value
     : undefined;
 }

@@ -9,7 +9,8 @@ const taskStages: TaskStage[] = [
   'test-design',
   'automated-execution',
   'defect-feedback',
-  'collaboration'
+  'collaboration',
+  'evaluation'
 ];
 
 export interface AdapterRuntimeResolverDependencies {

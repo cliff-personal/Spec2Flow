@@ -1,9 +1,12 @@
-import { useRef, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, Circle, GitBranch } from 'lucide-react';
+import { StageResultPanel } from './stage-result-panel';
 import type {
+  PlatformArtifactRecord,
   RunListItem,
   PlatformObservability,
   PlatformObservabilityTimelineEntry,
+  PlatformTaskObservabilitySummary,
   PlatformTaskRecord,
   PlatformRunStatus,
 } from '../../lib/control-plane-api';
@@ -32,6 +35,8 @@ type Props = Readonly<{
   run: RunListItem;
   tasks: PlatformTaskRecord[];
   observability: PlatformObservability | undefined;
+  taskSummaries: PlatformTaskObservabilitySummary[];
+  artifacts: PlatformArtifactRecord[];
   pendingConfirmations: PendingConfirmationItem[];
   blockedTaskId: string | null;
   isActionPending: boolean;
@@ -66,6 +71,89 @@ function getStageSegmentBg(isCurrent: boolean, isPast: boolean, isFailed: boolea
   if (isCurrent) return 'rgba(0,240,255,0.7)';
   if (isPast) return 'rgba(0,240,255,0.25)';
   return 'rgba(255,255,255,0.06)';
+}
+
+function deriveStageStatus(tasks: PlatformTaskRecord[], stage: string): 'pending' | 'running' | 'completed' | 'blocked' | 'ready' {
+  const stageTasks = tasks.filter((task) => task.stage === stage);
+  if (stageTasks.length === 0) {
+    return 'pending';
+  }
+
+  if (stageTasks.some((task) => task.status === 'blocked' || task.status === 'failed' || task.status === 'cancelled')) {
+    return 'blocked';
+  }
+
+  if (stageTasks.every((task) => task.status === 'completed')) {
+    return 'completed';
+  }
+
+  if (stageTasks.some((task) => ['in-progress', 'leased', 'running'].includes(task.status))) {
+    return 'running';
+  }
+
+  if (stageTasks.some((task) => task.status === 'ready')) {
+    return 'ready';
+  }
+
+  return 'pending';
+}
+
+function getStageMarker(stageStatus: 'pending' | 'running' | 'completed' | 'blocked' | 'ready'): { icon: string; color: string; glow?: string } {
+  if (stageStatus === 'completed') {
+    return { icon: '✓', color: 'rgba(74,222,128,0.9)', glow: '0 0 10px rgba(74,222,128,0.32)' };
+  }
+
+  if (stageStatus === 'blocked') {
+    return { icon: '✗', color: 'rgba(255,120,120,0.95)', glow: '0 0 10px rgba(255,90,90,0.28)' };
+  }
+
+  if (stageStatus === 'running' || stageStatus === 'ready') {
+    return { icon: '●', color: 'rgba(0,240,255,0.88)', glow: '0 0 12px rgba(0,240,255,0.35)' };
+  }
+
+  return { icon: '·', color: 'rgba(255,255,255,0.28)' };
+}
+
+function getStageLabelColor(isSelected: boolean, isCurrent: boolean, isPast: boolean): string {
+  if (isSelected || isCurrent) {
+    return 'rgba(0,240,255,0.68)';
+  }
+
+  if (isPast) {
+    return 'rgba(255,255,255,0.25)';
+  }
+
+  return 'rgba(255,255,255,0.1)';
+}
+
+function getStageTabSurface(isSelected: boolean, isCurrent: boolean): { background: string; border: string; boxShadow: string } {
+  if (!isSelected) {
+    return {
+      background: 'transparent',
+      border: '1px solid transparent',
+      boxShadow: 'none'
+    };
+  }
+
+  return {
+    background: 'linear-gradient(180deg, rgba(0,240,255,0.12), rgba(0,240,255,0.03))',
+    border: '1px solid rgba(0,240,255,0.16)',
+    boxShadow: isCurrent
+      ? '0 0 0 1px rgba(0,240,255,0.18), 0 0 20px rgba(0,240,255,0.16)'
+      : '0 0 0 1px rgba(0,240,255,0.12), 0 0 12px rgba(0,240,255,0.08)'
+  };
+}
+
+function getStageSegmentShadow(isCurrent: boolean, isDone: boolean): string {
+  if (isCurrent) {
+    return '0 0 10px rgba(0,240,255,0.7)';
+  }
+
+  if (isDone) {
+    return '0 0 6px rgba(0,240,255,0.18)';
+  }
+
+  return 'none';
 }
 
 function getEventSeverityColor(severity: string): string {
@@ -127,6 +215,26 @@ type StageGroupedEvents = {
   events: PlatformObservabilityTimelineEntry[];
 };
 
+type SelectedStageData = {
+  visibleStageGroups: StageGroupedEvents[];
+  selectedStageTasks: PlatformTaskRecord[];
+  selectedStageTaskSummaries: PlatformTaskObservabilitySummary[];
+  selectedStageArtifacts: PlatformArtifactRecord[];
+  selectedStageRepairSummaries: NonNullable<PlatformObservability['repairSummaries']>;
+  selectedStagePublicationSummaries: NonNullable<PlatformObservability['publicationSummaries']>;
+  selectedStageApprovals: NonNullable<PlatformObservability['approvals']>;
+  selectedStageEvents: PlatformObservabilityTimelineEntry[];
+};
+
+function toTimestamp(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = new Date(value).valueOf();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function groupEventsByStage(
   timeline: PlatformObservabilityTimelineEntry[],
   taskIndex: Map<string, PlatformTaskRecord>
@@ -134,8 +242,7 @@ function groupEventsByStage(
   const groups: StageGroupedEvents[] = [];
   const stageGroupMap = new Map<string, StageGroupedEvents>();
 
-  // Events come newest-first from API, reverse for chronological display
-  const chronological = [...timeline].reverse();
+  const chronological = [...timeline].sort((left, right) => toTimestamp(left.createdAt) - toTimestamp(right.createdAt));
 
   for (const entry of chronological) {
     const task = getTaskForEntry(entry, taskIndex);
@@ -154,10 +261,58 @@ function groupEventsByStage(
   return groups;
 }
 
+function deriveSelectedStageData(
+  selectedStage: string | null,
+  stageGroups: StageGroupedEvents[],
+  tasks: PlatformTaskRecord[],
+  taskSummaries: PlatformTaskObservabilitySummary[],
+  artifacts: PlatformArtifactRecord[],
+  observability: PlatformObservability | undefined
+): SelectedStageData {
+  const visibleStageGroups = selectedStage
+    ? stageGroups.filter((group) => group.stageKey === selectedStage)
+    : stageGroups;
+  const selectedStageTasks = selectedStage
+    ? tasks.filter((task) => task.stage === selectedStage)
+    : [];
+  const selectedTaskIds = new Set(selectedStageTasks.map((task) => task.taskId));
+
+  return {
+    visibleStageGroups,
+    selectedStageTasks,
+    selectedStageTaskSummaries: selectedStage
+      ? taskSummaries.filter((summary) => selectedTaskIds.has(summary.taskId))
+      : [],
+    selectedStageArtifacts: selectedStage
+      ? artifacts.filter((artifact) => artifact.taskId && selectedTaskIds.has(artifact.taskId))
+      : [],
+    selectedStageRepairSummaries: selectedStage
+      ? (observability?.repairSummaries ?? []).filter((summary) =>
+          summary.sourceStage === selectedStage
+          || selectedTaskIds.has(summary.taskId)
+          || selectedTaskIds.has(summary.triggerTaskId)
+        )
+      : [],
+    selectedStagePublicationSummaries: selectedStage
+      ? (observability?.publicationSummaries ?? []).filter((summary) =>
+          summary.taskId ? selectedTaskIds.has(summary.taskId) : selectedStage === 'collaboration'
+        )
+      : [],
+    selectedStageApprovals: selectedStage
+      ? (observability?.approvals ?? []).filter((approval) =>
+          approval.taskId ? selectedTaskIds.has(approval.taskId) : selectedStage === 'collaboration'
+        )
+      : [],
+    selectedStageEvents: visibleStageGroups.flatMap((group) => group.events),
+  };
+}
+
 export function RunSessionPanel({
   run,
   tasks,
   observability,
+  taskSummaries,
+  artifacts,
   pendingConfirmations,
   blockedTaskId,
   isActionPending,
@@ -174,12 +329,44 @@ export function RunSessionPanel({
   const feedRef = useRef<HTMLDivElement>(null);
   const taskIndex = new Map(tasks.map((t) => [t.taskId, t]));
   const timeline = observability?.timeline ?? [];
-  const stageGroups = groupEventsByStage(timeline, taskIndex);
+  const stageGroups = useMemo(() => groupEventsByStage(timeline, taskIndex), [timeline, tasks]);
+  const [selectedStage, setSelectedStage] = useState<string | null>(run.currentStage ?? null);
 
   const activeIdx = stageIndex(run.currentStage);
   const badge = getStatusBadge(run.status, run.paused);
   const isLive = ['running', 'pending', 'blocked'].includes(run.status) && !run.paused;
   const canOperate = !['completed', 'failed', 'cancelled'].includes(run.status);
+  let runToggleActionLabel = '停止后稍后继续';
+  if (isRunActionPending) {
+    runToggleActionLabel = '处理中...';
+  } else if (run.paused) {
+    runToggleActionLabel = '继续未完成任务';
+  }
+
+  useEffect(() => {
+    const defaultStage = run.currentStage && STAGE_ORDER.includes(run.currentStage)
+      ? run.currentStage
+      : stageGroups[0]?.stageKey ?? PIPELINE_STAGES[0]?.stageKey ?? null;
+
+    setSelectedStage((current) => {
+      if (current && STAGE_ORDER.includes(current)) {
+        return current;
+      }
+
+      return defaultStage;
+    });
+  }, [run.currentStage, stageGroups]);
+
+  const {
+    visibleStageGroups,
+    selectedStageTasks,
+    selectedStageTaskSummaries,
+    selectedStageArtifacts,
+    selectedStageRepairSummaries,
+    selectedStagePublicationSummaries,
+    selectedStageApprovals,
+    selectedStageEvents,
+  } = deriveSelectedStageData(selectedStage, stageGroups, tasks, taskSummaries, artifacts, observability);
 
   // Auto-scroll to bottom when new events arrive
   useEffect(() => {
@@ -232,33 +419,62 @@ export function RunSessionPanel({
           </span>
         </div>
 
-        {/* Stage progress bar */}
+        {/* Stage progress tabs */}
         <div className="flex items-center gap-1 mt-4">
           {PIPELINE_STAGES.map((stage, i) => {
             const isDone = activeIdx > i || run.status === 'completed';
             const isCurrent = activeIdx === i && run.status !== 'completed';
             const isPast = isDone && !isCurrent;
             const isFailedStage = run.status === 'failed' && isCurrent;
-
+            const isSelected = selectedStage === stage.stageKey;
+            const stageTaskCount = tasks.filter((task) => task.stage === stage.stageKey).length;
+            const stageStatus = deriveStageStatus(tasks, stage.stageKey);
+            const marker = getStageMarker(stageStatus);
+            const stageLabelColor = getStageLabelColor(isSelected, isCurrent, isPast);
             const segBg = getStageSegmentBg(isCurrent, isPast, isFailedStage);
+            const tabSurface = getStageTabSurface(isSelected, isCurrent);
+            const segmentBoxShadow = getStageSegmentShadow(isCurrent, isDone);
 
             return (
-              <div key={stage.stageKey} className="flex-1 flex flex-col items-center gap-0.5">
+              <button
+                key={stage.stageKey}
+                type="button"
+                onClick={() => setSelectedStage(stage.stageKey)}
+                className="flex-1 flex flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 transition-all duration-200"
+                style={{
+                  background: tabSurface.background,
+                  border: tabSurface.border,
+                  boxShadow: tabSurface.boxShadow,
+                }}
+              >
                 <div
                   className="w-full h-1 rounded-full transition-all duration-500"
                   style={{
                     background: segBg,
-                    boxShadow: isCurrent ? '0 0 6px rgba(0,240,255,0.5)' : 'none',
+                    boxShadow: segmentBoxShadow,
                     animation: isCurrent && isLive ? 'pulse 1.4s ease-in-out infinite' : 'none',
                   }}
                 />
                 <span
+                  className="text-[11px] font-mono leading-none"
+                  aria-hidden="true"
+                  style={{ color: marker.color, textShadow: marker.glow ?? 'none' }}
+                >
+                  {marker.icon}
+                </span>
+                <span
                   className="text-[9px] font-mono truncate w-full text-center"
-                  style={{ color: isCurrent ? 'rgba(0,240,255,0.6)' : isPast ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)' }}
+                  style={{ color: stageLabelColor }}
                 >
                   {stage.label}
                 </span>
-              </div>
+                <span
+                  className="text-[8px] font-mono"
+                  style={{ color: isSelected ? 'rgba(255,255,255,0.44)' : 'rgba(255,255,255,0.16)' }}
+                >
+                  {stageTaskCount > 0 ? `${stageTaskCount} tasks` : 'no tasks'}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -286,6 +502,20 @@ export function RunSessionPanel({
           {requirementText}
         </div>
 
+        {selectedStage ? (
+          <StageResultPanel
+            stageLabel={PIPELINE_STAGES.find((stage) => stage.stageKey === selectedStage)?.label ?? selectedStage}
+            tasks={selectedStageTasks}
+            taskSummaries={selectedStageTaskSummaries}
+            artifacts={selectedStageArtifacts}
+            repairSummaries={selectedStageRepairSummaries}
+            publicationSummaries={selectedStagePublicationSummaries}
+            approvals={selectedStageApprovals}
+            stageEvents={selectedStageEvents}
+            eventCount={selectedStageEvents.length}
+          />
+        ) : null}
+
         {/* Event groups */}
         {stageGroups.length === 0 && (
           <div className="flex items-center gap-2 py-8 justify-center">
@@ -296,7 +526,15 @@ export function RunSessionPanel({
           </div>
         )}
 
-        {stageGroups.map((group) => (
+        {stageGroups.length > 0 && visibleStageGroups.length === 0 ? (
+          <div className="flex items-center gap-2 py-8 justify-center">
+            <span className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              当前阶段暂无执行记录。
+            </span>
+          </div>
+        ) : null}
+
+        {visibleStageGroups.map((group) => (
           <div key={group.stageKey} className="flex flex-col gap-0">
             {/* Stage label */}
             <div className="flex items-center gap-2 mb-2">
@@ -440,7 +678,7 @@ export function RunSessionPanel({
                 color: run.paused ? 'rgba(0,240,255,0.75)' : 'rgba(255,255,255,0.3)',
               }}
             >
-              {isRunActionPending ? '处理中...' : run.paused ? '继续未完成任务' : '停止后稍后继续'}
+              {runToggleActionLabel}
             </button>
           )}
 

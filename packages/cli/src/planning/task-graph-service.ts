@@ -3,7 +3,7 @@ import { minimatch } from 'minimatch';
 import { dedupe } from '../shared/collection-utils.js';
 import { fail, readChangedFilesContent, readTextFile, resolveFromCwd } from '../shared/fs-utils.js';
 import { buildTaskRoleProfile } from '../shared/task-role-profile.js';
-import type { RiskLevel, Task, TaskGraphDocument } from '../types/index.js';
+import type { RequirementTaskPlan, RiskLevel, Task, TaskGraphDocument } from '../types/index.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
 
@@ -26,6 +26,16 @@ const riskWeight: Record<RiskLevel, number> = {
   high: 3,
   critical: 4
 };
+
+const genericRequirementSignalKeywords = new Set([
+  'flow',
+  'route',
+  'workflow',
+  'service',
+  'services',
+  'app',
+  'api'
+]);
 
 function normalizePath(filePath: string): string {
   return filePath.replaceAll('\\', '/').replace(/^\.\//, '');
@@ -123,8 +133,10 @@ function extractSearchTokens(value: unknown): string[] {
 
 function buildRouteRequirementSignals(route: Record<string, any>): { phrases: string[]; keywords: string[] } {
   const explicitSignals = route.requirementSignals ?? {};
-  const routeNameTokens = extractSearchTokens(route.name);
-  const serviceTokens = (route.entryServices ?? []).flatMap((serviceName: string) => extractSearchTokens(serviceName));
+  const routeNameTokens = extractSearchTokens(route.name).filter((token: string) => !genericRequirementSignalKeywords.has(token));
+  const serviceTokens = (route.entryServices ?? [])
+    .flatMap((serviceName: string) => extractSearchTokens(serviceName))
+    .filter((token: string) => !genericRequirementSignalKeywords.has(token));
 
   return {
     phrases: dedupe([explicitSignals.summary, ...(explicitSignals.phrases ?? [])].filter(Boolean)),
@@ -335,6 +347,114 @@ function buildReviewPolicy(rule: Record<string, any> | null) {
   };
 }
 
+function summarizeRequirementForRoute(route: Record<string, any>, requirementText: string, requirementMatch: RouteRequirementMatch | null): string | undefined {
+  const matchedPhrases = requirementMatch?.matchedPhrases ?? [];
+  if (matchedPhrases.length > 0) {
+    return `Requirement slice matched by phrases: ${matchedPhrases.join(', ')}`;
+  }
+
+  const matchedKeywords = requirementMatch?.matchedKeywords ?? [];
+  if (matchedKeywords.length > 0) {
+    return `Requirement slice matched by keywords: ${matchedKeywords.slice(0, 5).join(', ')}`;
+  }
+
+  const normalizedRequirement = requirementText.trim().replaceAll(/\s+/g, ' ');
+  if (!normalizedRequirement) {
+    return undefined;
+  }
+
+  return normalizedRequirement.length > 160
+    ? `${normalizedRequirement.slice(0, 157)}...`
+    : normalizedRequirement;
+}
+
+function buildRequirementTaskPlan(
+  route: Record<string, any>,
+  projectPayload: Record<string, any>,
+  requirementText: string,
+  requirementMatch: RouteRequirementMatch | null
+): RequirementTaskPlan {
+  const targetFiles = findRouteTargetFiles(route, projectPayload);
+  const matchedKeywords = requirementMatch?.matchedKeywords ?? [];
+  const routeLabel = route.name.replaceAll(/[-_]+/g, ' ');
+  const goalKeywordSuffix = matchedKeywords.length > 0 ? ` with focus on ${matchedKeywords.slice(0, 3).join(', ')}` : '';
+  const requirementSummary = summarizeRequirementForRoute(route, requirementText, requirementMatch);
+
+  return {
+    id: route.name,
+    title: `Deliver ${routeLabel}`,
+    goal: `Complete the ${routeLabel} subtask${goalKeywordSuffix}`,
+    routeName: route.name,
+    entryServices: [...(route.entryServices ?? [])],
+    targetFiles,
+    dependencyIds: [],
+    ...(requirementSummary ? { requirementSummary } : {}),
+    matchedRequirementPhrases: requirementMatch?.matchedPhrases ?? [],
+    matchedRequirementKeywords: matchedKeywords
+  };
+}
+
+function buildRequirementTaskPlans(
+  routes: Array<Record<string, any>>,
+  projectPayload: Record<string, any>,
+  requirementText: string,
+  matchIndex: Map<string, RouteRequirementMatch>
+): RequirementTaskPlan[] {
+  return routes.map((route) => buildRequirementTaskPlan(route, projectPayload, requirementText, matchIndex.get(route.name) ?? null));
+}
+
+function buildServiceDependencyIndex(
+  projectPayload: Record<string, any>,
+  topologyPayload: Record<string, any>
+): Map<string, string[]> {
+  const topologyDependencyIndex = new Map<string, string[]>(
+    (topologyPayload.topology.services ?? []).map((service: Record<string, any>) => [service.name, dedupe(service.dependsOn ?? [])])
+  );
+  const projectServices = projectPayload.spec2flow.services ?? {};
+
+  for (const [serviceName, serviceConfig] of Object.entries(projectServices)) {
+    const existingDependencies = topologyDependencyIndex.get(serviceName) ?? [];
+    const projectDependencies = Array.isArray((serviceConfig as { dependsOn?: string[] }).dependsOn)
+      ? (serviceConfig as { dependsOn?: string[] }).dependsOn ?? []
+      : [];
+    topologyDependencyIndex.set(serviceName, dedupe([...existingDependencies, ...projectDependencies]));
+  }
+
+  return topologyDependencyIndex;
+}
+
+function inferTaskPlanDependencies(
+  taskPlans: RequirementTaskPlan[],
+  projectPayload: Record<string, any>,
+  topologyPayload: Record<string, any>
+): RequirementTaskPlan[] {
+  const serviceDependencyIndex = buildServiceDependencyIndex(projectPayload, topologyPayload);
+  const providerIndex = new Map<string, string[]>();
+
+  for (const taskPlan of taskPlans) {
+    for (const serviceName of taskPlan.entryServices) {
+      const currentProviders = providerIndex.get(serviceName) ?? [];
+      providerIndex.set(serviceName, dedupe([...currentProviders, taskPlan.id]));
+    }
+  }
+
+  return taskPlans.map((taskPlan) => {
+    const dependencyIds = dedupe(taskPlan.entryServices.flatMap((serviceName) => {
+      const serviceDependencies = serviceDependencyIndex.get(serviceName) ?? [];
+      return serviceDependencies.flatMap((dependencyService) => providerIndex.get(dependencyService) ?? []);
+    })).filter((dependencyId) => dependencyId !== taskPlan.id);
+
+    if (dependencyIds.length === 0) {
+      return taskPlan;
+    }
+
+    return {
+      ...taskPlan,
+      dependencyIds
+    };
+  });
+}
+
 function buildRouteTaskBundle(
   route: Record<string, any>,
   projectPayload: Record<string, any>,
@@ -342,10 +462,11 @@ function buildRouteTaskBundle(
   riskPayload: Record<string, any>,
   changedFiles: string[],
   options: {
+    taskPlan: RequirementTaskPlan;
     requirementMatch?: { matchedPhrases?: string[]; matchedKeywords?: string[] } | null;
     requirementText?: string;
     routeSelectionMode?: string;
-  } = {}
+  }
 ): Task[] {
   const project = projectPayload.spec2flow;
   const matchingRules = getMatchingRiskRules(route, projectPayload, topologyPayload, riskPayload, changedFiles);
@@ -372,6 +493,9 @@ function buildRouteTaskBundle(
   const requirementMatch = options.requirementMatch ?? null;
   const requirementText = options.requirementText ?? '';
   const routeSelectionMode = options.routeSelectionMode ?? 'all-routes';
+  const taskPlan = options.taskPlan;
+  const planDependencyTaskIds = (taskPlan.dependencyIds ?? []).map((dependencyId) => `${dependencyId}--evaluation`);
+  const requirementsDependsOn = ['environment-preparation', ...planDependencyTaskIds];
 
   const analyzeId = `${route.name}--requirements-analysis`;
   const implementId = `${route.name}--code-implementation`;
@@ -379,6 +503,7 @@ function buildRouteTaskBundle(
   const executeId = `${route.name}--automated-execution`;
   const defectId = `${route.name}--defect-feedback`;
   const collaborationId = `${route.name}--collaboration`;
+  const evaluationId = `${route.name}--evaluation`;
 
   return [
     {
@@ -390,8 +515,14 @@ function buildRouteTaskBundle(
       roleProfile: buildTaskRoleProfile('requirements-analysis', 'requirements-agent'),
       status: 'pending',
       riskLevel,
-      dependsOn: ['environment-preparation'],
+      dependsOn: requirementsDependsOn,
       inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanRequirementSummary: taskPlan.requirementSummary ?? null,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
+        taskPlanDependencyTaskIds: planDependencyTaskIds,
         routeName: route.name,
         entryServices: route.entryServices,
         changedFiles,
@@ -416,6 +547,10 @@ function buildRouteTaskBundle(
       riskLevel,
       dependsOn: [analyzeId],
       inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
         matchedRiskRules: matchedRuleNames,
         requirementText,
         routeSelectionMode,
@@ -447,6 +582,10 @@ function buildRouteTaskBundle(
       riskLevel,
       dependsOn: [implementId],
       inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
         matchedRiskRules: matchedRuleNames,
         requirementText,
         routeSelectionMode
@@ -467,6 +606,10 @@ function buildRouteTaskBundle(
       riskLevel,
       dependsOn: [testId],
       inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
         matchedRiskRules: matchedRuleNames,
         requirementText,
         routeSelectionMode,
@@ -499,6 +642,10 @@ function buildRouteTaskBundle(
       riskLevel,
       dependsOn: [executeId],
       inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
         matchedRiskRules: matchedRuleNames,
         requirementText,
         routeSelectionMode
@@ -518,9 +665,41 @@ function buildRouteTaskBundle(
       riskLevel,
       dependsOn: [defectId],
       inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
         matchedRiskRules: matchedRuleNames,
         requirementText,
         routeSelectionMode
+      },
+      targetFiles: routeTargetFiles,
+      artifactsDir,
+      reviewPolicy
+    },
+    {
+      id: evaluationId,
+      stage: 'evaluation',
+      title: `Evaluate ${route.name} delivery`,
+      goal: `Accept or reject the published handoff for ${route.name} using the gathered evidence`,
+      executorType: 'evaluator-agent',
+      roleProfile: buildTaskRoleProfile('evaluation', 'evaluator-agent'),
+      status: 'pending',
+      riskLevel,
+      dependsOn: [collaborationId],
+      inputs: {
+        taskPlanId: taskPlan.id,
+        taskPlanTitle: taskPlan.title,
+        taskPlanGoal: taskPlan.goal,
+        taskPlanDependencyIds: taskPlan.dependencyIds ?? [],
+        matchedRiskRules: matchedRuleNames,
+        requirementText,
+        routeSelectionMode,
+        evaluationFocus: [
+          'delivery completeness',
+          'artifact contract integrity',
+          'handoff readiness'
+        ]
       },
       targetFiles: routeTargetFiles,
       artifactsDir,
@@ -544,6 +723,12 @@ export function buildTaskGraph(
   const routeSelection = routeFilter
     ? { ...rawRouteSelection, routes: rawRouteSelection.routes.filter((r: Record<string, any>) => routeFilter.has(r.name)), mode: 'explicit-filter' as const }
     : rawRouteSelection;
+  const taskPlans = inferTaskPlanDependencies(
+    buildRequirementTaskPlans(routeSelection.routes, projectPayload, requirementText, routeSelection.matchIndex),
+    projectPayload,
+    topologyPayload
+  );
+  const taskPlanIndex = new Map(taskPlans.map((taskPlan) => [taskPlan.routeName, taskPlan]));
 
   const tasks: Task[] = [
     {
@@ -567,6 +752,7 @@ export function buildTaskGraph(
 
   for (const route of routeSelection.routes) {
     tasks.push(...buildRouteTaskBundle(route, projectPayload, topologyPayload, riskPayload, changedFiles, {
+      taskPlan: taskPlanIndex.get(route.name) ?? buildRequirementTaskPlan(route, projectPayload, requirementText, routeSelection.matchIndex.get(route.name) ?? null),
       requirementText,
       routeSelectionMode: routeSelection.mode,
       requirementMatch: routeSelection.matchIndex.get(route.name) ?? null
@@ -585,7 +771,8 @@ export function buildTaskGraph(
         ...(typeof paths.requirement === 'string' && paths.requirement.length > 0 ? { requirementRef: paths.requirement } : {}),
         ...(requirementText ? { requirementText } : {}),
         routeSelectionMode: routeSelection.mode,
-        selectedRoutes: routeSelection.routes.map((route) => route.name)
+        selectedRoutes: routeSelection.routes.map((route) => route.name),
+        taskPlans
       },
       tasks
     }

@@ -39,6 +39,7 @@ import { runSimulateModelRun, type SimulatedModelRunDocument } from './simulate-
 import { runSubmitTaskResult } from './submit-task-result-command.js';
 import { runValidateOnboarding, type ValidateOnboardingResultDocument } from './validate-onboarding-command.js';
 import {
+  getPlatformControlPlaneArtifactContent,
   getPlatformControlPlaneLocalArtifactContent,
   getPlatformControlPlaneRunDetail,
   getPlatformControlPlaneRunObservability,
@@ -198,6 +199,7 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         approvePlatformControlPlaneTask,
         createPlatformPool,
         fail: dependencies.fail,
+        getPlatformControlPlaneArtifactContent,
         getPlatformControlPlaneLocalArtifactContent,
         getPlatformControlPlaneRunDetail,
         getPlatformControlPlaneRunObservability,
@@ -416,6 +418,27 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         writeJson: dependencies.writeJson
       }, {
         expectedStage: 'collaboration'
+      }),
+    'run-platform-evaluator-worker': (options) =>
+      runPlatformWorkerTask(options, {
+        buildStoppedPlatformWorkerExecutionResult,
+        createPlatformPool,
+        executePlatformWorkerMaterialization,
+        fail: dependencies.fail,
+        getRouteNameFromTaskId: dependencies.getRouteNameFromTaskId,
+        heartbeatPlatformTask,
+        materializePlatformWorkerClaim,
+        parseCsvOption: dependencies.parseCsvOption,
+        persistPlatformWorkerResult,
+        printJson: dependencies.printJson,
+        resolvePlatformDatabaseConfig,
+        sanitizeStageName: dependencies.sanitizeStageName,
+        startPlatformTask,
+        validateAdapterRuntimePayload: dependencies.validateAdapterRuntimePayload,
+        withPlatformTransaction,
+        writeJson: dependencies.writeJson
+      }, {
+        expectedStage: 'evaluation'
       }),
     'run-deterministic-task': (options) =>
       runDeterministicTaskCommand(options, {

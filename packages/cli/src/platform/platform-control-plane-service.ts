@@ -55,6 +55,14 @@ interface PlatformControlPlaneArtifactCatalogRow extends Record<string, unknown>
   root_path: string;
 }
 
+interface PlatformControlPlaneArtifactContentRow extends Record<string, unknown> {
+  run_id: string;
+  task_id: string | null;
+  artifact_id: string;
+  path: string;
+  root_path: string;
+}
+
 export interface ListPlatformRunsOptions {
   limit?: number;
   repositoryId?: string;
@@ -71,6 +79,14 @@ export interface PlatformControlPlaneLocalArtifactContent {
   artifactId: string;
   runId: string;
   taskId: string;
+  localPath: string;
+  contentType: string;
+}
+
+export interface PlatformControlPlaneArtifactContent {
+  artifactId: string;
+  runId: string;
+  taskId: string | null;
   localPath: string;
   contentType: string;
 }
@@ -395,4 +411,48 @@ export async function getPlatformControlPlaneLocalArtifactContent(
   }
 
   return null;
+}
+
+export async function getPlatformControlPlaneArtifactContent(
+  executor: SqlExecutor,
+  schema: string,
+  options: { artifactId: string }
+): Promise<PlatformControlPlaneArtifactContent | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformControlPlaneArtifactContentRow>(
+    `
+      SELECT
+        artifacts.run_id,
+        artifacts.task_id,
+        artifacts.artifact_id,
+        artifacts.path,
+        repositories.root_path
+      FROM ${quotedSchema}.artifacts AS artifacts
+      INNER JOIN ${quotedSchema}.runs AS runs
+        ON runs.run_id = artifacts.run_id
+      INNER JOIN ${quotedSchema}.repositories AS repositories
+        ON repositories.repository_id = runs.repository_id
+      WHERE artifacts.artifact_id = $1
+      LIMIT 1
+    `,
+    [options.artifactId]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const resolvedPath = resolveFromBaseDir(row.root_path, row.path);
+  if (!isPathInsideRoot(row.root_path, resolvedPath) || !fs.existsSync(resolvedPath)) {
+    return null;
+  }
+
+  return {
+    artifactId: row.artifact_id,
+    runId: row.run_id,
+    taskId: row.task_id,
+    localPath: resolvedPath,
+    contentType: inferContentType(row.path, undefined)
+  };
 }

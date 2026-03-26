@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  getPlatformControlPlaneArtifactContent,
   getPlatformControlPlaneLocalArtifactContent,
   getPlatformControlPlaneTaskArtifactCatalog,
   getPlatformControlPlaneRunDetail,
@@ -519,6 +520,43 @@ describe('platform-control-plane-service', () => {
       runId: 'run-1',
       taskId: 'frontend-smoke--automated-execution',
       localPath: path.join(tempDir, reportPath),
+      contentType: 'application/json; charset=utf-8'
+    });
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('resolves generic artifact content by artifact id', async () => {
+    const tempDir = createTempDir();
+    const summaryPath = path.join('spec2flow', 'outputs', 'requirements-summary.json');
+    fs.mkdirSync(path.join(tempDir, 'spec2flow', 'outputs'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, summaryPath), JSON.stringify({ summary: 'ok' }, null, 2));
+
+    const executor = new SequentialExecutor([
+      {
+        match: 'WHERE artifacts.artifact_id = $1',
+        result: {
+          rows: [{
+            run_id: 'run-1',
+            task_id: 'requirements-analysis-1',
+            artifact_id: 'artifact-1',
+            path: summaryPath,
+            root_path: tempDir
+          }],
+          rowCount: 1
+        }
+      }
+    ]);
+
+    const result = await getPlatformControlPlaneArtifactContent(executor, 'spec2flow_platform', {
+      artifactId: 'artifact-1'
+    });
+
+    expect(result).toEqual({
+      artifactId: 'artifact-1',
+      runId: 'run-1',
+      taskId: 'requirements-analysis-1',
+      localPath: path.join(tempDir, summaryPath),
       contentType: 'application/json; charset=utf-8'
     });
 

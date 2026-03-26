@@ -73,6 +73,7 @@ function getTaskStage(taskId: string): TaskStage | null {
     case 'automated-execution':
     case 'defect-feedback':
     case 'collaboration':
+    case 'evaluation':
     case 'environment-preparation':
       return stage;
     default:
