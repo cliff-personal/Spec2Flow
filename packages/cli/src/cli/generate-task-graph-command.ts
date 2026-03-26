@@ -1,5 +1,6 @@
 import { buildValidatorResult } from '../onboarding/validator-service.js';
 import { buildTaskGraph, getChangedFiles, getRequirementText } from '../planning/task-graph-service.js';
+import { getSchemaValidators } from '../shared/schema-registry.js';
 import type { TaskGraphDocument } from '../types/index.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -9,6 +10,15 @@ export interface GenerateTaskGraphDependencies {
   printJson: (value: TaskGraphDocument) => void;
   readStructuredFile: (filePath: string) => any;
   writeJson: (filePath: string, payload: unknown) => void;
+}
+
+function validateTaskGraphPayload(taskGraph: TaskGraphDocument, fail: (message: string) => void): void {
+  const validators = getSchemaValidators();
+  const valid = validators.taskGraph(taskGraph);
+  if (!valid) {
+    fail(`task-graph validation failed: ${JSON.stringify(validators.taskGraph.errors ?? [])}`);
+    throw new Error('unreachable');
+  }
 }
 
 export function runGenerateTaskGraph(options: CliOptions, dependencies: GenerateTaskGraphDependencies): void {
@@ -46,6 +56,7 @@ export function runGenerateTaskGraph(options: CliOptions, dependencies: Generate
     changedFiles,
     requirementText
   });
+  validateTaskGraphPayload(taskGraph, dependencies.fail);
 
   const outputPath = typeof options.output === 'string' ? options.output : undefined;
   if (outputPath) {

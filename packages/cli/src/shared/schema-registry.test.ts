@@ -340,4 +340,46 @@ describe('schema-registry', () => {
       }
     })).toBe(true);
   });
+
+  it('accepts task graphs whose reviewPolicy includes auto-repair and publication fields', () => {
+    const validators = getSchemaValidators();
+
+    expect(validators.taskGraph({
+      taskGraph: {
+        id: 'workflow',
+        workflowName: 'workflow',
+        tasks: [
+          {
+            id: 'provider-registration-flow--collaboration',
+            stage: 'collaboration',
+            title: 'Prepare collaboration handoff',
+            goal: 'Prepare collaboration handoff',
+            executorType: 'collaboration-agent',
+            roleProfile: {
+              profileId: 'collaboration-specialist',
+              specialistRole: 'collaboration-agent',
+              commandPolicy: 'collaboration-only',
+              canReadRepository: true,
+              canEditFiles: false,
+              canRunCommands: false,
+              canWriteArtifacts: true,
+              canOpenCollaboration: true,
+              requiredAdapterSupports: ['toolCalling', 'jsonMode'],
+              expectedArtifacts: ['collaboration-handoff']
+            },
+            status: 'ready',
+            reviewPolicy: {
+              required: true,
+              reviewAgentCount: 1,
+              requireHumanApproval: true,
+              maxAutoRepairAttempts: 2,
+              maxExecutionRetries: 4,
+              allowAutoCommit: false,
+              blockedRiskLevels: ['critical']
+            }
+          }
+        ]
+      }
+    })).toBe(true);
+  });
 });

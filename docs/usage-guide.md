@@ -320,6 +320,15 @@ Phase 3 adds the first DB-backed worker runtime harness:
 - deterministic execution remains the default only for `environment-preparation` and `automated-execution` when no `--adapter-runtime` is supplied
 - non-deterministic stages require `--adapter-runtime`
 
+Phase 3 also introduced **`platform-auto-runner-service`**. When `serve-platform-control-plane` starts, it also starts an embedded background scheduler that continuously polls the database for pending and running runs. This means:
+
+- you do not need to run `run:platform-worker-task` manually for normal operation
+- `environment-preparation` and `automated-execution` tasks are dispatched and completed in-process without any external adapter
+- AI-dependent stages are dispatched automatically to the configured `model-adapter-runtime.json` in the target project's repository root
+- tasks that require an adapter but do not have one configured are marked `blocked` with a clear reason (`no-adapter-configured`) so the run pauses at the first AI stage rather than silently stalling
+
+For how to configure an adapter runtime and unblock AI stages, see [docs/ops-startup-guide.md — Configuring an AI Adapter](ops-startup-guide.md#6-configuring-an-ai-adapter).
+
 The default stop semantics for `run-platform-worker-task` are:
 
 - stop immediately when PostgreSQL rejects a heartbeat because the task is no longer owned, no longer leased, or the lease already expired

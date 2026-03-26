@@ -8,13 +8,13 @@ const MARKDOWN_FILE_EXTENSION = '.md';
 const ACTIVE_DOC_FRESHNESS_WINDOW_DAYS = 120;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const OVERBROAD_SOURCE_OF_TRUTH_PATHS = new Set([
-  'packages/cli/src/adapters/',
-  'packages/cli/src/planning/',
-  'packages/cli/src/platform/',
-  'packages/cli/src/runtime/',
-  'packages/cli/src/types/',
-  'packages/web/',
-  'schemas/'
+  'packages/cli/src/adapters',
+  'packages/cli/src/planning',
+  'packages/cli/src/platform',
+  'packages/cli/src/runtime',
+  'packages/cli/src/types',
+  'packages/web',
+  'schemas'
 ]);
 
 export interface DocsValidationIssue {
@@ -97,12 +97,12 @@ export function buildDocsValidationReport(
     if (isActiveDoc) {
       validateRequiredMetadata(relativeFilePath, metadata, issues);
       validateSourceOfTruthPaths(repoRoot, relativeFilePath, metadata.sourceOfTruthLine, issues);
-      validateSourceOfTruthScope(relativeFilePath, metadata.sourceOfTruthLine, issues);
+      validateSourceOfTruthScope(repoRoot, relativeFilePath, metadata.sourceOfTruthLine, issues);
       validateLastVerified(relativeFilePath, metadata.lastVerifiedLine, now, issues);
     }
 
     if (isCanonicalDoc || isActiveDoc) {
-      validateArchivedPlanReferences(relativeFilePath, metadata.sourceOfTruthLine, content, issues);
+      validateArchivedPlanReferences(repoRoot, relativeFilePath, metadata.sourceOfTruthLine, content, issues);
     }
 
     validateReferencedScripts(relativeFilePath, content, availableScripts, config.deprecatedScripts, issues);
@@ -244,6 +244,7 @@ function validateSourceOfTruthPaths(
 }
 
 function validateSourceOfTruthScope(
+  repoRoot: string,
   relativeFilePath: string,
   sourceOfTruthLine: string | null,
   issues: DocsValidationIssue[]
@@ -253,7 +254,7 @@ function validateSourceOfTruthScope(
   }
 
   for (const sourcePath of extractBacktickedValues(sourceOfTruthLine)) {
-    if (!isOverbroadSourceOfTruthPath(sourcePath)) {
+    if (!isOverbroadSourceOfTruthPath(repoRoot, sourcePath)) {
       continue;
     }
 
@@ -506,13 +507,14 @@ function validateDocsLayout(relativeFilePath: string, metadata: ParsedMetadata, 
 }
 
 function validateArchivedPlanReferences(
+  repoRoot: string,
   relativeFilePath: string,
   sourceOfTruthLine: string | null,
   content: string,
   issues: DocsValidationIssue[]
 ): void {
   for (const sourcePath of extractBacktickedValues(sourceOfTruthLine ?? '')) {
-    if (!isDirectArchivedPlanDocument(sourcePath)) {
+    if (!isDirectArchivedPlanDocument(repoRoot, sourcePath)) {
       continue;
     }
 
@@ -524,7 +526,7 @@ function validateArchivedPlanReferences(
   }
 
   for (const linkTarget of extractMarkdownLinkTargets(content)) {
-    if (!isDirectArchivedPlanDocument(linkTarget)) {
+    if (!isDirectArchivedPlanDocument(repoRoot, linkTarget)) {
       continue;
     }
 
@@ -554,16 +556,31 @@ function isDirectChildOfDocs(relativeFilePath: string): boolean {
   return segments.length === 2;
 }
 
-function isDirectArchivedPlanDocument(targetPath: string): boolean {
-  const normalizedTarget = targetPath.replace(/\\/g, '/');
+function isDirectArchivedPlanDocument(repoRoot: string, targetPath: string): boolean {
+  const normalizedTarget = normalizeReferencePath(repoRoot, targetPath);
 
   return /^docs\/plans\/(historical|completed)\/.+\.md$/i.test(normalizedTarget)
     && !/\/index\.md$/i.test(normalizedTarget);
 }
 
-function isOverbroadSourceOfTruthPath(sourcePath: string): boolean {
-  const normalizedPath = sourcePath.replace(/\\/g, '/');
+function isOverbroadSourceOfTruthPath(repoRoot: string, sourcePath: string): boolean {
+  const normalizedPath = normalizeReferencePath(repoRoot, sourcePath);
   return OVERBROAD_SOURCE_OF_TRUTH_PATHS.has(normalizedPath);
+}
+
+function normalizeReferencePath(repoRoot: string, targetPath: string): string {
+  const normalizedPath = targetPath.replace(/\\/g, '/').trim();
+  if (!normalizedPath) {
+    return normalizedPath;
+  }
+
+  const normalizedRepoRoot = repoRoot.replace(/\\/g, '/').replace(/\/+$/g, '');
+  const repoRootWithSlash = `${normalizedRepoRoot}/`;
+  if (normalizedPath.startsWith(repoRootWithSlash)) {
+    return normalizedPath.slice(repoRootWithSlash.length).replace(/\/+$/g, '');
+  }
+
+  return normalizedPath.replace(/^\.\/+/g, '').replace(/\/+$/g, '');
 }
 
 function shouldIgnoreLinkTarget(target: string): boolean {

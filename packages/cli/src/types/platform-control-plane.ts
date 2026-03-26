@@ -17,7 +17,9 @@ export interface PlatformControlPlaneRunListItem {
   projectName?: string | null;
   workspaceRootPath?: string | null;
   workflowName: string;
+  requirement?: string | undefined;
   status: PlatformRunRecord['status'];
+  paused: boolean;
   currentStage: PlatformRunRecord['currentStage'];
   riskLevel: PlatformRunRecord['riskLevel'];
   branchName?: string | null;

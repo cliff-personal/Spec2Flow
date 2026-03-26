@@ -110,24 +110,63 @@ export function getTaskGraphTaskIndex(taskGraphPayload: TaskGraphDocument): Map<
   return new Map(taskGraphPayload.taskGraph.tasks.map((task) => [task.id, task]));
 }
 
+function getRoutePrefix(taskId: string): string | null {
+  return taskId.includes('--') ? (taskId.split('--')[0] ?? null) : null;
+}
+
+function getStageFromTaskId(taskId: string): string | null {
+  if (!taskId.includes('--')) {
+    return null;
+  }
+
+  const [, ...stageParts] = taskId.split('--');
+  return stageParts.length > 0 ? stageParts.join('--') : null;
+}
+
+function isResolvedRouteFailure(taskState: TaskState, taskStateIndex: Map<string, TaskState>): boolean {
+  if (!['blocked', 'failed'].includes(taskState.status)) {
+    return false;
+  }
+
+  const stage = getStageFromTaskId(taskState.taskId);
+  if (!stage || ['environment-preparation', 'collaboration'].includes(stage)) {
+    return false;
+  }
+
+  const routePrefix = getRoutePrefix(taskState.taskId);
+  if (!routePrefix) {
+    return false;
+  }
+
+  const collaborationTaskState = taskStateIndex.get(`${routePrefix}--collaboration`);
+  return collaborationTaskState !== undefined && ['completed', 'skipped'].includes(collaborationTaskState.status);
+}
+
 export function inferExecutionStateStatus(taskStates: TaskState[]): ExecutionStatus {
-  if (taskStates.every((task) => ['completed', 'skipped'].includes(task.status))) {
+  const taskStateIndex = new Map(taskStates.map((task) => [task.taskId, task]));
+  const effectiveTaskStates = taskStates.filter((task) => !isResolvedRouteFailure(task, taskStateIndex));
+
+  if (effectiveTaskStates.every((task) => ['completed', 'skipped'].includes(task.status))) {
     return 'completed';
   }
 
-  if (taskStates.some((task) => task.status === 'failed')) {
-    return 'failed';
-  }
-
-  if (taskStates.some((task) => task.status === 'blocked')) {
-    return 'blocked';
-  }
-
-  if (taskStates.some((task) => task.status === 'in-progress')) {
+  if (effectiveTaskStates.some((task) => ['in-progress', 'ready'].includes(task.status))) {
     return 'running';
   }
 
-  if (taskStates.some((task) => task.status === 'completed')) {
+  if (effectiveTaskStates.some((task) => task.status === 'failed')) {
+    return 'failed';
+  }
+
+  if (effectiveTaskStates.some((task) => task.status === 'blocked')) {
+    return 'blocked';
+  }
+
+  if (effectiveTaskStates.some((task) => task.status === 'in-progress')) {
+    return 'running';
+  }
+
+  if (effectiveTaskStates.some((task) => task.status === 'completed')) {
     return 'running';
   }
 

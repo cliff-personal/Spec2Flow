@@ -8,6 +8,7 @@ import {
   persistPlatformRunPlan
 } from './platform-repository.js';
 import { provisionPlatformRunWorkspace } from './platform-run-provisioning-service.js';
+import { scaffoldSpec2flowFiles } from '../shared/scaffold-spec2flow.js';
 import type {
   PlatformProjectRecord,
   PlatformControlPlaneRunSubmissionRequest,
@@ -166,6 +167,14 @@ export async function submitPlatformControlPlaneRun(
   let projectPayload: Parameters<typeof buildValidatorResult>[0];
   let topologyPayload: Parameters<typeof buildValidatorResult>[1];
   let riskPayload: Parameters<typeof buildValidatorResult>[2];
+
+  // Ensure scaffold files exist — idempotent, only writes missing files.
+  // This covers projects registered before auto-scaffolding was added.
+  try {
+    scaffoldSpec2flowFiles(repositoryRoot, projectName, projectPath, topologyPath, riskPath);
+  } catch {
+    // Scaffolding is best-effort; don't block run submission if filesystem write fails.
+  }
 
   try {
     projectPayload = dependencies.readStructuredFileFrom(repositoryRoot, projectPath) as Parameters<typeof buildValidatorResult>[0];

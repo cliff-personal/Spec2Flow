@@ -78,6 +78,19 @@ function runGit(repoRoot: string, args: string[]): string {
   }).trim();
 }
 
+function checkIfScopedChangesAreCommitted(repoRoot: string, scopedChangedFiles: string[]): boolean {
+  if (scopedChangedFiles.length === 0) {
+    return false;
+  }
+
+  try {
+    const output = runGit(repoRoot, ['log', '--oneline', '--name-only', '--diff-filter=ACDMRT', '-20', '--', ...scopedChangedFiles]);
+    return output.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function readCollaborationHandoff(artifacts: ArtifactRef[], artifactBaseDir: string): CollaborationHandoff | null {
   const handoffArtifact = findArtifact(artifacts, 'collaboration-handoff');
   if (!handoffArtifact) {
@@ -304,6 +317,32 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   }
 
   if (!autoCommitEnabled) {
+    // Check if the scoped changes are already committed to the current branch.
+    // This handles the case where the agent committed changes directly in the
+    // collaboration stage, bypassing the publication auto-commit flow.
+    const earlyImplementationSummary = readImplementationSummary(options.allArtifacts, options.artifactBaseDir);
+    const earlyChangedFiles = normalizePaths(getScopedChangedFiles(earlyImplementationSummary));
+    if (earlyChangedFiles.length > 0 && checkIfScopedChangesAreCommitted(repoRoot, earlyChangedFiles)) {
+      const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
+      const currentBranch = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
+      const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, false, 'published', 'manual-handoff', {
+        branchName: currentBranch,
+        commitSha
+      });
+      writePublicationRecord(options.artifactBaseDir, publicationRecordPath, publicationRecord);
+      generatedArtifacts.push(buildGeneratedArtifact(options.taskGraphTask.id, 'publication-record', publicationRecordPath));
+      return {
+        status: 'published',
+        publication: publicationRecord,
+        generatedArtifacts,
+        notes: [
+          'publication-status:published',
+          `publication-branch:${currentBranch}`,
+          `publication-commit:${commitSha}`
+        ]
+      };
+    }
+
     const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, false, 'approval-required', 'manual-handoff', {
       gateReason: 'auto-commit-disabled'
     });
@@ -375,6 +414,35 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
 
   const branchName = buildBranchName(routeName);
   const commitMessage = buildCommitMessage(routeName, handoff);
+
+  // Check if the scoped changes are already committed to the current branch
+  // before attempting to create a new auto-commit branch.
+  if (checkIfScopedChangesAreCommitted(repoRoot, scopedChangedFiles)) {
+    const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
+    const currentBranch = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, true, 'published', 'auto-commit', {
+      branchName: currentBranch,
+      commitSha,
+      commitMessage
+    });
+    const draftArtifacts = writeDraftArtifact(publicationRecord);
+    writePublicationRecord(options.artifactBaseDir, publicationRecordPath, publicationRecord);
+    generatedArtifacts.push(
+      buildGeneratedArtifact(options.taskGraphTask.id, 'publication-record', publicationRecordPath),
+      ...draftArtifacts
+    );
+    return {
+      status: 'published',
+      publication: publicationRecord,
+      generatedArtifacts,
+      notes: [
+        'publication-status:published',
+        `publication-branch:${currentBranch}`,
+        `publication-commit:${commitSha}`,
+        ...(draftArtifacts.length > 0 ? [`publication-pr-draft:${draftArtifacts[0]?.path}`] : [])
+      ]
+    };
+  }
 
   try {
     runGit(repoRoot, ['checkout', '-b', branchName]);

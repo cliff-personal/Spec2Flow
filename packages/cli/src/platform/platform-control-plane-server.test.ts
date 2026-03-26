@@ -28,6 +28,7 @@ describe('platform-control-plane-server', () => {
         workspaceRootPath: '/workspace/Spec2Flow',
         workflowName: 'platform-flow',
         status: 'running',
+        paused: false,
         currentStage: 'collaboration',
         riskLevel: 'high',
         branchName: 'spec2flow/run-1',

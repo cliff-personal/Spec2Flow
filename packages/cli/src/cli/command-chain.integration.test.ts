@@ -434,7 +434,7 @@ describe('command chain integration', () => {
       printJson: vi.fn(),
       readStructuredFile: readStateOrTaskGraph,
       writeJson
-    })).toThrow('process.exit:1');
+    })).toThrow('artifact schema validation failed');
 
     const persistedState = readExecutionState(statePath);
     const implementationTaskState = persistedState.executionState.tasks.find((task) => task.taskId === 'frontend-smoke--code-implementation');

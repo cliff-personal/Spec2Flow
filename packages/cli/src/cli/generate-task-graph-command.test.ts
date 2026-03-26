@@ -41,7 +41,34 @@ describe('generate-task-graph-command', () => {
     const projectPayload = { spec2flow: { project: { name: 'demo' } } };
     const topologyPayload = { topology: { workflowRoutes: [] } };
     const riskPayload = { riskPolicy: { rules: [] } };
-    const taskGraphPayload = { taskGraph: { id: 'graph', workflowName: 'workflow', tasks: [] } };
+    const taskGraphPayload = {
+      taskGraph: {
+        id: 'graph',
+        workflowName: 'workflow',
+        tasks: [
+          {
+            id: 'frontend-smoke--requirements-analysis',
+            stage: 'requirements-analysis',
+            title: 'Analyze requirements',
+            goal: 'Summarize the request',
+            executorType: 'requirements-agent',
+            roleProfile: {
+              profileId: 'requirements-analysis-specialist',
+              specialistRole: 'requirements-agent',
+              commandPolicy: 'none',
+              canReadRepository: true,
+              canEditFiles: false,
+              canRunCommands: false,
+              canWriteArtifacts: true,
+              canOpenCollaboration: false,
+              requiredAdapterSupports: ['toolCalling', 'jsonMode', 'longContext'],
+              expectedArtifacts: ['requirements-summary']
+            },
+            status: 'ready'
+          }
+        ]
+      }
+    };
     const writeJson = vi.fn();
     const readStructuredFile = vi.fn((filePath: string) => {
       if (filePath === 'project.yaml') {
@@ -93,6 +120,38 @@ describe('generate-task-graph-command', () => {
       requirementText: 'Update the frontend smoke flow.'
     });
     expect(writeJson).toHaveBeenCalledWith('generated/task-graph.json', taskGraphPayload);
+  });
+
+  it('fails when the generated task graph violates the schema contract', () => {
+    const fail = vi.fn();
+
+    mocks.getChangedFiles.mockReturnValue([]);
+    mocks.getRequirementText.mockReturnValue('Update the workflow.');
+    mocks.buildValidatorResult.mockReturnValue({
+      validatorResult: {
+        status: 'passed'
+      }
+    });
+    mocks.buildTaskGraph.mockReturnValue({
+      taskGraph: {
+        id: 'graph',
+        workflowName: 'workflow',
+        tasks: []
+      }
+    });
+
+    expect(() => runGenerateTaskGraph({
+      project: 'project.yaml',
+      topology: 'topology.yaml',
+      risk: 'risk.yaml'
+    }, {
+      fail,
+      printJson: vi.fn(),
+      readStructuredFile: vi.fn(() => ({})),
+      writeJson: vi.fn()
+    })).toThrow('unreachable');
+
+    expect(fail).toHaveBeenCalledWith(expect.stringContaining('task-graph validation failed'));
   });
 
   it('fails when onboarding validation fails', () => {

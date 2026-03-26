@@ -11,6 +11,7 @@ export function AppRouter(): JSX.Element {
         <Route element={<Navigate replace to="/projects" />} path="/" />
         <Route element={<ProjectsPage />} path="/projects" />
         <Route element={<ProjectsPage />} path="/projects/:projectId" />
+        <Route element={<ProjectsPage />} path="/projects/:projectId/runs/:runId" />
         <Route element={<ControlPlaneShell />} path="/">
           <Route element={<ControlPlaneRunsPage />} path="runs" />
           <Route element={<ControlPlaneRunDetailPage />} path="runs/:runId" />

@@ -15,7 +15,9 @@ export interface RunListItem {
   projectName?: string | null;
   workspaceRootPath?: string | null;
   workflowName: string;
+  requirement?: string;
   status: PlatformRunStatus;
+  paused: boolean;
   currentStage: string | null;
   riskLevel: string | null;
   branchName?: string | null;
@@ -158,6 +160,30 @@ export interface PlatformTaskObservabilitySummary {
   leaseExpiresAt?: string | null;
 }
 
+export interface PlatformPublicationObservabilitySummary {
+  publicationId: string;
+  taskId?: string | null;
+  status: string;
+  publishMode: string;
+  branchName?: string | null;
+  commitSha?: string | null;
+  prUrl?: string | null;
+  approvalRequired: boolean;
+  gateReason?: string | null;
+  latestEventType?: string | null;
+  latestEventAt?: string | null;
+  latestEventSeverity?: 'info' | 'warning' | 'error' | null;
+}
+
+export interface PlatformObservabilityApprovalItem {
+  publicationId?: string | null;
+  taskId?: string | null;
+  createdAt: string | null;
+  status: 'requested' | 'approved' | 'rejected' | 'blocked';
+  reason?: string | null;
+  latestEventType?: string | null;
+}
+
 export interface PlatformObservability {
   taxonomyVersion: string;
   metrics: {
@@ -198,6 +224,8 @@ export interface PlatformObservability {
   }>;
   timeline: PlatformObservabilityTimelineEntry[];
   taskSummaries: PlatformTaskObservabilitySummary[];
+  publicationSummaries: PlatformPublicationObservabilitySummary[];
+  approvals: PlatformObservabilityApprovalItem[];
 }
 
 export interface RunDetail {
@@ -301,7 +329,13 @@ export interface ProjectRegistrationResult {
     repositoryRootPath: string;
     defaultBranch?: string | null;
   };
-  project: ProjectListItem;
+  project: {
+    projectId: string;
+    repositoryId: string;
+    name: string;
+    repositoryRootPath: string;
+    workspaceRootPath: string;
+  };
 }
 
 export interface RunSubmissionResult {
@@ -344,6 +378,14 @@ export interface RunSubmissionResult {
   };
 }
 
+export interface RunActionResult {
+  action: 'pause' | 'resume';
+  runId: string;
+  runStatus: PlatformRunStatus;
+  currentStage: string | null;
+  paused: boolean;
+}
+
 export interface ApiError {
   error: {
     code: string;
@@ -362,7 +404,7 @@ export function getControlPlaneBaseUrl(): string {
 async function requestJson<T>(pathname: string, init?: RequestInit): Promise<T> {
   const headers = {
     'content-type': 'application/json',
-    ...(init?.headers ? init.headers : {})
+    ...init?.headers
   };
 
   const response = await fetch(`${getControlPlaneBaseUrl()}${pathname}`, {
@@ -448,4 +490,19 @@ export async function postTaskAction(
       ...(note ? { note } : {})
     })
   });
+}
+
+export async function postRunAction(
+  runId: string,
+  action: 'pause' | 'resume',
+  note?: string
+): Promise<RunActionResult> {
+  const response = await requestJson<{ action: RunActionResult }>(`/api/runs/${encodeURIComponent(runId)}/actions/${action}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ...(note ? { note } : {})
+    })
+  });
+
+  return response.action;
 }

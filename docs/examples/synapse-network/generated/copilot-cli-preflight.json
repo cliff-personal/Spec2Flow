@@ -13,7 +13,7 @@
       {
         "name": "gh auth status",
         "status": "failed",
-        "message": "github.com\n  X Failed to log in to github.com using token (GITHUB_TOKEN)\n  - Active account: true\n  - The token in GITHUB_TOKEN is invalid."
+        "message": "You are not logged into any GitHub hosts. To log in, run: gh auth login"
       },
       {
         "name": "gh copilot agent probe",

@@ -20,6 +20,7 @@ import {
 } from '../platform/platform-control-plane-action-service.js';
 import { submitPlatformControlPlaneRun as submitPlatformControlPlaneRunService } from '../platform/platform-control-plane-run-submission-service.js';
 import { startPlatformControlPlaneServer } from '../platform/platform-control-plane-server.js';
+import { startPlatformAutoRunner } from '../platform/platform-auto-runner-service.js';
 import { DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT } from '../platform/platform-scheduler-service.js';
 
 export type CliOptions = Record<string, string | boolean | undefined>;
@@ -133,4 +134,10 @@ export async function runServePlatformControlPlane(
   });
 
   console.log(`Platform control plane listening on http://${startedServer.host}:${startedServer.port}`);
+
+  // Start background auto-runner: picks up pending runs and executes
+  // deterministic tasks (environment-preparation, automated-execution) immediately.
+  // AI-dependent stages are marked blocked until an adapter is configured.
+  startPlatformAutoRunner({ pool, schema: config.schema });
+  console.log(`Platform auto-runner started (polling every 6s)`);
 }

@@ -20,7 +20,7 @@ Keep plan-heavy material out of the primary docs root so active architecture, us
 
 `npm run validate:docs` enforces these placement rules. A root-level `docs/*.md` file with a plan-like name such as `plan`, `roadmap`, `migration`, or `rollout`, or a root-level doc marked `completed` or `historical`, is treated as layout drift and fails validation.
 
-`active` docs and canonical navigation docs also cannot treat specific archived plan files under `docs/plans/historical/` or `docs/plans/completed/` as source of truth or direct navigation targets. If active guidance needs historical context, it should point to the relevant index page instead.
+`active` docs and canonical navigation docs also cannot treat specific archived plan files under `docs/plans/historical/` or `docs/plans/completed/` as source of truth or direct navigation targets. If active guidance needs historical context, it should point to the relevant index page instead, even when a link or source-of-truth entry is written as an absolute repository path.
 
 ## Current Layout
 

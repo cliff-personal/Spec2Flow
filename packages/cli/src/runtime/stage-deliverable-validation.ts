@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { fail, readStructuredFileFrom } from '../shared/fs-utils.js';
+import { readStructuredFileFrom } from '../shared/fs-utils.js';
 import { getSchemaValidators, type SchemaValidators } from '../shared/schema-registry.js';
 import type { ArtifactRef } from '../types/execution-state.js';
 
@@ -121,7 +121,7 @@ function readArtifactPayload(artifact: ArtifactRef, options?: ValidateSchemaBack
     return readStructuredFileFrom(options?.baseDir, artifact.path);
   } catch (error) {
     const artifactError = error instanceof Error ? error.message : String(error);
-    fail(`artifact schema validation failed for ${artifact.path}: unable to read payload: ${artifactError}`);
+    throw new Error(`artifact schema validation failed for ${artifact.path}: unable to read payload: ${artifactError}`);
   }
 }
 
@@ -139,7 +139,7 @@ export function validateSchemaBackedArtifacts(artifacts: ArtifactRef[], options?
     const valid = config.validate(validators, artifactPayload);
 
     if (!valid) {
-      fail(
+      throw new Error(
         `artifact schema validation failed for ${artifact.path} (${schemaBackedArtifactId}): ${JSON.stringify(config.getErrors(validators))}`
       );
     }

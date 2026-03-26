@@ -172,6 +172,45 @@ describe('docs-validation-service', () => {
     ]));
   });
 
+  it('rejects archived plan files referenced through absolute repo paths', () => {
+    const repoRoot = createRepoFixture({
+      'package.json': JSON.stringify({ scripts: { build: 'tsc -p tsconfig.build.json' } }, null, 2),
+      'README.md': '# Readme\n\nplaceholder\n',
+      'AGENTS.md': '# Agents\n',
+      '.github/copilot-instructions.md': 'Run `npm run build`.\n',
+      'docs/plans/historical/index.md': '# Historical Plans\n\n- Status: reference\n- Source of truth: `docs/plans/index.md`\n- Verified with: archived for reference only\n',
+      'docs/plans/historical/roadmap.md': '# Roadmap\n\n- Status: historical\n- Source of truth: `README.md`\n- Verified with: archived for reference only\n'
+    });
+    const archivedPlanPath = path.join(repoRoot, 'docs/plans/historical/roadmap.md');
+
+    fs.writeFileSync(path.join(repoRoot, 'README.md'), `# Readme
+
+- Status: active
+- Source of truth: \`AGENTS.md\`, \`${archivedPlanPath}\`
+- Verified with: \`npm run build\`
+- Last verified: 2026-03-25
+
+See [Old roadmap](${archivedPlanPath}).
+See [Historical index](docs/plans/historical/index.md).
+`, 'utf8');
+
+    const report = buildDocsValidationReport(repoRoot, { now: validationNow });
+
+    expect(report.status).toBe('failed');
+    expect(report.issues).toEqual(expect.arrayContaining([
+      {
+        file: 'README.md',
+        kind: 'source-of-truth',
+        message: `active or canonical docs cannot use archived plan files as source of truth: ${archivedPlanPath}`
+      },
+      {
+        file: 'README.md',
+        kind: 'layout',
+        message: `active or canonical docs must link to plan indexes instead of archived plan files: ${archivedPlanPath}`
+      }
+    ]));
+  });
+
   it('keeps docs-governance navigation hints valid in the live repository docs', () => {
     const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../');
     const report = buildDocsValidationReport(repoRoot);
@@ -244,7 +283,7 @@ describe('docs-validation-service', () => {
           }
         }
       }, null, 2),
-      'README.md': '# Readme\n\n- Status: active\n- Source of truth: `schemas/`, `AGENTS.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n\nRun `npm run legacy:build`.\n',
+       'README.md': '# Readme\n\n- Status: active\n- Source of truth: `schemas`, `AGENTS.md`\n- Verified with: `npm run build`\n- Last verified: 2026-03-25\n\nRun `npm run legacy:build`.\n',
       'AGENTS.md': '# Agents\n',
       '.github/copilot-instructions.md': 'Run `npm run build`.\n',
       'schemas/task-graph.schema.json': '{}\n'
@@ -257,7 +296,7 @@ describe('docs-validation-service', () => {
       {
         file: 'README.md',
         kind: 'source-of-truth',
-        message: 'source of truth path is too broad for an active doc; reference concrete files instead: schemas/'
+        message: 'source of truth path is too broad for an active doc; reference concrete files instead: schemas'
       },
       {
         file: 'README.md',

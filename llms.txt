@@ -51,8 +51,10 @@ Mandatory repository intake rule for AI agents:
 ## Usage
 
 - [docs/usage-guide.md](docs/usage-guide.md): Adoption flow, example commands, and adapter-backed execution.
+- [docs/ops-startup-guide.md](docs/ops-startup-guide.md): Local startup, database setup, auto-runner, and AI adapter configuration.
 - PostgreSQL worker runtime commands now include `run-platform-worker-task` plus stage-locked worker entrypoints for requirements, implementation, test design, execution, defect, and collaboration.
 - `serve-platform-control-plane` now starts the first HTTP backend for the PostgreSQL-backed web control plane, including health, project list and registration, run list, run detail, task list, observability endpoints, task-level retry/approval operator actions, real run-level pause/resume actions, and `/artifacts/<objectKey>` serving for local-fs execution evidence.
+- `serve-platform-control-plane` now also starts an embedded background auto-runner (`packages/cli/src/platform/platform-auto-runner-service.ts`) that polls every 6 seconds for pending/running runs, executes deterministic stages in-process, and dispatches AI stages to the per-project `model-adapter-runtime.json`. Runs that reach an AI stage without a configured adapter are marked `blocked` with code `no-adapter-configured` instead of silently stalling. See [docs/ops-startup-guide.md](docs/ops-startup-guide.md) for adapter setup.
 - `POST /api/runs` and `packages/cli/src/platform/platform-control-plane-run-submission-service.ts` now also persist `projects` and `run_workspaces`, provision run-scoped worktrees, and write a run-local task-graph artifact for DB-backed workers.
 - `register-platform-project`, `GET /api/projects`, and `POST /api/projects` now provide the first explicit project registry surface for local-first project/workspace setup.
 - `get-platform-run-state`, run list, and run detail now expose `project`, `workspace`, `branch`, and `worktree` metadata as explicit read-model fields instead of only raw request payload blobs.

@@ -171,6 +171,31 @@ function normalizeTimestamp(value: DbTimestamp): number {
   return 0;
 }
 
+function getRoutePrefix(taskId: string): string | null {
+  return taskId.includes('--') ? (taskId.split('--')[0] ?? null) : null;
+}
+
+function isResolvedRouteFailureRow(
+  row: PlatformTaskProgressRow,
+  rowIndex: Map<string, PlatformTaskProgressRow>
+): boolean {
+  if (!['blocked', 'failed', 'cancelled'].includes(row.status)) {
+    return false;
+  }
+
+  if (['environment-preparation', 'collaboration'].includes(row.stage)) {
+    return false;
+  }
+
+  const routePrefix = getRoutePrefix(row.task_id);
+  if (!routePrefix) {
+    return false;
+  }
+
+  const collaborationRow = rowIndex.get(`${routePrefix}--collaboration`);
+  return collaborationRow !== undefined && ['completed', 'skipped'].includes(collaborationRow.status);
+}
+
 function inferRunProgress(taskRows: PlatformTaskProgressRow[]): {
   status: PlatformRunRecord['status'];
   currentStage: PlatformRunRecord['currentStage'];
@@ -183,8 +208,16 @@ function inferRunProgress(taskRows: PlatformTaskProgressRow[]): {
 
     return left.task_id.localeCompare(right.task_id);
   });
-  const activeRows = orderedRows.filter((row) => !['completed', 'skipped'].includes(row.status));
+  const rowIndex = new Map(orderedRows.map((row) => [row.task_id, row]));
+  const activeRows = orderedRows.filter((row) => {
+    if (['completed', 'skipped'].includes(row.status)) {
+      return false;
+    }
+
+    return !isResolvedRouteFailureRow(row, rowIndex);
+  });
   const firstActiveStage = activeRows[0]?.stage ?? null;
+  const firstExecutableStage = activeRows.find((row) => ['ready', 'in-progress'].includes(row.status))?.stage ?? null;
 
   if (activeRows.length === 0) {
     return {
@@ -193,10 +226,24 @@ function inferRunProgress(taskRows: PlatformTaskProgressRow[]): {
     };
   }
 
-  if (activeRows.some((row) => ['blocked', 'failed', 'cancelled'].includes(row.status))) {
+  if (firstExecutableStage) {
+    return {
+      status: 'running',
+      currentStage: firstExecutableStage
+    };
+  }
+
+  if (activeRows.some((row) => row.status === 'failed')) {
+    return {
+      status: 'failed',
+      currentStage: activeRows.find((row) => row.status === 'failed')?.stage ?? firstActiveStage
+    };
+  }
+
+  if (activeRows.some((row) => ['blocked', 'cancelled'].includes(row.status))) {
     return {
       status: 'blocked',
-      currentStage: activeRows.find((row) => ['blocked', 'failed', 'cancelled'].includes(row.status))?.stage ?? firstActiveStage
+      currentStage: activeRows.find((row) => ['blocked', 'cancelled'].includes(row.status))?.stage ?? firstActiveStage
     };
   }
 

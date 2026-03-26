@@ -15,6 +15,7 @@ export interface SchemaValidators {
   project: ValidateFunction;
   topology: ValidateFunction;
   risk: ValidateFunction;
+  taskGraph: ValidateFunction;
   environmentPreparationReport: ValidateFunction;
   requirementSummary: ValidateFunction;
   implementationSummary: ValidateFunction;
@@ -40,6 +41,7 @@ export function getSchemaValidators(): SchemaValidators {
     project: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/project-adapter.schema.json'))),
     topology: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/system-topology.schema.json'))),
     risk: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/risk-policy.schema.json'))),
+    taskGraph: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/task-graph.schema.json'))),
     environmentPreparationReport: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/environment-preparation-report.schema.json'))),
     requirementSummary: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/requirement-summary.schema.json'))),
     implementationSummary: ajv.compile(readJsonFile(path.join(rootDir, 'schemas/implementation-summary.schema.json'))),

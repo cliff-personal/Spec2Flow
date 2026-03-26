@@ -176,6 +176,27 @@
             "requireHumanApproval": {
               "type": "boolean",
               "default": false
+            },
+            "maxAutoRepairAttempts": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "maxExecutionRetries": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "allowAutoCommit": {
+              "type": "boolean",
+              "default": false
+            },
+            "blockedRiskLevels": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["low", "medium", "high", "critical"]
+              }
             }
           }
         }

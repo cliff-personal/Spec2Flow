@@ -177,6 +177,9 @@ export function buildAdapterTemplateContext(
     executorSessionKey: buildSessionKey(sessionNamespace, claim.executorType ?? ''),
     routeExecutorSessionKey: buildSessionKey(sessionNamespace, routeName, claim.executorType ?? ''),
     taskSessionKey: buildSessionKey(sessionNamespace, claim.taskId ?? ''),
+    worktreePath: claim.runtimeContext?.workspace?.worktreePath ?? '',
+    repositoryRootPath: claim.runtimeContext?.workspace?.repositoryRootPath ?? '',
+    workspaceRootPath: claim.runtimeContext?.workspace?.workspaceRootPath ?? '',
     statePath,
     taskGraphPath
   };

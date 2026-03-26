@@ -115,9 +115,15 @@ const RUN_ACTION_ROUTE = /^\/api\/runs\/([^/]+)\/actions\/(pause|resume)$/u;
 const TASK_ACTION_ROUTE = /^\/api\/tasks\/([^/]+)\/actions\/(retry|approve|reject)$/u;
 const LOCAL_ARTIFACT_ROUTE_PREFIX = '/artifacts/';
 
+function logRequest(method: string, pathname: string, statusCode: number, durationMs: number): void {
+  const ts = new Date().toISOString();
+  process.stdout.write(`${ts} ${method} ${pathname} ${statusCode} ${durationMs}ms\n`);
+}
+
 function writeJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.statusCode = statusCode;
   response.setHeader('content-type', 'application/json; charset=utf-8');
+  response.setHeader('access-control-allow-origin', '*');
   response.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
@@ -808,6 +814,21 @@ async function handleRequest(
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
   const pathname = url.pathname;
   const eventLimit = parsePositiveInteger(url.searchParams.get('eventLimit'), options.eventLimit);
+  const startMs = Date.now();
+
+  const finish = () => logRequest(method, pathname, response.statusCode, Date.now() - startMs);
+  response.on('finish', finish);
+
+  if (method === 'OPTIONS') {
+    response.writeHead(204, {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'content-type',
+      'access-control-max-age': '86400'
+    });
+    response.end();
+    return;
+  }
 
   if (method === 'GET' && await handleGetRequest(response, url, pathname, eventLimit, options)) {
     return;
@@ -849,6 +870,8 @@ export async function startPlatformControlPlaneServer(
       }
 
       const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      process.stderr.write(`[error] ${stack ?? message}\n`);
       writeError(response, 500, 'internal-error', message);
     });
   });

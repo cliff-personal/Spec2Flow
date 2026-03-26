@@ -16,6 +16,8 @@ import type {
 } from '../types/index.js';
 import type { RiskLevel, TaskStage } from '../types/task-graph.js';
 
+type TimestampValue = Date | string | null;
+
 interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   run_id: string;
   repository_id: string;
@@ -25,7 +27,9 @@ interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   project_name: string | null;
   workspace_root_path: string | null;
   workflow_name: string;
+  request_text: string | null;
   status: PlatformRunStatus;
+  metadata: Record<string, unknown> | null;
   current_stage: TaskStage | null;
   risk_level: RiskLevel | null;
   branch_name: string | null;
@@ -33,10 +37,10 @@ interface PlatformControlPlaneRunRow extends Record<string, unknown> {
   worktree_mode: 'managed' | 'none' | null;
   worktree_path: string | null;
   provisioning_status: 'provisioned' | 'skipped' | null;
-  created_at: Date | string | null;
-  updated_at: Date | string | null;
-  started_at: Date | string | null;
-  completed_at: Date | string | null;
+  created_at: TimestampValue;
+  updated_at: TimestampValue;
+  started_at: TimestampValue;
+  completed_at: TimestampValue;
 }
 
 interface PlatformControlPlaneRunRepositoryRow extends Record<string, unknown> {
@@ -71,12 +75,21 @@ export interface PlatformControlPlaneLocalArtifactContent {
   contentType: string;
 }
 
-function normalizeTimestamp(value: Date | string | null | undefined): string | null {
+function normalizeTimestamp(value: TimestampValue | undefined): string | null {
   if (!value) {
     return null;
   }
 
   return value instanceof Date ? value.toISOString() : value;
+}
+
+function isRunPaused(metadata: Record<string, unknown> | null | undefined): boolean {
+  const controlPlane = metadata?.controlPlane;
+  if (!controlPlane || typeof controlPlane !== 'object' || Array.isArray(controlPlane)) {
+    return false;
+  }
+
+  return (controlPlane as Record<string, unknown>).paused === true;
 }
 
 function mapRunRow(row: PlatformControlPlaneRunRow): PlatformControlPlaneRunListItem {
@@ -89,7 +102,9 @@ function mapRunRow(row: PlatformControlPlaneRunRow): PlatformControlPlaneRunList
     projectName: row.project_name,
     workspaceRootPath: row.workspace_root_path,
     workflowName: row.workflow_name,
+    ...(row.request_text ? { requirement: row.request_text } : {}),
     status: row.status,
+    paused: isRunPaused(row.metadata),
     currentStage: row.current_stage,
     riskLevel: row.risk_level,
     branchName: row.branch_name,
@@ -172,7 +187,9 @@ export async function listPlatformRuns(
         projects.name AS project_name,
         run_workspaces.workspace_root_path,
         runs.workflow_name,
+        runs.request_text,
         runs.status,
+        runs.metadata,
         runs.current_stage,
         runs.risk_level,
         run_workspaces.branch_name,

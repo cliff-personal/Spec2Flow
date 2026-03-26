@@ -83,6 +83,7 @@ Docs governance quick path:
 
 ### How do I adopt or run the workflow?
 
+- [docs/ops-startup-guide.md](/Users/cliff/workspace/Spec2Flow/docs/ops-startup-guide.md) — start API server, web UI, worker, and run DB migration
 - [docs/usage-guide.md](/Users/cliff/workspace/Spec2Flow/docs/usage-guide.md)
 - [docs/runtime-config-reference.md](/Users/cliff/workspace/Spec2Flow/docs/runtime-config-reference.md)
 - [docs/playbooks/index.md](/Users/cliff/workspace/Spec2Flow/docs/playbooks/index.md)

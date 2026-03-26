@@ -531,7 +531,7 @@ describe('task-result-service', () => {
         }
       ],
       errors: []
-    })).toThrow('process.exit:1');
+    })).toThrow('artifact schema validation failed');
 
     exitSpy.mockRestore();
     errorSpy.mockRestore();
@@ -713,7 +713,7 @@ describe('task-result-service', () => {
         }
       ],
       errors: []
-    })).toThrow('process.exit:1');
+    })).toThrow('artifact schema validation failed');
 
     const persistedState = JSON.parse(fs.readFileSync(statePath, 'utf8')) as ExecutionStateDocument;
     expect(persistedState.executionState.tasks[2]?.status).toBe('ready');

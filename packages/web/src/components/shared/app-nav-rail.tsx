@@ -1,4 +1,4 @@
-import { Home, FolderOpen, History, BarChart2, Settings } from 'lucide-react';
+import { FolderOpen, History, BarChart2, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 type NavItemConfig = {
@@ -9,8 +9,7 @@ type NavItemConfig = {
 };
 
 const navItems: NavItemConfig[] = [
-  { icon: <Home className="w-5 h-5" />, label: 'Home', to: '/projects', end: true },
-  { icon: <FolderOpen className="w-5 h-5" />, label: 'Projects', to: '/projects' },
+  { icon: <FolderOpen className="w-5 h-5" />, label: 'Projects', to: '/projects', end: true },
   { icon: <History className="w-5 h-5" />, label: 'History', to: '/runs' },
   { icon: <BarChart2 className="w-5 h-5" />, label: 'Health', to: '/health' },
 ];

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { upsertPlatformProject, upsertPlatformRepository } from './platform-repository.js';
+import { scaffoldSpec2flowFiles } from '../shared/scaffold-spec2flow.js';
 import type {
   PlatformControlPlaneProjectListItem,
   PlatformControlPlaneProjectRegistrationRequest,
@@ -182,6 +183,19 @@ export async function registerPlatformProject(
 
   await upsertPlatformRepository(executor, schema, repository);
   await upsertPlatformProject(executor, schema, project);
+
+  // Auto-generate .spec2flow scaffold files so users can submit runs without manual config.
+  try {
+    scaffoldSpec2flowFiles(
+      repositoryRootPath,
+      project.name,
+      project.projectPath ?? undefined,
+      project.topologyPath ?? undefined,
+      project.riskPath ?? undefined
+    );
+  } catch {
+    // Scaffolding is best-effort; don't block registration if filesystem write fails.
+  }
 
   return {
     schema,

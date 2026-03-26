@@ -434,6 +434,7 @@ async function runExternalMaterializedTask(
     materialization.taskGraphPath,
     materialization.claimPayload,
     {
+      claim: materialization.claimPath,
       ...(options.adapterCapabilityPath ? { 'adapter-capability': options.adapterCapabilityPath } : {}),
       'adapter-runtime': options.adapterRuntimePath,
       ...(options.executor ? { executor: options.executor } : {})

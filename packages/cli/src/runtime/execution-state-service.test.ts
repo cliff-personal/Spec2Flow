@@ -132,4 +132,23 @@ describe('execution-state-service', () => {
       ])
     ).toBe('failed');
   });
+
+  it('keeps the workflow running when a blocked task coexists with a ready repair path', () => {
+    expect(
+      inferExecutionStateStatus([
+        { taskId: 'route--code-implementation', status: 'blocked' },
+        { taskId: 'route--defect-feedback', status: 'ready' }
+      ])
+    ).toBe('running');
+  });
+
+  it('completes the workflow when a blocked route has already reached completed collaboration', () => {
+    expect(
+      inferExecutionStateStatus([
+        { taskId: 'route--code-implementation', status: 'blocked' },
+        { taskId: 'route--defect-feedback', status: 'completed' },
+        { taskId: 'route--collaboration', status: 'completed' }
+      ])
+    ).toBe('completed');
+  });
 });

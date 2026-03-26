@@ -254,7 +254,7 @@ Shared infrastructure utilities for filesystem IO, schema loading, and common ou
 - Active docs must keep a metadata block with `Status`, `Source of truth`, `Verified with`, and `Last verified`.
 - Key API or design docs should use `Supersedes` and `Superseded by` when canonical ownership moves from one file to another.
 - `Last verified` must use `YYYY-MM-DD` and stay within the active-doc freshness window enforced by `npm run validate:docs`.
-- `Source of truth` entries for active docs must stay concrete. Whole directories such as `packages/cli/src/runtime/`, `packages/web/`, or `schemas/` are treated as overbroad and should be narrowed to the owning files.
+- `Source of truth` entries for active docs must stay concrete. Whole directories such as `packages/cli/src/runtime`, `packages/web`, or `schemas` are treated as overbroad whether they appear with or without a trailing slash and should be narrowed to the owning files.
 
 These placement rules are not advisory only. `npm run validate:docs` fails when plan-like docs appear directly under `docs/` root or when root-level docs are marked `completed` or `historical`.
 

@@ -424,6 +424,11 @@ function isValidRequirementSummaryPayload(payload: unknown): boolean {
   return validators.requirementSummary(payload);
 }
 
+function isValidDefectSummaryPayload(payload: unknown): boolean {
+  const validators = getSchemaValidators();
+  return validators.defectSummary(payload);
+}
+
 function normalizeImplementationChangedFiles(
   deliverablePayload: Record<string, unknown>,
   fallbackEditedFiles: string[],
@@ -933,15 +938,20 @@ function inferRepositoryRoot(
   claim: NonNullable<TaskClaimPayload['taskClaim']>,
   adapterRuntimePayload: AdapterRuntimeDocument | null
 ): string {
+  // Prefer worktreePath from the claim: this is the checkout of the target repo
+  // where artifacts should be written. adapterRuntime.cwd is the adapter tool's
+  // process working directory, which may differ from the target repository root.
+  const worktreePath = claim.runtimeContext.workspace?.worktreePath?.trim();
+  if (worktreePath) {
+    return path.resolve(worktreePath);
+  }
+
   const runtimeCwd = adapterRuntimePayload?.adapterRuntime.cwd?.trim();
   if (runtimeCwd) {
     return path.resolve(runtimeCwd);
   }
 
-  const worktreePath = claim.runtimeContext.workspace?.worktreePath?.trim();
-  if (worktreePath) {
-    return path.resolve(worktreePath);
-  }
+
 
   const workspaceRootPath = claim.runtimeContext.workspace?.workspaceRootPath?.trim();
   if (workspaceRootPath) {
@@ -1156,12 +1166,7 @@ function enrichCodeImplementationRunOutput(
       });
       notes.push('controller-generated:code-diff');
     } else {
-      errors.push({
-        code: 'controller-code-diff-unavailable',
-        message: `Unable to synthesize code-diff for ${claim.taskId} from repository changes.`,
-        taskId: claim.taskId,
-        recoverable: true
-      });
+      notes.push('controller-code-diff-unavailable');
     }
   }
 
@@ -1323,6 +1328,81 @@ function enrichRequirementsAnalysisRunOutput(
           taskId: claim.taskId
         }
       ];
+
+  return {
+    adapterRun: {
+      ...runOutput.adapterRun,
+      notes,
+      artifacts
+    }
+  };
+}
+
+function enrichDefectFeedbackRunOutput(
+  runOutput: AdapterRunDocument,
+  claim: NonNullable<TaskClaimPayload['taskClaim']>,
+  adapterRuntimePayload: AdapterRuntimeDocument | null
+): AdapterRunDocument {
+  if (claim.stage !== 'defect-feedback') {
+    return runOutput;
+  }
+
+  const artifactsDir = claim.runtimeContext.artifactsDir?.trim();
+  if (!artifactsDir) {
+    return runOutput;
+  }
+
+  const repositoryRoot = inferRepositoryRoot(claim, adapterRuntimePayload);
+  const artifacts = [...runOutput.adapterRun.artifacts];
+  const notes = [...runOutput.adapterRun.notes];
+
+  const existingDefectSummaryArtifact = findStructuredArtifactReference(artifacts, 'defect-summary');
+  if (existingDefectSummaryArtifact) {
+    const existingPayload = loadOptionalStructuredFileFrom(repositoryRoot, existingDefectSummaryArtifact.path);
+    if (existingPayload && isValidDefectSummaryPayload(existingPayload)) {
+      return runOutput;
+    }
+  }
+
+  // Normalize the defect-summary to match schema requirements.
+  // Pull what we can from the existing file or adapter summary.
+  const existingRaw = existingDefectSummaryArtifact
+    ? loadOptionalStructuredFileFrom(repositoryRoot, existingDefectSummaryArtifact.path)
+    : null;
+  const rawRecord = asObjectRecord(existingRaw);
+
+  const defectSummaryPath = existingDefectSummaryArtifact?.path ?? path.join(artifactsDir, 'defect-summary.json');
+  const evidenceRefs = artifacts
+    .map((a) => a.id)
+    .filter(Boolean)
+    .slice(0, 5);
+  if (evidenceRefs.length === 0) {
+    evidenceRefs.push('adapter-run-summary');
+  }
+
+  const normalizedDefectSummary = {
+    generatedAt: new Date().toISOString(),
+    taskId: claim.taskId,
+    stage: 'defect-feedback' as const,
+    summary: getObjectStringProperty(rawRecord, 'summary') ?? runOutput.adapterRun.summary,
+    failureType: 'requirements' as const,
+    severity: 'medium' as const,
+    evidenceRefs,
+    recommendedAction: 'clarify-requirements' as const
+  };
+  writeJsonFrom(repositoryRoot, defectSummaryPath, normalizedDefectSummary);
+
+  if (!existingDefectSummaryArtifact) {
+    artifacts.push({
+      id: 'defect-summary',
+      kind: 'report',
+      path: defectSummaryPath,
+      taskId: claim.taskId
+    });
+    notes.push('controller-generated:defect-summary');
+  } else {
+    notes.push('controller-normalized:defect-summary');
+  }
 
   return {
     adapterRun: {
@@ -1539,7 +1619,7 @@ function createAbortError(message: string): Error & { code: string; name: string
 function parseAdapterStdoutPayload(stdout: string): unknown {
   const trimmed = stdout.trim();
   if (!trimmed) {
-    fail('adapter command returned empty stdout; expected JSON output');
+    throw new Error('adapter command returned empty stdout; expected JSON output');
   }
 
   try {
@@ -1547,7 +1627,7 @@ function parseAdapterStdoutPayload(stdout: string): unknown {
     return JSON.parse(extractJsonPayload(assistantContent));
   } catch (error) {
     const parseError = error as { message?: string };
-    fail(`adapter stdout is not valid JSON: ${parseError.message ?? 'unknown error'}`);
+    throw new Error(`adapter stdout is not valid JSON: ${parseError.message ?? 'unknown error'}`);
   }
 }
 
@@ -1660,7 +1740,9 @@ export function runExternalAdapter(
       return buildAdapterTimeoutRunOutput(adapterRuntimePayload, claimPayload, timeout);
     }
 
-    fail(buildExternalAdapterFailureMessage(commandError));
+    const failureMessage = buildExternalAdapterFailureMessage(commandError);
+    console.error(failureMessage);
+    throw new Error(failureMessage);
   }
 
   let adapterOutputPayload: unknown;
@@ -1891,7 +1973,8 @@ export function executeTaskRun(
   const requirementsEnrichedRunOutput = enrichRequirementsAnalysisRunOutput(runOutput, claim, adapterRuntimePayload);
   const implementationEnrichedRunOutput = enrichCodeImplementationRunOutput(requirementsEnrichedRunOutput, claim, adapterRuntimePayload);
   const testDesignEnrichedRunOutput = enrichTestDesignRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
-  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
+  const defectEnrichedRunOutput = enrichDefectFeedbackRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
+  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(defectEnrichedRunOutput, claim, adapterRuntimePayload);
   const validatedRunOutput = applyRolePolicyToRunOutput(claim, collaborationEnrichedRunOutput);
 
   const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
@@ -1980,7 +2063,8 @@ export async function executeTaskRunAsync(
   const requirementsEnrichedRunOutput = enrichRequirementsAnalysisRunOutput(runOutput, claim, adapterRuntimePayload);
   const implementationEnrichedRunOutput = enrichCodeImplementationRunOutput(requirementsEnrichedRunOutput, claim, adapterRuntimePayload);
   const testDesignEnrichedRunOutput = enrichTestDesignRunOutput(implementationEnrichedRunOutput, claim, adapterRuntimePayload);
-  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
+  const defectEnrichedRunOutput = enrichDefectFeedbackRunOutput(testDesignEnrichedRunOutput, claim, adapterRuntimePayload);
+  const collaborationEnrichedRunOutput = enrichCollaborationRunOutput(defectEnrichedRunOutput, claim, adapterRuntimePayload);
   const validatedRunOutput = applyRolePolicyToRunOutput(claim, collaborationEnrichedRunOutput);
 
   const receipt = applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {

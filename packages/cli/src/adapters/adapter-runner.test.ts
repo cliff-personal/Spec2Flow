@@ -1373,7 +1373,7 @@ describe('adapter-runner', () => {
       sanitizeStageName: (stage) => stage,
       getRouteNameFromTaskId: (taskId) => taskId?.split('--')[0] ?? '',
       parseCsvOption: (value) => value ? value.split(',').map((entry) => entry.trim()).filter(Boolean) : []
-    })).toThrow('process.exit:1');
+    })).toThrow('adapter command failed');
 
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('adapter command failed'));
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('signal=SIGTERM'));

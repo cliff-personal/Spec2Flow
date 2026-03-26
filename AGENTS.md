@@ -88,12 +88,14 @@ Keep `AGENTS.md` short and architecture-oriented. Operational rules belong in `.
 ## Navigation
 
 Repository intake order for AI agents:
+- `.github/instructions/agents-memory-bridge.instructions.md`: read first for shared memory session protocol and error recording workflow
 - `llms.txt`: read first to get the shortest machine-readable system map
 - `AGENTS.md`: read second for architecture boundaries and repository rules
 - `docs/index.md`: read third for question-based source-of-truth routing
 
 Mandatory intake rule:
-- on every new task, read `llms.txt` before planning, editing files, or running commands
+- on every new task, read `.github/instructions/agents-memory-bridge.instructions.md` before planning, editing files, or running commands when the file exists
+- then read `llms.txt`
 - then confirm boundaries in `AGENTS.md`
 - then use `docs/index.md` to expand only into the minimal relevant source-of-truth set
 

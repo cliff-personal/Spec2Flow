@@ -1,28 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useControlPlaneProjectsPage } from '../hooks/use-control-plane-projects-page';
 import { AppNavRail } from '../components/shared/app-nav-rail';
 import { AppTopbar } from '../components/shared/app-topbar';
 import { ProjectTreeSidebar } from '../components/projects/project-tree-sidebar';
 import { ProjectsHeroPanel } from '../components/projects/projects-hero';
-import { ProjectsStatusBar } from '../components/projects/projects-status-bar';
-import { ProjectRegistrationDrawer } from '../components/projects/project-registration-drawer';
+import { RunSessionPanel } from '../components/projects/run-session-panel';
+import type { RunListItem } from '../lib/control-plane-api';
 
 export function ProjectsPage(): JSX.Element {
   const projectsPage = useControlPlaneProjectsPage();
-  const [registrationOpen, setRegistrationOpen] = useState(false);
+  // When true, show blank hero panel regardless of active run (user clicked ✏ new requirement)
+  const [forceNewMode, setForceNewMode] = useState(false);
+
+  // Exit forceNewMode whenever the user navigates into a session view
+  useEffect(() => {
+    if (projectsPage.sessionRunIdParam) {
+      setForceNewMode(false);
+    }
+  }, [projectsPage.sessionRunIdParam]);
 
   function handleGenerate(suggestion?: string): void {
+    setForceNewMode(false);
     if (suggestion) {
       projectsPage.updateSubmissionField('requirement', suggestion);
-      // Allow one render cycle then submit
-      setTimeout(() => {
-        if (projectsPage.selectedProject) {
-          projectsPage.updateSubmissionField('requirement', suggestion);
-        }
-      }, 0);
+      projectsPage.submitWithRequirement(suggestion);
+      return;
     }
     projectsPage.submitProjectRun();
   }
+
+  function handleOpenRun(run: RunListItem): void {
+    const pid = run.projectId ?? projectsPage.selectedProjectId;
+    if (pid) {
+      projectsPage.openRun(`/projects/${pid}/runs/${run.runId}`);
+    } else {
+      projectsPage.openRun(`/runs/${run.runId}`);
+    }
+  }
+
+  function handleBackFromSession(): void {
+    if (projectsPage.selectedProjectId) {
+      projectsPage.openRun(`/projects/${projectsPage.selectedProjectId}`);
+    } else {
+      projectsPage.openRun('/projects');
+    }
+  }
+
+  const showSession = Boolean(projectsPage.sessionRunIdParam && projectsPage.sessionRun);
 
   return (
     <div
@@ -47,53 +71,85 @@ export function ProjectsPage(): JSX.Element {
       {/* Project tree sidebar */}
       <ProjectTreeSidebar
         projects={projectsPage.projectsQuery.data ?? []}
+        runs={projectsPage.runsQuery.data ?? []}
         selectedProjectId={projectsPage.selectedProjectId}
+        selectedRunId={projectsPage.sessionRunIdParam}
         onSelectProject={projectsPage.selectProject}
-        onAddProject={() => setRegistrationOpen(true)}
+        onRegisterProject={(path) =>
+          projectsPage.registrationMutation.mutate({ repositoryRootPath: path })
+        }
+        onOpenRun={handleOpenRun}
+        onNewRequirement={(projectId) => {
+          setForceNewMode(true);
+          projectsPage.updateSubmissionField('requirement', '');
+          // Navigate away from a session if needed; same-URL case is handled by forceNewMode
+          if (projectsPage.sessionRunIdParam) {
+            projectsPage.openRun(`/projects/${projectId}`);
+          } else if (projectsPage.selectedProjectId !== projectId) {
+            projectsPage.openRun(`/projects/${projectId}`);
+          }
+        }}
+        isRegistering={projectsPage.registrationMutation.isPending}
       />
 
       {/* Main content: ml-[21rem] = 80px sidebar + 256px project tree */}
       <main
-        className="mt-16 h-[calc(100vh-4rem)] relative flex items-center justify-center p-12 overflow-hidden"
-        style={{ marginLeft: '21rem' }}
+        className="mt-16 h-[calc(100vh-4rem)] relative flex items-start justify-center overflow-hidden"
+        style={{ marginLeft: '21rem', padding: '0 3rem' }}
       >
-        <ProjectsHeroPanel
-          selectedProject={projectsPage.selectedProject}
-          requirement={projectsPage.submissionState.requirement}
-          onRequirementChange={(value) =>
-            projectsPage.updateSubmissionField('requirement', value)
-          }
-          onGenerate={handleGenerate}
-          isPending={projectsPage.submissionMutation.isPending}
-          errorMessage={
-            projectsPage.submissionMutation.isError
-              ? projectsPage.submissionMutation.error.message
-              : null
-          }
-          actionMessage={projectsPage.actionMessage}
-        />
+        {showSession ? (
+          <RunSessionPanel
+            run={projectsPage.sessionRun!}
+            tasks={projectsPage.sessionTasks}
+            observability={projectsPage.sessionObservabilityQuery.data}
+            pendingConfirmations={projectsPage.sessionPendingConfirmations}
+            blockedTaskId={projectsPage.sessionBlockedTaskId}
+            isActionPending={projectsPage.taskActionMutation.isPending}
+            isRunActionPending={projectsPage.runActionMutation.isPending}
+            actionMessage={projectsPage.actionMessage}
+            onBack={handleBackFromSession}
+            onApproveConfirmation={projectsPage.approvePendingConfirmation}
+            onApproveAndRememberConfirmation={projectsPage.approveAndRememberPendingConfirmation}
+            onRejectConfirmation={projectsPage.rejectPendingConfirmation}
+            onRetryTask={projectsPage.retryBlockedTask}
+            onPauseRun={projectsPage.pauseActiveRun}
+            onResumeRun={projectsPage.resumeActiveRun}
+          />
+        ) : (
+          <ProjectsHeroPanel
+            selectedProject={projectsPage.selectedProject}
+            activeRun={forceNewMode ? null : projectsPage.activeProjectRun}
+            tasks={projectsPage.activeRunTasksQuery.data ?? []}
+            taskSummaries={projectsPage.activeRunObservabilityQuery.data?.taskSummaries ?? []}
+            executionFeed={projectsPage.activeRunExecutionFeed}
+            blockedReason={projectsPage.blockedReason}
+            blockedTaskId={projectsPage.blockedTaskId}
+            pendingConfirmations={projectsPage.pendingConfirmations}
+            requirement={projectsPage.submissionState.requirement}
+            onRequirementChange={(value) =>
+              projectsPage.updateSubmissionField('requirement', value)
+            }
+            onGenerate={handleGenerate}
+            onApproveConfirmation={projectsPage.approvePendingConfirmation}
+            onApproveAndRememberConfirmation={projectsPage.approveAndRememberPendingConfirmation}
+            onPauseRun={projectsPage.pauseActiveRun}
+            onRejectConfirmation={projectsPage.rejectPendingConfirmation}
+            onResumeRun={projectsPage.resumeActiveRun}
+            onRetryTask={projectsPage.retryBlockedTask}
+            actionMessage={projectsPage.actionMessage}
+            isActionPending={projectsPage.taskActionMutation.isPending}
+            isPending={projectsPage.submissionMutation.isPending}
+            isRunActionPending={projectsPage.runActionMutation.isPending}
+            errorMessage={
+              projectsPage.submissionMutation.isError
+                ? projectsPage.submissionMutation.error.message
+                : null
+            }
+          />
+        )}
       </main>
 
       {/* Bottom status bar */}
-      <ProjectsStatusBar />
-
-      {/* Registration drawer (slide-in from right) */}
-      <ProjectRegistrationDrawer
-        isOpen={registrationOpen}
-        onClose={() => setRegistrationOpen(false)}
-        formState={projectsPage.registrationState}
-        onFieldChange={projectsPage.updateRegistrationField}
-        onSubmit={() => {
-          projectsPage.submitProjectRegistration();
-          setRegistrationOpen(false);
-        }}
-        isPending={projectsPage.registrationMutation.isPending}
-        errorMessage={
-          projectsPage.registrationMutation.isError
-            ? projectsPage.registrationMutation.error.message
-            : null
-        }
-      />
     </div>
   );
 }

@@ -65,6 +65,11 @@ describe('platform-control-plane-service', () => {
             workspace_root_path: '/workspace/Spec2Flow',
             workflow_name: 'platform-flow',
             status: 'running',
+            metadata: {
+              controlPlane: {
+                paused: true,
+              },
+            },
             current_stage: 'collaboration',
             risk_level: 'high',
             branch_name: 'spec2flow/run-1',
@@ -92,7 +97,8 @@ describe('platform-control-plane-service', () => {
       projectName: 'Spec2Flow Local',
       repositoryName: 'Spec2Flow',
       branchName: 'spec2flow/run-1',
-      status: 'running'
+      status: 'running',
+      paused: true,
     })]);
   });
 

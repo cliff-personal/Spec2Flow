@@ -111,7 +111,7 @@ describe('stage-deliverable-validation', () => {
       summary: 'Missing changedFiles makes this invalid.'
     }, null, 2)}\n`, 'utf8');
 
-    expect(() => validateSchemaBackedArtifacts([artifact])).toThrow('process.exit:1');
+    expect(() => validateSchemaBackedArtifacts([artifact])).toThrow('artifact schema validation failed');
 
     exitSpy.mockRestore();
     errorSpy.mockRestore();
