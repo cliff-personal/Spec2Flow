@@ -2,6 +2,10 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { startPlatformControlPlaneServer, type StartedPlatformControlPlaneServer } from './platform-control-plane-server.js';
+import type {
+  PlatformControlPlaneProjectAdapterProfileUpdateRequest,
+  PlatformControlPlaneProjectRegistrationRequest
+} from '../types/index.js';
 
 let startedServer: StartedPlatformControlPlaneServer | null = null;
 
@@ -14,6 +18,9 @@ afterEach(async () => {
 
 describe('platform-control-plane-server', () => {
   it('serves health, run list, run detail, task list, and observability endpoints', async () => {
+    const registrationRequests: PlatformControlPlaneProjectRegistrationRequest[] = [];
+    const adapterProfileUpdates: Array<{ projectId: string; request: PlatformControlPlaneProjectAdapterProfileUpdateRequest; }> = [];
+
     startedServer = await startPlatformControlPlaneServer({
       host: '127.0.0.1',
       port: 0,
@@ -347,32 +354,69 @@ describe('platform-control-plane-server', () => {
           }
         }
       }),
-      registerPlatformProject: async () => ({
-        schema: 'spec2flow_platform',
-        repository: {
-          repositoryId: 'spec2flow',
-          repositoryName: 'Spec2Flow',
-          repositoryRootPath: '/workspace/Spec2Flow',
-          defaultBranch: 'main'
-        },
-        project: {
-          projectId: 'spec2flow-local',
-          repositoryId: 'spec2flow',
-          name: 'Spec2Flow Local',
-          repositoryRootPath: '/workspace/Spec2Flow',
-          workspaceRootPath: '/workspace/Spec2Flow',
-          projectPath: '/workspace/Spec2Flow/project.json',
-          topologyPath: '/workspace/Spec2Flow/topology.yaml',
-          riskPath: '/workspace/Spec2Flow/risk.yaml',
-          defaultBranch: 'main',
-          branchPrefix: 'spec2flow/',
-          workspacePolicy: {
-            allowedReadGlobs: ['**/*'],
-            allowedWriteGlobs: ['src/**'],
-            forbiddenWriteGlobs: ['.git/**']
+      updatePlatformProjectAdapterProfile: async (projectId, request) => {
+        adapterProfileUpdates.push({ projectId, request });
+        return {
+          schema: 'spec2flow_platform',
+          project: {
+            projectId,
+            repositoryId: 'spec2flow',
+            name: 'Spec2Flow Local',
+            repositoryRootPath: '/workspace/Spec2Flow',
+            workspaceRootPath: '/workspace/Spec2Flow',
+            projectPath: '/workspace/Spec2Flow/project.json',
+            topologyPath: '/workspace/Spec2Flow/topology.yaml',
+            riskPath: '/workspace/Spec2Flow/risk.yaml',
+            defaultBranch: 'main',
+            branchPrefix: 'spec2flow/',
+            adapterProfile: request.adapterProfile && request.adapterProfile.runtimePath
+              ? {
+                  runtimePath: request.adapterProfile.runtimePath,
+                  ...(request.adapterProfile.capabilityPath
+                    ? { capabilityPath: request.adapterProfile.capabilityPath }
+                    : {})
+                }
+              : null,
+            workspacePolicy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            }
           }
-        }
-      }),
+        };
+      },
+      registerPlatformProject: async (request) => {
+        registrationRequests.push(request);
+        return {
+          schema: 'spec2flow_platform',
+          repository: {
+            repositoryId: 'spec2flow',
+            repositoryName: 'Spec2Flow',
+            repositoryRootPath: '/workspace/Spec2Flow',
+            defaultBranch: 'main'
+          },
+          project: {
+            projectId: 'spec2flow-local',
+            repositoryId: 'spec2flow',
+            name: 'Spec2Flow Local',
+            repositoryRootPath: '/workspace/Spec2Flow',
+            workspaceRootPath: '/workspace/Spec2Flow',
+            projectPath: '/workspace/Spec2Flow/project.json',
+            topologyPath: '/workspace/Spec2Flow/topology.yaml',
+            riskPath: '/workspace/Spec2Flow/risk.yaml',
+            defaultBranch: 'main',
+            branchPrefix: 'spec2flow/',
+            adapterProfile: {
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json'
+            },
+            workspacePolicy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            }
+          }
+        };
+      },
       retryPlatformTask: async () => ({
         action: 'retry',
         runId: 'run-1',
@@ -442,7 +486,10 @@ describe('platform-control-plane-server', () => {
       },
       body: JSON.stringify({
         repositoryRootPath: '/workspace/Spec2Flow',
-        projectName: 'Spec2Flow Local'
+        projectName: 'Spec2Flow Local',
+        adapterProfile: {
+          runtimePath: '.spec2flow/model-adapter-runtime.json'
+        }
       })
     });
     expect(projectRegistrationResponse.status).toBe(201);
@@ -451,6 +498,45 @@ describe('platform-control-plane-server', () => {
         project: expect.objectContaining({ projectId: 'spec2flow-local' })
       })
     }));
+    expect(registrationRequests).toEqual([expect.objectContaining({
+      adapterProfile: {
+        runtimePath: '.spec2flow/model-adapter-runtime.json'
+      }
+    })]);
+
+    const adapterProfileUpdateResponse = await fetch(`${baseUrl}/api/projects/spec2flow-local/adapter-profile`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        adapterProfile: {
+          runtimePath: '.spec2flow/alternate-runtime.json',
+          capabilityPath: '.spec2flow/model-adapter-capability.json'
+        }
+      })
+    });
+    expect(adapterProfileUpdateResponse.status).toBe(200);
+    expect(await adapterProfileUpdateResponse.json()).toEqual(expect.objectContaining({
+      adapterProfileUpdate: expect.objectContaining({
+        project: expect.objectContaining({
+          projectId: 'spec2flow-local',
+          adapterProfile: {
+            runtimePath: '.spec2flow/alternate-runtime.json',
+            capabilityPath: '.spec2flow/model-adapter-capability.json'
+          }
+        })
+      })
+    }));
+    expect(adapterProfileUpdates).toEqual([expect.objectContaining({
+      projectId: 'spec2flow-local',
+      request: {
+        adapterProfile: {
+          runtimePath: '.spec2flow/alternate-runtime.json',
+          capabilityPath: '.spec2flow/model-adapter-capability.json'
+        }
+      }
+    })]);
 
     const runSubmissionResponse = await fetch(`${baseUrl}/api/runs`, {
       method: 'POST',
@@ -610,6 +696,7 @@ describe('platform-control-plane-server', () => {
       registerPlatformProject: async () => {
         throw new Error('unreachable');
       },
+      updatePlatformProjectAdapterProfile: async () => null,
       retryPlatformTask: async () => null,
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null,
@@ -652,6 +739,7 @@ describe('platform-control-plane-server', () => {
       registerPlatformProject: async () => {
         throw new Error('unreachable');
       },
+      updatePlatformProjectAdapterProfile: async () => null,
       retryPlatformTask: async () => null,
       approvePlatformTask: async () => null,
       rejectPlatformTask: async () => null,
@@ -674,6 +762,51 @@ describe('platform-control-plane-server', () => {
     expect(await response.json()).toEqual(expect.objectContaining({
       error: expect.objectContaining({
         code: 'invalid-request'
+      })
+    }));
+  });
+
+  it('returns 404 when project adapter profile update targets an unknown project', async () => {
+    startedServer = await startPlatformControlPlaneServer({
+      host: '127.0.0.1',
+      port: 0,
+      eventLimit: 20,
+      listPlatformRuns: async () => [],
+      listPlatformProjects: async () => [],
+      getPlatformControlPlaneRunDetail: async () => null,
+      getPlatformControlPlaneRunTasks: async () => null,
+      getPlatformControlPlaneRunObservability: async () => null,
+      getPlatformControlPlaneTaskArtifactCatalog: async () => null,
+      getPlatformControlPlaneLocalArtifactContent: async () => null,
+      submitPlatformRun: async () => {
+        throw new Error('unreachable');
+      },
+      registerPlatformProject: async () => {
+        throw new Error('unreachable');
+      },
+      updatePlatformProjectAdapterProfile: async () => null,
+      retryPlatformTask: async () => null,
+      approvePlatformTask: async () => null,
+      rejectPlatformTask: async () => null,
+      pausePlatformRun: async () => null,
+      resumePlatformRun: async () => null
+    });
+
+    const baseUrl = `http://${startedServer.host}:${startedServer.port}`;
+    const response = await fetch(`${baseUrl}/api/projects/missing-project/adapter-profile`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        adapterProfile: null
+      })
+    });
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual(expect.objectContaining({
+      error: expect.objectContaining({
+        code: 'project-not-found'
       })
     }));
   });

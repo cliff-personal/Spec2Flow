@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type {
+  PlatformControlPlaneProjectAdapterProfileUpdateDocument,
+  PlatformControlPlaneProjectAdapterProfileUpdateRequest,
   PlatformControlPlaneProjectListDocument,
   PlatformControlPlaneProjectListItem,
   PlatformControlPlaneProjectRegistrationDocument,
@@ -78,6 +80,13 @@ export interface StartPlatformControlPlaneServerOptions {
   registerPlatformProject: (
     options: PlatformControlPlaneProjectRegistrationRequest
   ) => Promise<PlatformControlPlaneProjectRegistrationResult>;
+  updatePlatformProjectAdapterProfile: (
+    projectId: string,
+    options: PlatformControlPlaneProjectAdapterProfileUpdateRequest
+  ) => Promise<{
+    schema: string;
+    project: PlatformControlPlaneProjectRegistrationResult['project'];
+  } | null>;
   submitPlatformRun: (options: PlatformControlPlaneRunSubmissionRequest) => Promise<PlatformControlPlaneRunSubmissionResult>;
   retryPlatformTask: (options: {
     runId: string;
@@ -117,6 +126,7 @@ export interface StartedPlatformControlPlaneServer {
 
 const RUN_DETAIL_ROUTE = /^\/api\/runs\/([^/]+)$/u;
 const PROJECT_LIST_ROUTE = '/api/projects';
+const PROJECT_ADAPTER_PROFILE_ROUTE = /^\/api\/projects\/([^/]+)\/adapter-profile$/u;
 const RUN_TASKS_ROUTE = /^\/api\/runs\/([^/]+)\/tasks$/u;
 const RUN_TASK_ARTIFACT_CATALOG_ROUTE = /^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/artifact-catalog$/u;
 const RUN_OBSERVABILITY_ROUTE = /^\/api\/runs\/([^/]+)\/observability$/u;
@@ -297,6 +307,149 @@ function parseOptionalStringArray(
   return value;
 }
 
+function parseWorkspacePolicyInput(
+  value: unknown,
+  createError: (message: string) => Error
+): PlatformControlPlaneProjectRegistrationRequest['workspacePolicy'] | PlatformControlPlaneRunSubmissionRequest['workspacePolicy'] {
+  const workspacePolicyRecord = asObjectRecord(value);
+  if (!workspacePolicyRecord) {
+    return undefined;
+  }
+
+  const allowedReadGlobs = parseOptionalStringArray(workspacePolicyRecord.allowedReadGlobs, createError);
+  const allowedWriteGlobs = parseOptionalStringArray(workspacePolicyRecord.allowedWriteGlobs, createError);
+  const forbiddenWriteGlobs = parseOptionalStringArray(workspacePolicyRecord.forbiddenWriteGlobs, createError);
+
+  return {
+    ...(allowedReadGlobs ? { allowedReadGlobs } : {}),
+    ...(allowedWriteGlobs ? { allowedWriteGlobs } : {}),
+    ...(forbiddenWriteGlobs ? { forbiddenWriteGlobs } : {})
+  };
+}
+
+function parseAdapterProfileInput(
+  value: unknown,
+  createError: (message: string) => Error
+): {
+  runtimePath?: string;
+  capabilityPath?: string;
+} | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const record = asObjectRecord(value);
+  if (!record) {
+    throw createError('adapterProfile must be an object or null');
+  }
+
+  const runtimePath = parseOptionalString(record.runtimePath);
+  const capabilityPath = parseOptionalString(record.capabilityPath);
+
+  return {
+    ...(runtimePath ? { runtimePath } : {}),
+    ...(capabilityPath ? { capabilityPath } : {})
+  };
+}
+
+function parseRunSubmissionProjectFields(record: Record<string, unknown> | null): Partial<PlatformControlPlaneRunSubmissionRequest> {
+  const projectPath = parseOptionalString(record?.projectPath);
+  const projectId = parseOptionalString(record?.projectId);
+  const projectName = parseOptionalString(record?.projectName);
+  const topologyPath = parseOptionalString(record?.topologyPath);
+  const riskPath = parseOptionalString(record?.riskPath);
+  const workspaceRootPath = parseOptionalString(record?.workspaceRootPath);
+  const branchPrefix = parseOptionalString(record?.branchPrefix);
+  const repositoryId = parseOptionalString(record?.repositoryId);
+  const repositoryName = parseOptionalString(record?.repositoryName);
+  const defaultBranch = parseOptionalString(record?.defaultBranch);
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(projectName ? { projectName } : {}),
+    ...(projectPath ? { projectPath } : {}),
+    ...(topologyPath ? { topologyPath } : {}),
+    ...(riskPath ? { riskPath } : {}),
+    ...(workspaceRootPath ? { workspaceRootPath } : {}),
+    ...(branchPrefix ? { branchPrefix } : {}),
+    ...(repositoryId ? { repositoryId } : {}),
+    ...(repositoryName ? { repositoryName } : {}),
+    ...(defaultBranch ? { defaultBranch } : {})
+  };
+}
+
+function parseRunSubmissionExecutionFields(record: Record<string, unknown> | null): Partial<PlatformControlPlaneRunSubmissionRequest> {
+  const worktreeRootPath = parseOptionalString(record?.worktreeRootPath);
+  const worktreeMode = record?.worktreeMode === 'none' || record?.worktreeMode === 'managed'
+    ? record.worktreeMode
+    : undefined;
+  const requirement = parseOptionalString(record?.requirement);
+  const requirementPath = parseOptionalString(record?.requirementPath);
+  const changedFiles = parseChangedFiles(record?.changedFiles);
+  const runId = parseOptionalString(record?.runId);
+  const routes = parseOptionalStringArray(record?.routes);
+  const adapterProfile = parseAdapterProfileInput(
+    record?.adapterProfile,
+    (message) => new PlatformControlPlaneRunSubmissionError('invalid-request', message, 400)
+  );
+  const workspacePolicy = parseWorkspacePolicyInput(
+    record?.workspacePolicy,
+    (message) => new PlatformControlPlaneRunSubmissionError('invalid-request', message, 400)
+  );
+
+  return {
+    ...(worktreeRootPath ? { worktreeRootPath } : {}),
+    ...(worktreeMode ? { worktreeMode } : {}),
+    ...(workspacePolicy ? { workspacePolicy } : {}),
+    ...(requirement ? { requirement } : {}),
+    ...(requirementPath ? { requirementPath } : {}),
+    ...(changedFiles ? { changedFiles } : {}),
+    ...(runId ? { runId } : {}),
+    ...(routes ? { routes } : {}),
+    ...(adapterProfile ? { adapterProfile } : {})
+  };
+}
+
+function parseProjectRegistrationOptionalFields(record: Record<string, unknown> | null): Omit<PlatformControlPlaneProjectRegistrationRequest, 'repositoryRootPath'> {
+  const projectId = parseOptionalString(record?.projectId);
+  const projectName = parseOptionalString(record?.projectName);
+  const workspaceRootPath = parseOptionalString(record?.workspaceRootPath);
+  const projectPath = parseOptionalString(record?.projectPath);
+  const topologyPath = parseOptionalString(record?.topologyPath);
+  const riskPath = parseOptionalString(record?.riskPath);
+  const repositoryId = parseOptionalString(record?.repositoryId);
+  const repositoryName = parseOptionalString(record?.repositoryName);
+  const defaultBranch = parseOptionalString(record?.defaultBranch);
+  const branchPrefix = parseOptionalString(record?.branchPrefix);
+  const adapterProfile = parseAdapterProfileInput(
+    record?.adapterProfile,
+    (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
+  );
+  const workspacePolicy = parseWorkspacePolicyInput(
+    record?.workspacePolicy,
+    (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
+  );
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(projectName ? { projectName } : {}),
+    ...(workspaceRootPath ? { workspaceRootPath } : {}),
+    ...(projectPath ? { projectPath } : {}),
+    ...(topologyPath ? { topologyPath } : {}),
+    ...(riskPath ? { riskPath } : {}),
+    ...(repositoryId ? { repositoryId } : {}),
+    ...(repositoryName ? { repositoryName } : {}),
+    ...(defaultBranch ? { defaultBranch } : {}),
+    ...(branchPrefix ? { branchPrefix } : {}),
+    ...(adapterProfile ? { adapterProfile } : {}),
+    ...(workspacePolicy ? { workspacePolicy } : {})
+  };
+}
+
 function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissionRequest {
   const record = asObjectRecord(body);
   const repositoryRootPath = parseOptionalString(record?.repositoryRootPath);
@@ -309,57 +462,10 @@ function parseRunSubmissionBody(body: unknown): PlatformControlPlaneRunSubmissio
     );
   }
 
-  const projectPath = parseOptionalString(record?.projectPath);
-  const projectId = parseOptionalString(record?.projectId);
-  const projectName = parseOptionalString(record?.projectName);
-  const topologyPath = parseOptionalString(record?.topologyPath);
-  const riskPath = parseOptionalString(record?.riskPath);
-  const workspaceRootPath = parseOptionalString(record?.workspaceRootPath);
-  const branchPrefix = parseOptionalString(record?.branchPrefix);
-  const worktreeRootPath = parseOptionalString(record?.worktreeRootPath);
-  const worktreeMode = record?.worktreeMode === 'none' || record?.worktreeMode === 'managed'
-    ? record.worktreeMode
-    : undefined;
-  const requirement = parseOptionalString(record?.requirement);
-  const requirementPath = parseOptionalString(record?.requirementPath);
-  const changedFiles = parseChangedFiles(record?.changedFiles);
-  const repositoryId = parseOptionalString(record?.repositoryId);
-  const repositoryName = parseOptionalString(record?.repositoryName);
-  const defaultBranch = parseOptionalString(record?.defaultBranch);
-  const runId = parseOptionalString(record?.runId);
-  const routes = parseOptionalStringArray(record?.routes);
-  const workspacePolicyRecord = asObjectRecord(record?.workspacePolicy);
-  const allowedReadGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.allowedReadGlobs) : undefined;
-  const allowedWriteGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.allowedWriteGlobs) : undefined;
-  const forbiddenWriteGlobs = workspacePolicyRecord ? parseOptionalStringArray(workspacePolicyRecord.forbiddenWriteGlobs) : undefined;
-  const workspacePolicy = workspacePolicyRecord
-    ? {
-        ...(allowedReadGlobs ? { allowedReadGlobs } : {}),
-        ...(allowedWriteGlobs ? { allowedWriteGlobs } : {}),
-        ...(forbiddenWriteGlobs ? { forbiddenWriteGlobs } : {})
-      }
-    : undefined;
-
   return {
     repositoryRootPath,
-    ...(projectId ? { projectId } : {}),
-    ...(projectName ? { projectName } : {}),
-    ...(projectPath ? { projectPath } : {}),
-    ...(topologyPath ? { topologyPath } : {}),
-    ...(riskPath ? { riskPath } : {}),
-    ...(workspaceRootPath ? { workspaceRootPath } : {}),
-    ...(branchPrefix ? { branchPrefix } : {}),
-    ...(worktreeRootPath ? { worktreeRootPath } : {}),
-    ...(worktreeMode ? { worktreeMode } : {}),
-    ...(workspacePolicy ? { workspacePolicy } : {}),
-    ...(requirement ? { requirement } : {}),
-    ...(requirementPath ? { requirementPath } : {}),
-    ...(changedFiles ? { changedFiles } : {}),
-    ...(repositoryId ? { repositoryId } : {}),
-    ...(repositoryName ? { repositoryName } : {}),
-    ...(defaultBranch ? { defaultBranch } : {}),
-    ...(runId ? { runId } : {}),
-    ...(routes ? { routes } : {})
+    ...parseRunSubmissionProjectFields(record),
+    ...parseRunSubmissionExecutionFields(record)
   };
 }
 
@@ -375,56 +481,29 @@ function parseProjectRegistrationBody(body: unknown): PlatformControlPlaneProjec
     );
   }
 
-  const projectId = parseOptionalString(record?.projectId);
-  const projectName = parseOptionalString(record?.projectName);
-  const workspaceRootPath = parseOptionalString(record?.workspaceRootPath);
-  const projectPath = parseOptionalString(record?.projectPath);
-  const topologyPath = parseOptionalString(record?.topologyPath);
-  const riskPath = parseOptionalString(record?.riskPath);
-  const repositoryId = parseOptionalString(record?.repositoryId);
-  const repositoryName = parseOptionalString(record?.repositoryName);
-  const defaultBranch = parseOptionalString(record?.defaultBranch);
-  const branchPrefix = parseOptionalString(record?.branchPrefix);
-  const workspacePolicyRecord = asObjectRecord(record?.workspacePolicy);
-  const allowedReadGlobs = workspacePolicyRecord
-    ? parseOptionalStringArray(
-        workspacePolicyRecord.allowedReadGlobs,
-        (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
-      )
-    : undefined;
-  const allowedWriteGlobs = workspacePolicyRecord
-    ? parseOptionalStringArray(
-        workspacePolicyRecord.allowedWriteGlobs,
-        (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
-      )
-    : undefined;
-  const forbiddenWriteGlobs = workspacePolicyRecord
-    ? parseOptionalStringArray(
-        workspacePolicyRecord.forbiddenWriteGlobs,
-        (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
-      )
-    : undefined;
-  const workspacePolicy = workspacePolicyRecord
-    ? {
-        ...(allowedReadGlobs ? { allowedReadGlobs } : {}),
-        ...(allowedWriteGlobs ? { allowedWriteGlobs } : {}),
-        ...(forbiddenWriteGlobs ? { forbiddenWriteGlobs } : {})
-      }
-    : undefined;
-
   return {
     repositoryRootPath,
-    ...(projectId ? { projectId } : {}),
-    ...(projectName ? { projectName } : {}),
-    ...(workspaceRootPath ? { workspaceRootPath } : {}),
-    ...(projectPath ? { projectPath } : {}),
-    ...(topologyPath ? { topologyPath } : {}),
-    ...(riskPath ? { riskPath } : {}),
-    ...(repositoryId ? { repositoryId } : {}),
-    ...(repositoryName ? { repositoryName } : {}),
-    ...(defaultBranch ? { defaultBranch } : {}),
-    ...(branchPrefix ? { branchPrefix } : {}),
-    ...(workspacePolicy ? { workspacePolicy } : {})
+    ...parseProjectRegistrationOptionalFields(record)
+  };
+}
+
+function parseProjectAdapterProfileUpdateBody(body: unknown): PlatformControlPlaneProjectAdapterProfileUpdateRequest {
+  const record = asObjectRecord(body);
+  if (!record || !Object.hasOwn(record, 'adapterProfile')) {
+    throw new PlatformProjectRegistrationError(
+      'invalid-request',
+      'Project adapter profile update request body must include adapterProfile',
+      400
+    );
+  }
+
+  const adapterProfile = parseAdapterProfileInput(
+    record.adapterProfile,
+    (message) => new PlatformProjectRegistrationError('invalid-request', message, 400)
+  );
+
+  return {
+    adapterProfile: adapterProfile ?? null
   };
 }
 
@@ -515,6 +594,37 @@ async function handleProjectRegistrationRequest(
     projectRegistration: await options.registerPlatformProject(projectRegistrationRequest)
   };
   writeJson(response, 201, projectRegistration);
+  return true;
+}
+
+async function handleProjectAdapterProfileUpdateRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  const match = PROJECT_ADAPTER_PROFILE_ROUTE.exec(pathname);
+  if (!match) {
+    return false;
+  }
+
+  const projectIdParam = match[1];
+  if (!projectIdParam) {
+    return false;
+  }
+
+  const projectId = decodeURIComponent(projectIdParam);
+  const adapterProfileUpdateRequest = parseProjectAdapterProfileUpdateBody(await readJsonBody(request));
+  const adapterProfileUpdateResult = await options.updatePlatformProjectAdapterProfile(projectId, adapterProfileUpdateRequest);
+  if (!adapterProfileUpdateResult) {
+    writeError(response, 404, 'project-not-found', `Unknown project: ${projectId}`, { projectId });
+    return true;
+  }
+
+  const adapterProfileUpdate: PlatformControlPlaneProjectAdapterProfileUpdateDocument = {
+    adapterProfileUpdate: adapterProfileUpdateResult
+  };
+  writeJson(response, 200, adapterProfileUpdate);
   return true;
 }
 
@@ -852,6 +962,15 @@ async function handlePostRequest(
   return handleTaskActionRequest(request, response, pathname, options);
 }
 
+async function handlePatchRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  options: StartPlatformControlPlaneServerOptions
+): Promise<boolean> {
+  return handleProjectAdapterProfileUpdateRequest(request, response, pathname, options);
+}
+
 async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -869,7 +988,7 @@ async function handleRequest(
   if (method === 'OPTIONS') {
     response.writeHead(204, {
       'access-control-allow-origin': '*',
-      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
       'access-control-allow-headers': 'content-type',
       'access-control-max-age': '86400'
     });
@@ -882,6 +1001,10 @@ async function handleRequest(
   }
 
   if (method === 'POST' && await handlePostRequest(request, response, pathname, options)) {
+    return;
+  }
+
+  if (method === 'PATCH' && await handlePatchRequest(request, response, pathname, options)) {
     return;
   }
 

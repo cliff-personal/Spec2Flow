@@ -47,7 +47,7 @@ import {
   getPlatformControlPlaneRunTasks,
   listPlatformRuns
 } from '../platform/platform-control-plane-service.js';
-import { listPlatformProjects, registerPlatformProject } from '../platform/platform-project-service.js';
+import { listPlatformProjects, registerPlatformProject, updatePlatformProjectAdapterProfile } from '../platform/platform-project-service.js';
 import {
   approvePlatformControlPlaneTask,
   pausePlatformControlPlaneRun,
@@ -215,6 +215,7 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
         retryPlatformControlPlaneTask,
         submitPlatformControlPlaneRun,
         startPlatformControlPlaneServer,
+        updatePlatformProjectAdapterProfile,
         withPlatformTransaction
       }),
     'init-platform-run': (options) =>

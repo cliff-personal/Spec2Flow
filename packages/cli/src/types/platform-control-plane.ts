@@ -91,6 +91,18 @@ export interface PlatformControlPlaneProjectRegistrationResult {
   project: PlatformProjectRecord;
 }
 
+export interface PlatformControlPlaneProjectAdapterProfileUpdateRequest {
+  adapterProfile: {
+    runtimePath?: string;
+    capabilityPath?: string;
+  } | null;
+}
+
+export interface PlatformControlPlaneProjectAdapterProfileUpdateResult {
+  schema: string;
+  project: PlatformProjectRecord;
+}
+
 export interface PlatformControlPlaneTaskList {
   tasks: PlatformTaskRecord[];
 }
@@ -256,6 +268,10 @@ export interface PlatformControlPlaneProjectListDocument {
 
 export interface PlatformControlPlaneProjectRegistrationDocument {
   projectRegistration: PlatformControlPlaneProjectRegistrationResult;
+}
+
+export interface PlatformControlPlaneProjectAdapterProfileUpdateDocument {
+  adapterProfileUpdate: PlatformControlPlaneProjectAdapterProfileUpdateResult;
 }
 
 export interface PlatformControlPlaneTaskArtifactCatalogDocument {

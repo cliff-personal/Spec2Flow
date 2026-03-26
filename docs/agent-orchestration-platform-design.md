@@ -28,6 +28,7 @@ What already fits the target:
 - The runtime already persists execution state outside model memory.
 - The result pipeline already supports defect routing and stage-specific specialists.
 - Project registration now persists adapter runtime and capability references so the scheduler can reuse durable project truth instead of depending only on late `.spec2flow/model-adapter-runtime.json` discovery.
+- Control-plane operators can now update or clear a registered project's adapter profile without re-registering the project, so scheduler truth is operationally mutable through the API instead of only at registration time.
 
 What is still missing:
 

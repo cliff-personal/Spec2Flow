@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { listPlatformProjects, registerPlatformProject } from './platform-project-service.js';
+import { listPlatformProjects, registerPlatformProject, updatePlatformProjectAdapterProfile } from './platform-project-service.js';
 import type { SqlExecutor } from './platform-database.js';
 
 interface QueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
@@ -165,5 +165,65 @@ describe('platform-project-service', () => {
         }
       })
     }));
+  });
+
+  it('clears a project adapter profile without changing other project fields', async () => {
+    const executor = new SequentialExecutor([
+      {
+        match: /WHERE projects\.project_id = \$1/u,
+        result: {
+          rows: [{
+            project_id: 'spec2flow-local',
+            project_name: 'Spec2Flow Local',
+            repository_id: 'spec2flow',
+            repository_name: 'Spec2Flow',
+            repository_root_path: '/workspace/Spec2Flow',
+            workspace_root_path: '/workspace/Spec2Flow',
+            project_path: '/workspace/Spec2Flow/project.json',
+            topology_path: '/workspace/Spec2Flow/topology.yaml',
+            risk_path: '/workspace/Spec2Flow/risk.yaml',
+            default_branch: 'main',
+            branch_prefix: 'spec2flow/',
+            adapter_profile: {
+              runtimePath: '/workspace/Spec2Flow/.spec2flow/model-adapter-runtime.json'
+            },
+            workspace_policy: {
+              allowedReadGlobs: ['**/*'],
+              allowedWriteGlobs: ['src/**'],
+              forbiddenWriteGlobs: ['.git/**']
+            },
+            metadata: {
+              source: 'spec2flow-control-plane'
+            },
+            created_at: '2026-03-25T02:00:00.000Z',
+            updated_at: '2026-03-25T02:10:00.000Z'
+          }],
+          rowCount: 1
+        }
+      },
+      {
+        match: 'INSERT INTO "spec2flow_platform".projects',
+        result: {
+          rows: [],
+          rowCount: 1
+        }
+      }
+    ]);
+
+    const result = await updatePlatformProjectAdapterProfile(
+      executor,
+      'spec2flow_platform',
+      'spec2flow-local',
+      { adapterProfile: null }
+    );
+
+    expect(result).toEqual({
+      schema: 'spec2flow_platform',
+      project: expect.objectContaining({
+        projectId: 'spec2flow-local',
+        adapterProfile: null,
+        branchPrefix: 'spec2flow/'
+      })
+    });
   });
 });

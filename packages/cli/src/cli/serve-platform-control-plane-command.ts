@@ -10,7 +10,8 @@ import {
 } from '../platform/platform-control-plane-service.js';
 import {
   listPlatformProjects as listPlatformProjectsService,
-  registerPlatformProject as registerPlatformProjectService
+  registerPlatformProject as registerPlatformProjectService,
+  updatePlatformProjectAdapterProfile as updatePlatformProjectAdapterProfileService
 } from '../platform/platform-project-service.js';
 import {
   approvePlatformControlPlaneTask as approvePlatformControlPlaneTaskAction,
@@ -44,6 +45,7 @@ export interface ServePlatformControlPlaneDependencies {
   resumePlatformControlPlaneRun: typeof resumePlatformControlPlaneRunAction;
   retryPlatformControlPlaneTask: typeof retryPlatformControlPlaneTaskAction;
   registerPlatformProject: typeof registerPlatformProjectService;
+  updatePlatformProjectAdapterProfile: typeof updatePlatformProjectAdapterProfileService;
   submitPlatformControlPlaneRun: typeof submitPlatformControlPlaneRunService;
   startPlatformControlPlaneServer: typeof startPlatformControlPlaneServer;
   withPlatformTransaction: typeof withPlatformTransaction;
@@ -125,6 +127,9 @@ export async function runServePlatformControlPlane(
     registerPlatformProject: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.registerPlatformProject(client, config.schema, request)),
+    updatePlatformProjectAdapterProfile: async (projectId, request) =>
+      dependencies.withPlatformTransaction(pool, async (client) =>
+        dependencies.updatePlatformProjectAdapterProfile(client, config.schema, projectId, request)),
     retryPlatformTask: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.retryPlatformControlPlaneTask(client, config.schema, request)),

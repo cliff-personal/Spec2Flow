@@ -45,6 +45,13 @@ describe('serve-platform-control-plane-command', () => {
       }
     };
     const createPlatformPool = vi.fn(() => ({
+      connect: vi.fn(async () => ({
+        query: async () => ({
+          rows: [],
+          rowCount: 0
+        }),
+        release: () => undefined
+      })),
       end: vi.fn(async () => undefined)
     })) as unknown as ServePlatformControlPlaneDependencies['createPlatformPool'];
     const startPlatformControlPlaneServer = vi.fn(async () => ({
@@ -91,6 +98,7 @@ describe('serve-platform-control-plane-command', () => {
           }
         }
       })),
+      updatePlatformProjectAdapterProfile: vi.fn(async () => null),
       resolvePlatformDatabaseConfig: vi.fn(() => ({
         connectionString: 'postgresql://local/spec2flow',
         schema: 'spec2flow_platform'

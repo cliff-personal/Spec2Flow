@@ -5,6 +5,8 @@ import { upsertPlatformProject, upsertPlatformRepository } from './platform-repo
 import { scaffoldSpec2flowFiles } from '../shared/scaffold-spec2flow.js';
 import type {
   PlatformProjectAdapterProfile,
+  PlatformControlPlaneProjectAdapterProfileUpdateRequest,
+  PlatformControlPlaneProjectAdapterProfileUpdateResult,
   PlatformControlPlaneProjectListItem,
   PlatformControlPlaneProjectRegistrationRequest,
   PlatformControlPlaneProjectRegistrationResult,
@@ -32,6 +34,7 @@ interface PlatformProjectRow extends Record<string, unknown> {
   branch_prefix: string | null;
   adapter_profile?: PlatformProjectAdapterProfile | null;
   workspace_policy: PlatformWorkspacePolicy | null;
+  metadata: Record<string, unknown> | null;
   created_at: Date | string | null;
   updated_at: Date | string | null;
 }
@@ -102,6 +105,67 @@ function mapProjectRow(row: PlatformProjectRow): PlatformControlPlaneProjectList
   };
 }
 
+function mapProjectRowToRecord(row: PlatformProjectRow): PlatformProjectRecord {
+  return {
+    projectId: row.project_id,
+    repositoryId: row.repository_id,
+    name: row.project_name,
+    repositoryRootPath: row.repository_root_path,
+    workspaceRootPath: row.workspace_root_path,
+    projectPath: row.project_path,
+    topologyPath: row.topology_path,
+    riskPath: row.risk_path,
+    defaultBranch: row.default_branch,
+    branchPrefix: row.branch_prefix,
+    adapterProfile: row.adapter_profile ?? null,
+    workspacePolicy: row.workspace_policy ?? {
+      allowedReadGlobs: ['**/*'],
+      allowedWriteGlobs: ['**/*'],
+      forbiddenWriteGlobs: []
+    },
+    metadata: row.metadata ?? {},
+    createdAt: normalizeTimestamp(row.created_at),
+    updatedAt: normalizeTimestamp(row.updated_at)
+  };
+}
+
+async function getPlatformProjectRow(
+  executor: SqlExecutor,
+  schema: string,
+  projectId: string
+): Promise<PlatformProjectRow | null> {
+  const quotedSchema = quoteSqlIdentifier(schema);
+  const result = await executor.query<PlatformProjectRow>(
+    `
+      SELECT
+        projects.project_id,
+        projects.name AS project_name,
+        projects.repository_id,
+        repositories.name AS repository_name,
+        projects.repository_root_path,
+        projects.workspace_root_path,
+        projects.project_path,
+        projects.topology_path,
+        projects.risk_path,
+        projects.default_branch,
+        projects.branch_prefix,
+        projects.adapter_profile,
+        projects.workspace_policy,
+        projects.metadata,
+        projects.created_at,
+        projects.updated_at
+      FROM ${quotedSchema}.projects AS projects
+      INNER JOIN ${quotedSchema}.repositories AS repositories
+        ON repositories.repository_id = projects.repository_id
+      WHERE projects.project_id = $1
+      LIMIT 1
+    `,
+    [projectId]
+  );
+
+  return result.rows[0] ?? null;
+}
+
 export async function listPlatformProjects(
   executor: SqlExecutor,
   schema: string,
@@ -134,6 +198,7 @@ export async function listPlatformProjects(
         projects.branch_prefix,
         projects.adapter_profile,
         projects.workspace_policy,
+        projects.metadata,
         projects.created_at,
         projects.updated_at
       FROM ${quotedSchema}.projects AS projects
@@ -147,6 +212,42 @@ export async function listPlatformProjects(
   );
 
   return result.rows.map(mapProjectRow);
+}
+
+export async function updatePlatformProjectAdapterProfile(
+  executor: SqlExecutor,
+  schema: string,
+  projectId: string,
+  options: PlatformControlPlaneProjectAdapterProfileUpdateRequest
+): Promise<PlatformControlPlaneProjectAdapterProfileUpdateResult | null> {
+  const existingRow = await getPlatformProjectRow(executor, schema, projectId);
+  if (!existingRow) {
+    return null;
+  }
+
+  const existingProject = mapProjectRowToRecord(existingRow);
+  const adapterProfile = options.adapterProfile === null
+    ? null
+    : resolvePlatformProjectAdapterProfile({
+        repositoryRootPath: existingProject.repositoryRootPath,
+        workspaceRootPath: existingProject.workspaceRootPath,
+        adapterProfile: options.adapterProfile
+      });
+
+  const project: PlatformProjectRecord = {
+    ...existingProject,
+    adapterProfile,
+    metadata: existingProject.metadata ?? {
+      source: 'spec2flow-control-plane'
+    }
+  };
+
+  await upsertPlatformProject(executor, schema, project);
+
+  return {
+    schema,
+    project
+  };
 }
 
 export async function registerPlatformProject(
