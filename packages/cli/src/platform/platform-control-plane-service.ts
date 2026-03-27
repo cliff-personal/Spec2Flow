@@ -58,6 +58,7 @@ interface PlatformControlPlaneArtifactContentRow extends Record<string, unknown>
   artifact_id: string;
   path: string;
   root_path: string;
+  worktree_path: string | null;
 }
 
 export interface ListPlatformRunsOptions {
@@ -439,12 +440,15 @@ export async function getPlatformControlPlaneArtifactContent(
         artifacts.task_id,
         artifacts.artifact_id,
         artifacts.path,
-        repositories.root_path
+        repositories.root_path,
+        run_workspaces.worktree_path
       FROM ${quotedSchema}.artifacts AS artifacts
       INNER JOIN ${quotedSchema}.runs AS runs
         ON runs.run_id = artifacts.run_id
       INNER JOIN ${quotedSchema}.repositories AS repositories
         ON repositories.repository_id = runs.repository_id
+      LEFT JOIN ${quotedSchema}.run_workspaces AS run_workspaces
+        ON run_workspaces.run_id = artifacts.run_id
       WHERE artifacts.artifact_id = $1
       LIMIT 1
     `,
@@ -456,16 +460,27 @@ export async function getPlatformControlPlaneArtifactContent(
     return null;
   }
 
-  const resolvedPath = resolveFromBaseDir(row.root_path, row.path);
-  if (!isPathInsideRoot(row.root_path, resolvedPath) || !fs.existsSync(resolvedPath)) {
-    return null;
+  // For relative paths, prefer the worktree directory over the repository root —
+  // generated artifacts (e.g. copilot-cli-output.json) are written inside the
+  // worktree, not the source repository.
+  const candidateBases: string[] = [];
+  if (row.worktree_path) {
+    candidateBases.push(row.worktree_path);
+  }
+  candidateBases.push(row.root_path);
+
+  for (const base of candidateBases) {
+    const resolvedPath = resolveFromBaseDir(base, row.path);
+    if (isPathInsideRoot(base, resolvedPath) && fs.existsSync(resolvedPath)) {
+      return {
+        artifactId: row.artifact_id,
+        runId: row.run_id,
+        taskId: row.task_id,
+        localPath: resolvedPath,
+        contentType: inferContentType(row.path, undefined)
+      };
+    }
   }
 
-  return {
-    artifactId: row.artifact_id,
-    runId: row.run_id,
-    taskId: row.task_id,
-    localPath: resolvedPath,
-    contentType: inferContentType(row.path, undefined)
-  };
+  return null;
 }
