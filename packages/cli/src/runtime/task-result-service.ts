@@ -138,8 +138,24 @@ function setTaskStateStatus(
   setTaskTerminalTimestamp(taskState, status, now);
 }
 
-function shouldRouteToDefect(taskStatus: TaskStatus, artifactContract: ArtifactContractSummary): boolean {
-  return taskStatus === 'failed' || taskStatus === 'blocked' || artifactContract.status === 'missing';
+function shouldRouteToDefect(
+  taskStatus: TaskStatus,
+  artifactContract: ArtifactContractSummary,
+  errors: ErrorItem[]
+): boolean {
+  if (taskStatus === 'failed') return true;
+  if (artifactContract.status === 'missing') return true;
+  if (taskStatus === 'blocked') {
+    // Do not route to defect when the block is caused solely by recoverable
+    // infrastructure errors (e.g. missing adapter). Those blocks are retried
+    // automatically, and routing to defect would permanently skip downstream
+    // stages before the retry can succeed.
+    if (errors.length > 0 && errors.every((e) => e.recoverable === true)) {
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 function getFailureClassForStage(stage: TaskStage): FailureClass | null {
@@ -214,13 +230,14 @@ function routeStageOutcomeToDefect(
   stage: TaskStage,
   taskStatus: TaskStatus,
   artifactContract: ArtifactContractSummary,
+  errors: ErrorItem[],
   now: string
 ): void {
   const defectTaskId = getRouteTaskId(taskId, 'defect-feedback');
   const collaborationTaskId = getRouteTaskId(taskId, 'collaboration');
   const failureClass = getFailureClassForStage(stage);
 
-  if (!defectTaskId || !collaborationTaskId || !failureClass || !shouldRouteToDefect(taskStatus, artifactContract)) {
+  if (!defectTaskId || !collaborationTaskId || !failureClass || !shouldRouteToDefect(taskStatus, artifactContract, errors)) {
     return;
   }
 
@@ -527,10 +544,11 @@ function routeAutomatedExecutionOutcome(
   taskId: string,
   taskStatus: TaskStatus,
   artifactContract: ArtifactContractSummary,
+  errors: ErrorItem[],
   now: string
 ): void {
-  if (shouldRouteToDefect(taskStatus, artifactContract)) {
-    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, taskId, 'automated-execution', taskStatus, artifactContract, now);
+  if (shouldRouteToDefect(taskStatus, artifactContract, errors)) {
+    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, taskId, 'automated-execution', taskStatus, artifactContract, errors, now);
     return;
   }
 
@@ -611,14 +629,15 @@ function applyRouteOutcome(
   taskGraphTask: Task,
   taskStatus: TaskStatus,
   artifactContract: ArtifactContractSummary,
+  errors: ErrorItem[],
   now: string
 ): void {
   if (['requirements-analysis', 'code-implementation', 'test-design'].includes(taskGraphTask.stage)) {
-    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, taskId, taskGraphTask.stage, taskStatus, artifactContract, now);
+    routeStageOutcomeToDefect(taskGraphTaskIndex, taskStateIndex, taskId, taskGraphTask.stage, taskStatus, artifactContract, errors, now);
   }
 
   if (taskGraphTask.stage === 'automated-execution') {
-    routeAutomatedExecutionOutcome(taskGraphTaskIndex, taskStateIndex, taskId, taskStatus, artifactContract, now);
+    routeAutomatedExecutionOutcome(taskGraphTaskIndex, taskStateIndex, taskId, taskStatus, artifactContract, errors, now);
   }
 }
 
@@ -701,7 +720,7 @@ export function applyTaskResult(
   setTaskTerminalTimestamp(taskState, payload.taskStatus, now);
 
   addMissingArtifactContractNotes(taskState, artifactContract);
-  applyRouteOutcome(taskGraphTaskIndex, taskStateIndex, payload.taskId, taskGraphTask, payload.taskStatus, artifactContract, now);
+  applyRouteOutcome(taskGraphTaskIndex, taskStateIndex, payload.taskId, taskGraphTask, payload.taskStatus, artifactContract, payload.errors, now);
 
   enforceCollaborationApprovalGate(taskGraphTask, taskState, payload.artifacts, artifactContract, now, artifactBaseDir);
   enforceEvaluationAcceptanceGate(
