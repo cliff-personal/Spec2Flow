@@ -17,7 +17,7 @@ import { getSchemaValidators } from '../shared/schema-registry.js';
 import { validateSchemaBackedArtifacts } from './stage-deliverable-validation.js';
 import { applyAutoRepairPolicy } from './auto-repair-policy-service.js';
 import { applyCollaborationPublicationPolicy, type CollaborationPublicationDecision } from './collaboration-publication-service.js';
-import type { ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
+import type { ArtifactContractStatus, ArtifactContractSummary, TaskResultDocument } from '../types/task-result.js';
 import type { Task, TaskExecutorType, TaskGraphDocument, TaskStage, TaskStatus } from '../types/task-graph.js';
 
 type FailureClass =
@@ -87,8 +87,17 @@ function buildArtifactContractSummary(expectedArtifacts: string[], artifacts: Ar
   });
   const missingArtifacts = expectedArtifacts.filter((expectedArtifact) => !presentArtifacts.includes(expectedArtifact));
 
+  let status: ArtifactContractStatus;
+  if (missingArtifacts.length === 0) {
+    status = 'satisfied';
+  } else if (presentArtifacts.length === 0) {
+    status = 'missing';
+  } else {
+    status = 'partial';
+  }
+
   return {
-    status: missingArtifacts.length === 0 ? 'satisfied' : 'missing',
+    status,
     expectedArtifacts,
     presentArtifacts,
     missingArtifacts
@@ -144,7 +153,6 @@ function shouldRouteToDefect(
   errors: ErrorItem[]
 ): boolean {
   if (taskStatus === 'failed') return true;
-  if (artifactContract.status === 'missing') return true;
   if (taskStatus === 'blocked') {
     // Do not route to defect when the block is caused solely by recoverable
     // infrastructure errors (e.g. missing adapter). Those blocks are retried
@@ -155,6 +163,7 @@ function shouldRouteToDefect(
     }
     return true;
   }
+  if (artifactContract.status === 'missing') return true;
   return false;
 }
 
@@ -446,7 +455,7 @@ function enforceCollaborationApprovalGate(
   const readiness = typeof handoffPayload?.readiness === 'string' ? handoffPayload.readiness : null;
   const approvalRequired = handoffPayload?.approvalRequired === true;
   const shouldBlockForApproval =
-    artifactContract.status === 'missing'
+    (artifactContract.status === 'missing' || artifactContract.status === 'partial')
     || readiness === 'awaiting-approval'
     || readiness === 'blocked'
     || (approvalRequired && readiness !== 'ready');
@@ -459,7 +468,11 @@ function enforceCollaborationApprovalGate(
   addTaskNotes(taskState, [
     'approval-gate:human-approval-required',
     `route-class:${getFailureClassForStage('collaboration')}`,
-    `route-reason:${artifactContract.status === 'missing' ? 'artifact-contract-missing' : readiness ?? 'awaiting-approval'}`
+    `route-reason:${
+      artifactContract.status === 'missing' || artifactContract.status === 'partial'
+        ? 'artifact-contract-missing'
+        : readiness ?? 'awaiting-approval'
+    }`
   ]);
 }
 
@@ -526,11 +539,15 @@ function enforceEvaluationAcceptanceGate(
     }
   }
 
-  if (artifactContract.status === 'missing' || !accepted) {
+  if (artifactContract.status === 'missing' || artifactContract.status === 'partial' || !accepted) {
     setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
     addTaskNotes(taskState, [
       'evaluation-gate:not-accepted',
-      `evaluation-decision:${artifactContract.status === 'missing' ? 'artifact-contract-missing' : decision ?? 'missing-decision'}`
+      `evaluation-decision:${
+        artifactContract.status === 'missing' || artifactContract.status === 'partial'
+          ? 'artifact-contract-missing'
+          : decision ?? 'missing-decision'
+      }`
     ]);
     return;
   }

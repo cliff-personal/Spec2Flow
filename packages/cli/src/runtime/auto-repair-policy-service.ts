@@ -157,6 +157,7 @@ export function applyAutoRepairPolicy(options: ApplyAutoRepairPolicyOptions): Au
     options.taskGraphTask.stage !== 'defect-feedback'
     || options.taskState.status !== 'completed'
     || options.artifactContract.status === 'missing'
+    || options.artifactContract.status === 'partial'
   ) {
     return { status: 'not-applicable' };
   }

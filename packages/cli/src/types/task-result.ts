@@ -1,7 +1,7 @@
 import type { ArtifactRef, ErrorItem } from './execution-state.js';
 import type { TaskStatus } from './task-graph.js';
 
-export type ArtifactContractStatus = 'not-applicable' | 'satisfied' | 'missing';
+export type ArtifactContractStatus = 'not-applicable' | 'satisfied' | 'partial' | 'missing';
 
 export interface ArtifactContractSummary {
   status: ArtifactContractStatus;
