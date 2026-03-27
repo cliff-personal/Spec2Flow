@@ -479,36 +479,58 @@ export function deriveCommandSignalCards(
 export function StageResultPanel(
   props: StageResultPanelProps
 ): JSX.Element {
-  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(props.artifacts[0]?.artifactId ?? null);
+  const isRequirementsAnalysisStage = props.stageKey === 'requirements-analysis';
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
+    isRequirementsAnalysisStage ? null : props.artifacts[0]?.artifactId ?? null
+  );
   const [previewContent, setPreviewContent] = useState<string>('');
   const [previewContentType, setPreviewContentType] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const closureTimeline = buildClosureTimeline(
-    props.stageEvents,
-    props.repairSummaries,
-    props.publicationSummaries,
-    props.approvals
-  );
-  const commandCards = deriveCommandSignalCards(
-    props.tasks,
-    props.taskSummaries,
-    props.repairSummaries,
-    props.publicationSummaries,
-    props.approvals,
-    props.stageEvents
-  );
+  const closureTimeline = isRequirementsAnalysisStage
+    ? []
+    : buildClosureTimeline(
+        props.stageEvents,
+        props.repairSummaries,
+        props.publicationSummaries,
+        props.approvals
+      );
+  const commandCards = isRequirementsAnalysisStage
+    ? []
+    : deriveCommandSignalCards(
+        props.tasks,
+        props.taskSummaries,
+        props.repairSummaries,
+        props.publicationSummaries,
+        props.approvals,
+        props.stageEvents
+      );
 
   useEffect(() => {
+    if (isRequirementsAnalysisStage) {
+      if (selectedArtifactId !== null) {
+        setSelectedArtifactId(null);
+      }
+      return;
+    }
+
     if (!selectedArtifactId || !props.artifacts.some((artifact) => artifact.artifactId === selectedArtifactId)) {
       setSelectedArtifactId(props.artifacts[0]?.artifactId ?? null);
     }
-  }, [props.artifacts, selectedArtifactId]);
+  }, [props.artifacts, isRequirementsAnalysisStage, selectedArtifactId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadArtifactPreview(): Promise<void> {
+      if (isRequirementsAnalysisStage) {
+        setPreviewContent('');
+        setPreviewContentType(null);
+        setPreviewError(null);
+        setIsPreviewLoading(false);
+        return;
+      }
+
       if (!selectedArtifactId) {
         setPreviewContent('');
         setPreviewContentType(null);
@@ -547,7 +569,7 @@ export function StageResultPanel(
     return () => {
       cancelled = true;
     };
-  }, [selectedArtifactId]);
+  }, [isRequirementsAnalysisStage, selectedArtifactId]);
 
   return (
     <div
@@ -566,12 +588,18 @@ export function StageResultPanel(
             {props.stageLabel}
           </p>
         </div>
-        <span className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
-          {props.tasks.length} tasks / {props.artifacts.length} artifacts / {props.eventCount} events
-        </span>
+        {isRequirementsAnalysisStage ? (
+          <span className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            {props.tasks.length} tasks
+          </span>
+        ) : (
+          <span className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            {props.tasks.length} tasks / {props.artifacts.length} artifacts / {props.eventCount} events
+          </span>
+        )}
       </div>
 
-      {props.stageKey === 'requirements-analysis' ? (
+      {isRequirementsAnalysisStage ? (
         <div className="flex flex-col gap-2">
           <p className="text-[11px] font-mono mb-1" style={{ color: 'rgba(0,240,255,0.5)' }}>
             共拆分为 {props.tasks.length} 个子任务
@@ -589,20 +617,7 @@ export function StageResultPanel(
           ) : null}
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-3">
-          <div>
-            <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>任务目标</p>
-            <div className="flex flex-col gap-2">
-              {props.tasks.map((task) => (
-                <div key={task.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                  <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{task.title}</p>
-                  <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>{task.goal}</p>
-                </div>
-              ))}
-              {props.tasks.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无任务。</p> : null}
-            </div>
-          </div>
-
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>执行摘要</p>
             <div className="flex flex-col gap-2">
@@ -645,7 +660,7 @@ export function StageResultPanel(
         </div>
       )}
 
-      {selectedArtifactId ? (
+      {!isRequirementsAnalysisStage && selectedArtifactId ? (
         <div className="mt-3 rounded-lg px-3 py-3" style={{ background: 'rgba(8,18,31,0.68)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center justify-between gap-3 mb-2">
             <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>产物预览</p>
@@ -657,7 +672,8 @@ export function StageResultPanel(
         </div>
       ) : null}
 
-      <div className="mt-3 rounded-lg px-3 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      {!isRequirementsAnalysisStage ? (
+        <div className="mt-3 rounded-lg px-3 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
             <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>自治闭环</p>
@@ -827,6 +843,7 @@ export function StageResultPanel(
           </div>
         </div>
       </div>
+      ) : null}
     </div>
   );
 }
