@@ -6,9 +6,9 @@ import type { RunActionType, TaskActionType } from '../lib/control-plane-ui-type
 function formatRunActionMessage(action: RunActionType): string {
   switch (action) {
     case 'pause':
-      return 'Run paused';
+      return '任务已停止';
     case 'resume-from-target-stage':
-      return 'Run resumed from reroute target';
+      return '任务已从改道目标继续';
     case 'approve-publication':
       return 'Publication approved';
     case 'force-publish':
@@ -24,7 +24,7 @@ function formatRunActionMessage(action: RunActionType): string {
     case 'reroute-to-automated-execution':
       return 'Repair rerouted to automated execution';
     default:
-      return 'Run resumed';
+      return '任务已继续';
   }
 }
 

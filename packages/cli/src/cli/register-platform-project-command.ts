@@ -89,7 +89,7 @@ export async function runRegisterPlatformProject(
 
   try {
     projectRegistration = await dependencies.withPlatformTransaction(pool, async (client) =>
-      dependencies.registerPlatformProject(client, config.schema, request)
+      dependencies.registerPlatformProject(client, config.schema, request, undefined, process.cwd())
     );
   } finally {
     await pool.end();

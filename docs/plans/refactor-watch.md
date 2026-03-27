@@ -22,26 +22,27 @@ Track Python functions that are already high-complexity or are approaching the c
 
 ## Hotspots
 
-1. [WARN] `Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` line=542 metrics=(lines=228, branches=12, nesting=3, locals=12)
-   - token: `hotspot-134ec6c66e09`
-   - issues: `lines=228>40, branches=12>5, locals=12>8, nesting=3`
-   - bundle command: `amem refactor-bundle . --token hotspot-134ec6c66e09`
-2. [WARN] `Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::_generate_intelligent_overrides` line=914 metrics=(lines=80, branches=13, nesting=3, locals=31)
-   - token: `hotspot-2b9795766e0f`
-   - issues: `lines=80>40, branches=13>5, locals=31>8, nesting=3`
-   - bundle command: `amem refactor-bundle . --token hotspot-2b9795766e0f`
-3. [WARN] `.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` line=542 metrics=(lines=228, branches=12, nesting=3, locals=12)
-   - token: `hotspot-5e763c06073a`
-   - issues: `lines=228>40, branches=12>5, locals=12>8, nesting=3`
-   - bundle command: `amem refactor-bundle . --token hotspot-5e763c06073a`
-4. [WARN] `.github/prompts/ui-ux-pro-max/scripts/design_system.py::_generate_intelligent_overrides` line=914 metrics=(lines=80, branches=13, nesting=3, locals=31)
-   - token: `hotspot-f43d8ef2b6a8`
-   - issues: `lines=80>40, branches=13>5, locals=31>8, nesting=3`
-   - bundle command: `amem refactor-bundle . --token hotspot-f43d8ef2b6a8`
-5. [WARN] `.github/prompts/ui-ux-pro-max/scripts/design_system.py::DesignSystemGenerator._select_best_match` line=122 metrics=(lines=27, branches=10, nesting=5, locals=9)
-   - token: `hotspot-1473d73de1c0`
-   - issues: `branches=10>5, nesting=5>=4, locals=9>8`
-   - bundle command: `amem refactor-bundle . --token hotspot-1473d73de1c0`
+1. [WARN] `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once` line=112 metrics=(lines=114, branches=8, nesting=3, locals=22)
+   - token: `hotspot-8610e372dd76`
+   - issues: `lines=114>40, branches=8>5, locals=22>8, nesting=3, missing_guiding_comment`
+   - bundle command: `amem refactor-bundle . --token hotspot-8610e372dd76`
+2. [WARN] `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/storage/postgres/repositories/balance_repository.py::BalanceRepository.read_balance_ledger` line=136 metrics=(lines=61, branches=5, nesting=4, locals=14)
+   - token: `hotspot-8b5b79ba8fd6`
+   - issues: `lines=61>40, nesting=4>=4, locals=14>8, branches=5, missing_guiding_comment`
+   - bundle command: `amem refactor-bundle . --token hotspot-8b5b79ba8fd6`
+3. [WARN] `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/storage/postgres/repositories/idempotency_repository.py::IdempotencyRepository.read_idempotency_rows` line=54 metrics=(lines=58, branches=4, nesting=4, locals=14)
+   - token: `hotspot-bed864ad1085`
+   - issues: `lines=58>40, nesting=4>=4, locals=14>8, branches=4, missing_guiding_comment`
+   - bundle command: `amem refactor-bundle . --token hotspot-bed864ad1085`
+4. [WARN] `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/service_health_service.py::probe_service_health` line=518 metrics=(lines=81, branches=8, nesting=3, locals=17)
+   - token: `hotspot-cd0b53434b7e`
+   - issues: `lines=81>40, branches=8>5, locals=17>8, nesting=3, missing_guiding_comment`
+   - bundle command: `amem refactor-bundle . --token hotspot-cd0b53434b7e`
+5. [WARN] `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/service_health_service.py::refresh_all_service_health` line=607 metrics=(lines=49, branches=7, nesting=2, locals=15)
+   - token: `hotspot-075a548c7704`
+   - issues: `lines=49>40, branches=7>5, locals=15>8, missing_guiding_comment`
+   - bundle command: `amem refactor-bundle . --token hotspot-075a548c7704`
+6. [WARN] .spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/service_health_service.py::refresh_all_service_health high complexity (lines=49>40, branches=7>5, locals=15>8, missing_guiding_comment)
 
 ## Suggested Action
 

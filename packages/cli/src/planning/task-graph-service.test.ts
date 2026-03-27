@@ -157,6 +157,32 @@ describe('task-graph-service route selection', () => {
     expect(taskGraph.taskGraph.tasks.map((task) => task.id)).not.toContain('provider-registration-flow--requirements-analysis');
   });
 
+  it('does not broaden unmatched requirement text to every route', () => {
+    const taskGraph = buildTaskGraph(
+      createProjectPayload(),
+      createTopologyPayload(),
+      createRiskPayload(),
+      {
+        project: 'project.yaml',
+        topology: 'topology.yaml',
+        risk: 'risk.yaml',
+        requirement: 'requirements/ambiguous.md'
+      },
+      {
+        requirementText: 'Clear S'
+      }
+    );
+
+    expect(taskGraph.taskGraph.source?.routeSelectionMode).toBe('requirement-no-match');
+    expect(taskGraph.taskGraph.source?.selectedRoutes).toEqual([]);
+    expect(taskGraph.taskGraph.source?.taskPlans).toEqual([]);
+    expect(taskGraph.taskGraph.tasks).toEqual([
+      expect.objectContaining({
+        id: 'environment-preparation'
+      })
+    ]);
+  });
+
   it('keeps collaboration executor fixed to collaboration-agent even when human approval is required', () => {
     const taskGraph = buildTaskGraph(
       createProjectPayload(),

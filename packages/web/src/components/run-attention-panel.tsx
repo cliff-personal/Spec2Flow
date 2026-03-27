@@ -180,7 +180,7 @@ function deriveRunAttentionDetail(run: RunListItem, observability?: PlatformObse
 function deriveRunNextAction(run: RunListItem, observability?: PlatformObservability): string {
   const firstAttention = observability?.attentionRequired[0];
   if (firstAttention?.type === 'evaluator-reroute-requested') {
-    return `Resume loop from ${formatStageLabel(firstAttention.repairTargetStage)}`;
+    return `从 ${formatStageLabel(firstAttention.repairTargetStage)} 继续流程`;
   }
 
   if (observability?.approvals.some((approval) => approval.status === 'requested')) {

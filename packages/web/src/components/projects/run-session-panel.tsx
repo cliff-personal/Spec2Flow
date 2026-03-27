@@ -58,7 +58,7 @@ function stageIndex(stage: string | null | undefined): number {
 }
 
 function getStatusBadge(status: PlatformRunStatus, paused: boolean): { label: string; bg: string; color: string } {
-  if (paused) return { label: 'paused', bg: 'rgba(255,180,80,0.12)', color: 'rgba(255,210,140,0.86)' };
+  if (paused) return { label: '已停止', bg: 'rgba(255,180,80,0.12)', color: 'rgba(255,210,140,0.86)' };
   if (status === 'completed') return { label: 'completed', bg: 'rgba(74,222,128,0.1)', color: 'rgba(74,222,128,0.78)' };
   if (status === 'running') return { label: 'running', bg: 'rgba(0,240,255,0.08)', color: 'rgba(0,240,255,0.75)' };
   if (status === 'blocked') return { label: 'blocked', bg: 'rgba(255,160,0,0.09)', color: 'rgba(255,180,80,0.8)' };
@@ -337,11 +337,11 @@ export function RunSessionPanel({
   const badge = getStatusBadge(run.status, run.paused);
   const isLive = ['running', 'pending', 'blocked'].includes(run.status) && !run.paused;
   const canOperate = !['completed', 'failed', 'cancelled'].includes(run.status);
-  let runToggleActionLabel = '停止后稍后继续';
+  let runToggleActionLabel = '停止';
   if (isRunActionPending) {
     runToggleActionLabel = '处理中...';
   } else if (run.paused) {
-    runToggleActionLabel = '继续未完成任务';
+    runToggleActionLabel = '继续';
   }
 
   useEffect(() => {

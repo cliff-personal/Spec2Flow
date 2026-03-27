@@ -7,6 +7,7 @@ export type CliOptions = Record<string, string | boolean | undefined>;
 
 export interface GenerateTaskGraphDependencies {
   fail: (message: string) => void;
+  parseCsvOption: (value: string | undefined) => string[];
   printJson: (value: TaskGraphDocument) => void;
   readStructuredFile: (filePath: string) => any;
   writeJson: (filePath: string, payload: unknown) => void;
@@ -36,6 +37,7 @@ export function runGenerateTaskGraph(options: CliOptions, dependencies: Generate
   const riskPayload = dependencies.readStructuredFile(riskPath);
   const changedFiles = getChangedFiles(options);
   const requirementText = getRequirementText(options);
+  const explicitRoutes = dependencies.parseCsvOption(typeof options.routes === 'string' ? options.routes : undefined);
   const validatorResult = buildValidatorResult(projectPayload, topologyPayload, riskPayload, {
     project: projectPath,
     topology: topologyPath,
@@ -54,8 +56,15 @@ export function runGenerateTaskGraph(options: CliOptions, dependencies: Generate
     requirement: typeof options['requirement-file'] === 'string' ? options['requirement-file'] : null
   }, {
     changedFiles,
-    requirementText
+    requirementText,
+    routes: explicitRoutes
   });
+
+  if (requirementText && (taskGraph.taskGraph.source?.selectedRoutes?.length ?? 0) === 0) {
+    dependencies.fail('generate-task-graph could not map the requirement to any workflow route');
+    throw new Error('unreachable');
+  }
+
   validateTaskGraphPayload(taskGraph, dependencies.fail);
 
   const outputPath = typeof options.output === 'string' ? options.output : undefined;

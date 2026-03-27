@@ -113,6 +113,7 @@ export function buildDistCommandHandlers(dependencies: DistCommandHandlerDepende
     'generate-task-graph': (options) =>
       runGenerateTaskGraph(options, {
         fail: dependencies.fail,
+        parseCsvOption: dependencies.parseCsvOption,
         printJson: dependencies.printJson,
         readStructuredFile: dependencies.readStructuredFile,
         writeJson: dependencies.writeJson

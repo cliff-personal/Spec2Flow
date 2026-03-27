@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   getArtifactContent,
+  type ArtifactContent,
   type PlatformArtifactRecord,
   type PlatformObservabilityApprovalItem,
   type PlatformObservabilityTimelineEntry,
@@ -67,6 +68,12 @@ export type CommandSignalCard = {
   tone: ClosureTimelineItem['tone'];
 };
 
+type RequirementsAnalysisReportEntry = {
+  artifactId: string;
+  label: string;
+  excerpt: string;
+};
+
 type StageResultPanelProps = Readonly<{
   stageKey: string;
   stageLabel: string;
@@ -79,6 +86,106 @@ type StageResultPanelProps = Readonly<{
   stageEvents: PlatformObservabilityTimelineEntry[];
   eventCount: number;
 }>;
+
+function isRequirementsSummaryArtifact(artifact: PlatformArtifactRecord): boolean {
+  const label = summarizeArtifactLabel(artifact);
+  return label === 'requirements-summary' || artifact.path.includes('requirements-summary');
+}
+
+function isRequirementsModelOutputArtifact(artifact: PlatformArtifactRecord): boolean {
+  return artifact.artifactId.includes('model-output') || artifact.path.includes('model-output');
+}
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
+
+function parseJsonObject(content: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function readRequirementsSummary(payload: Record<string, unknown>): string | null {
+  if (typeof payload.summary === 'string' && payload.summary.trim().length > 0) {
+    return payload.summary.trim();
+  }
+
+  if (payload.scope && typeof payload.scope === 'object') {
+    const scopeSummary = (payload.scope as Record<string, unknown>).summary;
+    if (typeof scopeSummary === 'string' && scopeSummary.trim().length > 0) {
+      return scopeSummary.trim();
+    }
+  }
+
+  return null;
+}
+
+function buildRequirementsAnalysisReportEntry(
+  artifact: PlatformArtifactRecord,
+  artifactContent: ArtifactContent
+): RequirementsAnalysisReportEntry | null {
+  const parsed = parseJsonObject(artifactContent.content);
+  if (!parsed) {
+    return null;
+  }
+
+  let payload: Record<string, unknown> | null = null;
+  if (isRequirementsSummaryArtifact(artifact)) {
+    payload = parsed;
+  } else if (isRequirementsModelOutputArtifact(artifact) && parsed.deliverable && typeof parsed.deliverable === 'object') {
+    payload = parsed.deliverable as Record<string, unknown>;
+  }
+
+  if (!payload) {
+    return null;
+  }
+
+  const summary = readRequirementsSummary(payload);
+  if (!summary) {
+    return null;
+  }
+
+  const acceptanceCriteria = toStringArray(payload.acceptanceCriteria);
+  let excerpt = summary;
+  if (acceptanceCriteria.length > 0) {
+    const acceptanceLines = acceptanceCriteria.slice(0, 3).map((item) => `- ${item}`).join('\n');
+    excerpt = `${summary}\n\n验收标准:\n${acceptanceLines}`;
+  }
+
+  return {
+    artifactId: artifact.artifactId,
+    label: summarizeArtifactLabel(artifact),
+    excerpt,
+  };
+}
+
+export function buildRequirementsAnalysisReportEntries(
+  artifacts: PlatformArtifactRecord[],
+  artifactContents: Record<string, ArtifactContent>
+): RequirementsAnalysisReportEntry[] {
+  const preferredArtifacts = [
+    ...artifacts.filter(isRequirementsSummaryArtifact),
+    ...artifacts.filter((artifact) => !isRequirementsSummaryArtifact(artifact) && isRequirementsModelOutputArtifact(artifact)),
+  ];
+
+  return preferredArtifacts.flatMap((artifact) => {
+    const content = artifactContents[artifact.artifactId];
+    if (!content) {
+      return [];
+    }
+
+    const entry = buildRequirementsAnalysisReportEntry(artifact, content);
+    return entry ? [entry] : [];
+  });
+}
 
 function toTimestamp(value: string | null | undefined): number {
   if (!value) {
@@ -480,9 +587,11 @@ export function StageResultPanel(
   props: StageResultPanelProps
 ): JSX.Element {
   const isRequirementsAnalysisStage = props.stageKey === 'requirements-analysis';
-  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(
-    isRequirementsAnalysisStage ? null : props.artifacts[0]?.artifactId ?? null
-  );
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(props.artifacts[0]?.artifactId ?? null);
+  const [artifactContents, setArtifactContents] = useState<Record<string, ArtifactContent>>({});
+  const [requirementsReportEntries, setRequirementsReportEntries] = useState<RequirementsAnalysisReportEntry[]>([]);
+  const [requirementsReportLoading, setRequirementsReportLoading] = useState(false);
+  const [requirementsReportDetailId, setRequirementsReportDetailId] = useState<string | null>(null);
   const [previewContent, setPreviewContent] = useState<string>('');
   const [previewContentType, setPreviewContentType] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -507,23 +616,72 @@ export function StageResultPanel(
       );
 
   useEffect(() => {
-    if (isRequirementsAnalysisStage) {
-      if (selectedArtifactId !== null) {
-        setSelectedArtifactId(null);
+    let cancelled = false;
+
+    async function loadRequirementsReports(): Promise<void> {
+      if (!isRequirementsAnalysisStage) {
+        setRequirementsReportEntries([]);
+        setRequirementsReportLoading(false);
+        return;
       }
-      return;
+
+      const candidateArtifacts = props.artifacts.filter(
+        (artifact) => isRequirementsSummaryArtifact(artifact) || isRequirementsModelOutputArtifact(artifact)
+      );
+
+      if (candidateArtifacts.length === 0) {
+        setRequirementsReportEntries([]);
+        setRequirementsReportLoading(false);
+        return;
+      }
+
+      setRequirementsReportLoading(true);
+
+      const loadedArtifacts = await Promise.all(
+        candidateArtifacts.map(async (artifact) => {
+          try {
+            const content = artifactContents[artifact.artifactId] ?? await getArtifactContent(artifact.artifactId);
+            return { artifactId: artifact.artifactId, content };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      const nextArtifactContents = loadedArtifacts.reduce<Record<string, ArtifactContent>>((accumulator, entry) => {
+        if (entry) {
+          accumulator[entry.artifactId] = entry.content;
+        }
+        return accumulator;
+      }, {});
+
+      setArtifactContents((current) => ({ ...current, ...nextArtifactContents }));
+      setRequirementsReportEntries(buildRequirementsAnalysisReportEntries(candidateArtifacts, { ...artifactContents, ...nextArtifactContents }));
+      setRequirementsReportLoading(false);
     }
 
+    void loadRequirementsReports();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isRequirementsAnalysisStage, props.artifacts]);
+
+  useEffect(() => {
     if (!selectedArtifactId || !props.artifacts.some((artifact) => artifact.artifactId === selectedArtifactId)) {
       setSelectedArtifactId(props.artifacts[0]?.artifactId ?? null);
     }
-  }, [props.artifacts, isRequirementsAnalysisStage, selectedArtifactId]);
+  }, [props.artifacts, selectedArtifactId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadArtifactPreview(): Promise<void> {
-      if (isRequirementsAnalysisStage) {
+      if (!selectedArtifactId) {
         setPreviewContent('');
         setPreviewContentType(null);
         setPreviewError(null);
@@ -531,22 +689,16 @@ export function StageResultPanel(
         return;
       }
 
-      if (!selectedArtifactId) {
-        setPreviewContent('');
-        setPreviewContentType(null);
-        setPreviewError(null);
-        return;
-      }
-
       setIsPreviewLoading(true);
       setPreviewError(null);
 
       try {
-        const preview = await getArtifactContent(selectedArtifactId);
+        const preview = artifactContents[selectedArtifactId] ?? await getArtifactContent(selectedArtifactId);
         if (cancelled) {
           return;
         }
 
+        setArtifactContents((current) => ({ ...current, [selectedArtifactId]: preview }));
         setPreviewContent(truncatePreview(preview.content));
         setPreviewContentType(preview.contentType);
       } catch (error) {
@@ -569,7 +721,7 @@ export function StageResultPanel(
     return () => {
       cancelled = true;
     };
-  }, [isRequirementsAnalysisStage, selectedArtifactId]);
+  }, [selectedArtifactId]);
 
   return (
     <div
@@ -582,7 +734,7 @@ export function StageResultPanel(
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
           <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>
-            Agent 结果
+            {isRequirementsAnalysisStage ? '阶段概览' : 'Agent 结果'}
           </p>
           <p className="text-[13px] font-medium mt-1" style={{ color: 'rgba(255,255,255,0.78)' }}>
             {props.stageLabel}
@@ -600,21 +752,100 @@ export function StageResultPanel(
       </div>
 
       {isRequirementsAnalysisStage ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-[11px] font-mono mb-1" style={{ color: 'rgba(0,240,255,0.5)' }}>
-            共拆分为 {props.tasks.length} 个子任务
-          </p>
-          {props.tasks.map((task) => (
-            <div key={task.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.78)' }}>{task.title}</p>
-              {task.goal ? (
-                <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.42)' }}>{task.goal}</p>
+        <div className="flex flex-col gap-3">
+          <div className="rounded-lg px-3 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>任务拆分</p>
+                <p className="text-[12px] mt-1" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                  这里展示的是规划器生成的 route 子任务，不是 agent 执行结果。
+                </p>
+              </div>
+              <span className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                共 {props.tasks.length} 个子任务
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {props.tasks.map((task) => (
+                <div key={task.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.78)' }}>{task.title}</p>
+                  {task.goal ? (
+                    <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.42)' }}>{task.goal}</p>
+                  ) : null}
+                </div>
+              ))}
+              {props.tasks.length === 0 ? (
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>尚未生成规划结果。</p>
               ) : null}
             </div>
-          ))}
-          {props.tasks.length === 0 ? (
-            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>分析结果尚未生成。</p>
-          ) : null}
+          </div>
+
+          <div className="rounded-lg px-3 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>Agent 结果</p>
+                <p className="text-[12px] mt-1" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                  这里展示 requirements agent 的真实执行摘要和产物内容。
+                </p>
+              </div>
+              <span className="text-[11px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                {props.taskSummaries.length} summaries / {props.artifacts.length} artifacts
+              </span>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>执行摘要</p>
+                <div className="flex flex-col gap-2">
+                  {requirementsReportEntries.map((entry) => (
+                    <button
+                      key={entry.artifactId}
+                      type="button"
+                      onClick={() => setRequirementsReportDetailId(entry.artifactId)}
+                      className="rounded-lg px-3 py-3 text-left transition-all duration-200"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.78)' }}>{entry.label}</p>
+                        <span className="text-[10px] font-mono" style={{ color: 'rgba(0,240,255,0.52)' }}>查看详情</span>
+                      </div>
+                      <p className="text-[11px] mt-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                        {entry.excerpt}
+                      </p>
+                    </button>
+                  ))}
+                  {requirementsReportLoading ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>加载 agent 摘要中...</p> : null}
+                  {!requirementsReportLoading && requirementsReportEntries.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无可展示的 agent 摘要。</p> : null}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>真实产物</p>
+                <div className="flex flex-col gap-2">
+                  {props.artifacts.map((artifact) => (
+                    <button
+                      key={artifact.artifactId}
+                      type="button"
+                      onClick={() => setSelectedArtifactId(artifact.artifactId)}
+                      className="rounded-lg px-3 py-2 text-left transition-all duration-200"
+                      style={{
+                        background: selectedArtifactId === artifact.artifactId ? 'rgba(0,240,255,0.08)' : 'rgba(255,255,255,0.03)',
+                        border: selectedArtifactId === artifact.artifactId ? '1px solid rgba(0,240,255,0.18)' : '1px solid transparent',
+                      }}
+                    >
+                      <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{summarizeArtifactLabel(artifact)}</p>
+                      <p className="text-[11px] mt-1 break-all" style={{ color: 'rgba(255,255,255,0.36)' }}>{artifact.path}</p>
+                    </button>
+                  ))}
+                  {props.artifacts.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无 agent 产物。</p> : null}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -660,7 +891,7 @@ export function StageResultPanel(
         </div>
       )}
 
-      {!isRequirementsAnalysisStage && selectedArtifactId ? (
+      {selectedArtifactId && !isRequirementsAnalysisStage ? (
         <div className="mt-3 rounded-lg px-3 py-3" style={{ background: 'rgba(8,18,31,0.68)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center justify-between gap-3 mb-2">
             <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>产物预览</p>
@@ -672,7 +903,7 @@ export function StageResultPanel(
         </div>
       ) : null}
 
-      {!isRequirementsAnalysisStage ? (
+      {isRequirementsAnalysisStage ? null : (
         <div className="mt-3 rounded-lg px-3 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
@@ -843,6 +1074,49 @@ export function StageResultPanel(
           </div>
         </div>
       </div>
+      )}
+
+      {requirementsReportDetailId ? (
+        <>
+          <button
+            type="button"
+            aria-label="关闭 Agent 详情弹窗"
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => setRequirementsReportDetailId(null)}
+          />
+
+          <div
+            className="fixed inset-x-8 top-8 bottom-8 z-50 overflow-hidden rounded-xl border"
+            style={{
+              background: 'rgba(17,18,22,0.96)',
+              border: '1px solid rgba(0,240,255,0.14)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+            }}
+          >
+            <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div>
+                <p className="text-[10px] tracking-widest uppercase" style={{ color: 'rgba(0,240,255,0.42)' }}>Agent 详情</p>
+                <p className="text-[13px] font-medium mt-1" style={{ color: 'rgba(255,255,255,0.82)' }}>
+                  {requirementsReportEntries.find((entry) => entry.artifactId === requirementsReportDetailId)?.label ?? requirementsReportDetailId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRequirementsReportDetailId(null)}
+                className="rounded-lg px-3 py-1.5 text-[11px] font-mono"
+                style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.58)' }}
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="h-full overflow-y-auto px-5 py-4">
+              <pre className="detail-code-block">
+                {artifactContents[requirementsReportDetailId]?.content ?? '详情加载中...'}
+              </pre>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

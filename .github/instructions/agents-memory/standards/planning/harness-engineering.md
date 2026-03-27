@@ -1,3 +1,9 @@
+---
+created_at: 2026-03-26
+updated_at: 2026-03-27
+doc_status: active
+---
+
 # Harness Engineering Baseline
 
 接受 Harness Engineering 作为当前项目的统一工作流基线。
@@ -15,3 +21,5 @@
 1. 所有新增能力都应有 docs、code、validation 三件套
 2. 复杂工作应有 plan / task graph / validation route
 3. 过期文档和不再匹配产品定义的内容必须持续清理
+4. planning bundle 和核心设计文档都必须带可验证的文档元数据
+5. task 状态、实现状态和文档状态必须能被脚本校验，而不是只留在 prose 里

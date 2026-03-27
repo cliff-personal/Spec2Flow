@@ -13,8 +13,8 @@
 - state file: `.agents-memory/onboarding-state.json`
 - bootstrap ready: `yes`
 - bootstrap complete: `yes`
-- next group: `Refactor`
-- next key: `refactor_bundle`
-- next command: `python3 scripts/memory.py refactor-bundle . --token hotspot-5e763c06073a`
+- next group: `Unknown`
+- next key: `unknown`
+- next command: `amem doctor .`
 - verify with: `amem doctor .`
-- done when: `amem doctor .` no longer reports `.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.
+- done when: No pending onboarding steps remain.

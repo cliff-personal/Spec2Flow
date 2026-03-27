@@ -1,3 +1,9 @@
+---
+created_at: 2026-03-26
+updated_at: 2026-03-27
+doc_status: active
+---
+
 # Python Baseline
 
 适用范围：所有 Python 模块、CLI、services、runtime、MCP 相关代码。

@@ -680,7 +680,7 @@ export function ProjectsHeroPanel({
                       color: activeRun.paused ? 'rgba(0,240,255,0.78)' : 'rgba(255,255,255,0.3)',
                     }}
                   >
-                    {isRunActionPending ? '处理中...' : activeRun.paused ? '继续未完成任务' : '暂停'}
+                    {isRunActionPending ? '处理中...' : activeRun.paused ? '继续' : '停止'}
                   </button>
                 ) : null}
               </div>
@@ -747,13 +747,8 @@ export function ProjectsHeroPanel({
                   return;
                 }
               }
-
-              if (e.key === 'Enter' && !e.shiftKey && !isPending) {
-                e.preventDefault();
-                onGenerate();
-              }
             }}
-            placeholder={selectedProject ? '描述新需求… (Enter 发送)' : '请先选择项目…'}
+            placeholder={selectedProject ? '描述新需求…' : '请先选择项目…'}
             disabled={!selectedProject || isPending}
             className="w-full bg-transparent border-none focus:ring-0 text-base text-white/70 placeholder:text-white/18 outline-none disabled:opacity-40 font-normal resize-none overflow-hidden leading-relaxed"
             style={{ minHeight: '1.75rem' }}

@@ -210,7 +210,7 @@ describe('deriveRunAttentionItems', () => {
 
     expect(items[0]).toMatchObject({
       headline: 'Evaluator requested reroute to Automated Execution',
-      nextAction: 'Resume loop from Automated Execution',
+      nextAction: '从 Automated Execution 继续流程',
       tone: 'warning',
     });
   });

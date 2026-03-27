@@ -216,8 +216,8 @@ function buildRerouteActions(runDetail: RunDetail, rerouteTargetStage: NonNullab
   if (runDetail.runState.run.status === 'blocked' || runDetail.runState.run.status === 'running') {
     actions.push({
       kind: 'run',
-      label: `Resume from ${formatStageLabel(rerouteTargetStage)}`,
-      detail: 'Resume the active reroute route directly from the evaluator-selected target stage.',
+      label: `从 ${formatStageLabel(rerouteTargetStage)} 继续`,
+      detail: '从评估器指定的目标阶段继续当前修复路径。',
       tone: 'primary',
       runAction: 'resume-from-target-stage',
     });
@@ -237,8 +237,8 @@ function buildRerouteActions(runDetail: RunDetail, rerouteTargetStage: NonNullab
 
     actions.push({
       kind: 'run',
-      label: `Reroute to ${formatStageLabel(stageAction.stage)}`,
-      detail: `Override the evaluator route and restart repair from ${formatStageLabel(stageAction.stage)}.`,
+      label: `改道到 ${formatStageLabel(stageAction.stage)}`,
+      detail: `覆盖评估器的修复路径，并从 ${formatStageLabel(stageAction.stage)} 重新开始修复。`,
       tone: 'secondary',
       runAction: stageAction.action,
       notePrompt: buildRunActionNotePrompt(stageAction.action),
@@ -247,8 +247,8 @@ function buildRerouteActions(runDetail: RunDetail, rerouteTargetStage: NonNullab
 
   actions.push({
     kind: 'run',
-    label: 'Cancel Repair Route',
-    detail: 'Cancel the active reroute path and clear the queued repair tasks owned by that route.',
+    label: '取消修复路径',
+    detail: '取消当前改道路径，并清除该路径下排队中的修复任务。',
     tone: 'ghost',
     runAction: 'cancel-route',
     notePrompt: buildRunActionNotePrompt('cancel-route'),
@@ -292,8 +292,8 @@ export function deriveRunOperatorActions(
     return [
       {
         kind: 'task',
-        label: 'Retry Blocked Repair',
-        detail: 'Push the blocked defect path back into execution from the failing repair task.',
+        label: '重试阻塞修复',
+        detail: '从失败的修复任务重新推进当前缺陷修复路径。',
         tone: 'primary',
         taskId: blockedRepair.taskId,
         taskAction: 'retry',
@@ -306,8 +306,8 @@ export function deriveRunOperatorActions(
     return [
       {
         kind: 'task',
-        label: 'Retry Blocked Task',
-        detail: 'Requeue the blocked task directly from the operator console.',
+        label: '重试阻塞任务',
+        detail: '直接从操作台将阻塞任务重新排队执行。',
         tone: 'primary',
         taskId: blockedTask.taskId,
         taskAction: 'retry',
@@ -343,8 +343,8 @@ export function deriveRunOperatorActions(
     return [
       {
         kind: 'run',
-        label: 'Pause Run',
-        detail: 'Temporarily stop autonomous progression from this run detail surface.',
+        label: '停止',
+        detail: '从当前运行详情页停止本次自动推进。',
         tone: 'secondary',
         runAction: 'pause',
       },

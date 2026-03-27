@@ -272,8 +272,8 @@ function selectRoutes(
     }
 
     return {
-      routes,
-      mode: 'requirement-fallback-all',
+      routes: [],
+      mode: 'requirement-no-match',
       matchIndex: new Map()
     };
   }

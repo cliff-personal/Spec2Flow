@@ -1,9 +1,15 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  buildRequirementsAnalysisReportEntries,
   buildClosureTimeline,
   deriveCommandSignalCards,
+  StageResultPanel,
 } from './stage-result-panel';
 import type {
+  ArtifactContent,
+  PlatformArtifactRecord,
   PlatformObservabilityApprovalItem,
   PlatformObservabilityTimelineEntry,
   PlatformPublicationObservabilitySummary,
@@ -37,6 +43,20 @@ function makeTaskSummary(overrides: Partial<PlatformTaskObservabilitySummary> = 
     expectedArtifactCount: 1,
     missingExpectedArtifactCount: 0,
     recentEvents: [],
+    ...overrides,
+  };
+}
+
+function makeArtifact(overrides: Partial<PlatformArtifactRecord> = {}): PlatformArtifactRecord {
+  return {
+    artifactId: 'artifact-1',
+    runId: 'run-1',
+    taskId: 'task-1',
+    kind: 'report',
+    path: 'spec2flow/outputs/execution/frontend-smoke/requirements-summary.json',
+    metadata: {
+      originalArtifactId: 'requirements-summary',
+    },
     ...overrides,
   };
 }
@@ -212,5 +232,101 @@ describe('buildClosureTimeline', () => {
 
     expect(timeline).toHaveLength(1);
     expect(timeline[0]).toMatchObject({ id: 'repair-dup', lane: 'repair' });
+  });
+});
+
+describe('buildRequirementsAnalysisReportEntries', () => {
+  it('prefers requirements-summary content before model-output deliverable content', () => {
+    const artifacts = [
+      makeArtifact({ artifactId: 'artifact-requirements' }),
+      makeArtifact({
+        artifactId: 'artifact-model-output',
+        path: 'spec2flow/outputs/execution/frontend-smoke/requirements-analysis-model-output.json',
+        metadata: {},
+      }),
+    ];
+    const artifactContents: Record<string, ArtifactContent> = {
+      'artifact-requirements': {
+        content: JSON.stringify({
+          summary: 'Requirements summary body',
+          acceptanceCriteria: ['First requirement'],
+        }),
+        contentType: 'application/json',
+      },
+      'artifact-model-output': {
+        content: JSON.stringify({
+          deliverable: {
+            summary: 'Model output summary body',
+            acceptanceCriteria: ['Second requirement'],
+          },
+        }),
+        contentType: 'application/json',
+      },
+    };
+
+    const reports = buildRequirementsAnalysisReportEntries(artifacts, artifactContents);
+
+    expect(reports).toHaveLength(2);
+    expect(reports[0]).toMatchObject({
+      artifactId: 'artifact-requirements',
+      label: 'requirements-summary',
+    });
+    expect(reports[0].excerpt).toContain('Requirements summary body');
+    expect(reports[1].artifactId).toBe('artifact-model-output');
+    expect(reports[1].excerpt).toContain('Model output summary body');
+  });
+
+  it('does not fall back to task status style summaries when artifacts are not parseable', () => {
+    const reports = buildRequirementsAnalysisReportEntries(
+      [makeArtifact({ artifactId: 'artifact-requirements' })],
+      {
+        'artifact-requirements': {
+          content: '{"unexpected":true}',
+          contentType: 'application/json',
+        },
+      }
+    );
+
+    expect(reports).toEqual([]);
+  });
+});
+
+describe('StageResultPanel', () => {
+  it('separates planning output from real agent results for requirements analysis', () => {
+    const html = renderToStaticMarkup(
+      createElement(StageResultPanel, {
+        stageKey: 'requirements-analysis',
+        stageLabel: '需求分析',
+        tasks: [
+          makeTask({
+            taskId: 'cli-runtime--requirements-analysis',
+            stage: 'requirements-analysis',
+            title: 'Analyze cli-runtime requirements',
+            goal: 'Summarize scope and acceptance criteria for cli-runtime',
+          }),
+        ],
+        taskSummaries: [
+          makeTaskSummary({
+            taskId: 'cli-runtime--requirements-analysis',
+            stage: 'requirements-analysis',
+            artifactCount: 2,
+            expectedArtifactCount: 2,
+          }),
+        ],
+        artifacts: [makeArtifact()],
+        repairSummaries: [],
+        publicationSummaries: [],
+        approvals: [],
+        stageEvents: [],
+        eventCount: 0,
+      })
+    );
+
+    expect(html).toContain('任务拆分');
+    expect(html).toContain('规划器生成的 route 子任务');
+    expect(html).toContain('Agent 结果');
+    expect(html).toContain('真实执行摘要和产物内容');
+    expect(html).toContain('执行摘要');
+    expect(html).toContain('requirements-summary');
   });
 });

@@ -19,9 +19,9 @@
 - 测试改动：
 
 ## Onboarding Execution
-- run `python3 scripts/memory.py refactor-bundle . --token hotspot-5e763c06073a`
+- run `amem doctor .`
 - verify with `amem doctor .`
-- finish when: `amem doctor .` no longer reports `.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.
+- finish when: No pending onboarding steps remain.
 
 ## Action Sequence Snapshot
 ```json

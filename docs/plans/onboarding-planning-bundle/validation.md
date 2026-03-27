@@ -20,14 +20,14 @@ python3 scripts/memory.py docs-check .
 
 ## Onboarding Verification
 - primary verification command: `amem doctor .`
-- expected completion: `amem doctor .` no longer reports `.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.
+- expected completion: No pending onboarding steps remain.
 
 ## State Snapshot
 ```json
 {
   "project_bootstrap_ready": true,
   "project_bootstrap_complete": true,
-  "recommended_next_command": "python3 scripts/memory.py refactor-bundle . --token hotspot-5e763c06073a",
+  "recommended_next_command": "amem doctor .",
   "recommended_verify_command": "amem doctor ."
 }
 ```

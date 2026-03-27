@@ -101,4 +101,23 @@ describe('scaffold-spec2flow', () => {
     expect(projectYaml).toContain('docs/provider_service/api/oss-security-healthcheck.md');
     expect(validatorResult.validatorResult.status).toBe('passed');
   });
+
+  it('can write the runtime scaffold into a separate control-plane root', () => {
+    const repositoryRoot = createTempRepository('spec2flow-target-repo-');
+    const runtimeRoot = createTempRepository('spec2flow-runtime-root-');
+    fs.writeFileSync(path.join(repositoryRoot, 'README.md'), '# Demo\n', 'utf8');
+
+    scaffoldSpec2flowFiles(
+      repositoryRoot,
+      'Demo App',
+      '.spec2flow/project.yaml',
+      '.spec2flow/topology.yaml',
+      '.spec2flow/policies/risk.yaml',
+      runtimeRoot
+    );
+
+    expect(fs.existsSync(path.join(repositoryRoot, '.spec2flow', 'project.yaml'))).toBe(true);
+    expect(fs.existsSync(path.join(repositoryRoot, '.spec2flow', 'runtime', 'model-adapter-runtime.json'))).toBe(false);
+    expect(fs.existsSync(path.join(runtimeRoot, '.spec2flow', 'runtime', 'model-adapter-runtime.json'))).toBe(true);
+  });
 });

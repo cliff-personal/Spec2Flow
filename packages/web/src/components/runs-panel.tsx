@@ -32,7 +32,7 @@ export function getRunQueueAction(run: RunListItem): { label: string; action: Ru
   }
 
   return {
-    label: `Resume from ${formatStageLabel(run.rerouteTargetStage, 'Target Stage')}`,
+    label: `从 ${formatStageLabel(run.rerouteTargetStage, 'Target Stage')} 继续`,
     action: 'resume-from-target-stage'
   };
 }

@@ -1,3 +1,9 @@
+---
+created_at: 2026-03-26
+updated_at: 2026-03-27
+doc_status: active
+---
+
 # DRY And Reuse Baseline
 
 适用范围：所有 Python 代码和模板生成逻辑。

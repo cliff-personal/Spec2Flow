@@ -1,3 +1,9 @@
+---
+created_at: 2026-03-26
+updated_at: 2026-03-27
+doc_status: active
+---
+
 # Spec Kit Baseline
 
 接受 Spec Kit 风格的 spec-first 开发约束。

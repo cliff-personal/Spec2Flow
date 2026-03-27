@@ -34,7 +34,7 @@ describe('getRunQueueRerouteLabel', () => {
 
   it('offers a queue action for blocked reroute runs', () => {
     expect(getRunQueueAction(makeRun({ rerouteTargetStage: 'automated-execution', status: 'blocked' }))).toEqual({
-      label: 'Resume from Automated Execution',
+      label: '从 Automated Execution 继续',
       action: 'resume-from-target-stage'
     });
   });

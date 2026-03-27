@@ -292,7 +292,8 @@ export async function registerPlatformProject(
   executor: SqlExecutor,
   schema: string,
   options: PlatformControlPlaneProjectRegistrationRequest,
-  storageRoot?: string
+  storageRoot?: string,
+  runtimeRootPath?: string
 ): Promise<PlatformControlPlaneProjectRegistrationResult> {
   const repositoryRootPath = path.resolve(options.repositoryRootPath);
   assertIsGitRepositoryRoot(repositoryRootPath);
@@ -301,6 +302,7 @@ export async function registerPlatformProject(
   const projectName = normalizeString(options.projectName) ?? repositoryName;
   const projectId = normalizeString(options.projectId) ?? toStableIdentifier(projectName);
   const workspaceRootPath = path.resolve(normalizeString(options.workspaceRootPath) ?? repositoryRootPath);
+  const resolvedRuntimeRootPath = path.resolve(runtimeRootPath ?? storageRoot ?? repositoryRootPath);
 
   // Compute config paths: if storageRoot is provided, use server-side storage so
   // the target project directory is never touched by Spec2Flow.
@@ -316,7 +318,14 @@ export async function registerPlatformProject(
 
     // Scaffold into the server-side storageRoot dir (not the target project).
     try {
-      scaffoldSpec2flowFiles(path.resolve(storageRoot), projectName, projectRelPath, topologyRelPath, riskRelPath);
+      scaffoldSpec2flowFiles(
+        path.resolve(storageRoot),
+        projectName,
+        projectRelPath,
+        topologyRelPath,
+        riskRelPath,
+        resolvedRuntimeRootPath
+      );
     } catch {
       // Best-effort; don't block registration if filesystem write fails.
     }
@@ -325,6 +334,19 @@ export async function registerPlatformProject(
     resolvedProjectPath = path.resolve(configDir, 'project.yaml');
     resolvedTopologyPath = path.resolve(configDir, 'topology.yaml');
     resolvedRiskPath = path.resolve(configDir, 'policies', 'risk.yaml');
+  } else {
+    try {
+      scaffoldSpec2flowFiles(
+        repositoryRootPath,
+        projectName,
+        resolvedProjectPath ?? undefined,
+        resolvedTopologyPath ?? undefined,
+        resolvedRiskPath ?? undefined,
+        resolvedRuntimeRootPath
+      );
+    } catch {
+      // Best-effort; don't block registration if filesystem write fails.
+    }
   }
 
   const repository: PlatformRepositoryRecord = {
@@ -336,13 +358,13 @@ export async function registerPlatformProject(
       source: 'spec2flow-control-plane'
     }
   };
-  // When storageRoot is provided, auto-populate adapterProfile.runtimePath from
-  // the server's own runtime dir if the caller didn't supply one explicitly.
-  let storageRootRuntimePath: string | null = null;
-  if (storageRoot && !options.adapterProfile?.runtimePath) {
-    const candidate = path.resolve(storageRoot, '.spec2flow', 'runtime', 'model-adapter-runtime.json');
+  // Auto-populate adapterProfile.runtimePath from the effective runtime root
+  // when the caller did not supply one explicitly.
+  let defaultRuntimePath: string | null = null;
+  if (!options.adapterProfile?.runtimePath) {
+    const candidate = path.resolve(resolvedRuntimeRootPath, '.spec2flow', 'runtime', 'model-adapter-runtime.json');
     if (fs.existsSync(candidate)) {
-      storageRootRuntimePath = candidate;
+      defaultRuntimePath = candidate;
     }
   }
 
@@ -362,8 +384,8 @@ export async function registerPlatformProject(
       workspaceRootPath,
       ...(options.adapterProfile
         ? { adapterProfile: options.adapterProfile }
-        : storageRootRuntimePath
-        ? { adapterProfile: { runtimePath: storageRootRuntimePath } }
+        : defaultRuntimePath
+        ? { adapterProfile: { runtimePath: defaultRuntimePath } }
         : {})
     }),
     workspacePolicy: normalizeWorkspacePolicy(options.workspacePolicy),
@@ -374,22 +396,6 @@ export async function registerPlatformProject(
 
   await upsertPlatformRepository(executor, schema, repository);
   await upsertPlatformProject(executor, schema, project);
-
-  if (!storageRoot) {
-    // Legacy path: scaffold into the target project directory only when no
-    // server-side storageRoot is configured.
-    try {
-      scaffoldSpec2flowFiles(
-        repositoryRootPath,
-        project.name,
-        project.projectPath ?? undefined,
-        project.topologyPath ?? undefined,
-        project.riskPath ?? undefined
-      );
-    } catch {
-      // Scaffolding is best-effort; don't block registration if filesystem write fails.
-    }
-  }
 
   return {
     schema,

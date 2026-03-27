@@ -3,7 +3,7 @@
 - Status: active
 - Source of truth: `package.json`, `docs/examples/synapse-network/README.md`, `docs/playbooks/index.md`
 - Verified with: `npm run build`, `npm run test:unit`, `npm run validate:docs`, `npm run validate:synapse-example`
-- Last verified: 2026-03-26
+- Last verified: 2026-03-27
 
 ## Goal
 
@@ -259,6 +259,8 @@ npm run spec2flow -- register-platform-project \
   --branch-prefix spec2flow/ \
   --allowed-read-globs "**/*" \
   --allowed-write-globs "src/**,docs/**"
+
+When `register-platform-project` runs from one Spec2Flow workspace against another repository through `--repo-root`, it now writes `model-adapter-runtime.json` into the current control-plane workspace under `.spec2flow/runtime/` and persists that absolute runtime path into the project adapter profile. The runtime scaffold is no longer dropped into the target repository root by default in that flow.
 
 npm run serve:platform-control-plane -- \
   --database-url postgresql://synapse:12345678@127.0.0.1:5432/synapse_gateway \

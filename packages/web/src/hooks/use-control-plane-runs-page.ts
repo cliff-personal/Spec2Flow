@@ -8,9 +8,9 @@ import type { RunActionType } from '../lib/control-plane-ui-types';
 function formatRunActionMessage(result: { action: RunActionType; rerouteTargetStage?: string | null; currentStage?: string | null }): string {
   switch (result.action) {
     case 'resume-from-target-stage':
-      return `Resumed from ${result.rerouteTargetStage ?? result.currentStage ?? 'reroute target'}`;
+      return `已从 ${result.rerouteTargetStage ?? result.currentStage ?? '目标阶段'} 继续`;
     case 'pause':
-      return 'Run paused';
+      return '任务已停止';
     case 'approve-publication':
       return 'Publication approved';
     case 'force-publish':
@@ -26,7 +26,7 @@ function formatRunActionMessage(result: { action: RunActionType; rerouteTargetSt
     case 'reroute-to-automated-execution':
       return 'Repair rerouted to automated execution';
     default:
-      return 'Run resumed';
+      return '任务已继续';
   }
 }
 
@@ -80,13 +80,15 @@ export function useControlPlaneRunsPage() {
 
   function triggerRunAction(runId: string, action: RunActionType): void {
     setActionMessage(null);
-    const note = action === 'resume-from-target-stage'
-      ? 'Resume latest evaluator reroute directly from queue'
-      : action.startsWith('reroute-to-')
-        ? 'Override evaluator repair route from queue'
-        : action === 'cancel-route'
-          ? 'Cancel active evaluator repair route from queue'
-          : undefined;
+    let note: string | undefined;
+    if (action === 'resume-from-target-stage') {
+      note = '从队列直接继续最新的评估器改道路径';
+    } else if (action.startsWith('reroute-to-')) {
+      note = '从队列覆盖评估器修复路径';
+    } else if (action === 'cancel-route') {
+      note = '从队列取消当前评估器修复路径';
+    }
+
     runActionMutation.mutate({ runId, action, ...(note ? { note } : {}) });
   }
 

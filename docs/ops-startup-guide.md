@@ -3,7 +3,7 @@
 - Status: active
 - Source of truth: `package.json`, `packages/cli/src/cli/serve-platform-control-plane-command.ts`, `packages/cli/src/platform/platform-auto-runner-service.ts`, `packages/cli/src/platform/platform-database.ts`, `packages/web/vite.config.ts`, `packages/web/src/lib/control-plane-api.ts`
 - Verified with: `npm run build`, `npm run serve:platform-control-plane`
-- Last verified: 2026-03-25
+- Last verified: 2026-03-27
 
 ## Overview
 
@@ -191,7 +191,7 @@ Without an adapter the run enters `blocked` status. The web UI shows:
    npm run preflight:copilot-cli
    ```
 
-3. Ensure `.spec2flow/runtime/model-adapter-runtime.json` exists in the target project. The scaffold (`scaffoldSpec2flowFiles`) writes a minimal version automatically. It must point at the Copilot CLI adapter command:
+3. Ensure `.spec2flow/runtime/model-adapter-runtime.json` exists in the active control-plane workspace. When `register-platform-project` points at another repository through `--repo-root`, the scaffold writes the runtime into the current Spec2Flow workspace instead of the target repository root. It must point at the Copilot CLI adapter command:
 
    ```json
    {

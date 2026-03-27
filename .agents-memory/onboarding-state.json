@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-27T01:03:56.716290+00:00",
+  "generated_at": "2026-03-27T07:42:10.747022+00:00",
   "project_id": "spec2flow",
   "project_root": "/Users/cliff/workspace/Spec2Flow",
   "overall": "READY",
@@ -7,9 +7,9 @@
   "project_bootstrap_complete": true,
   "recommended_next_group": "Refactor",
   "recommended_next_key": "refactor_bundle",
-  "recommended_next_command": "python3 scripts/memory.py refactor-bundle . --token hotspot-134ec6c66e09",
+  "recommended_next_command": "python3 scripts/memory.py refactor-bundle . --token hotspot-8610e372dd76",
   "recommended_verify_command": "amem doctor .",
-  "recommended_done_when": "`amem doctor .` no longer reports `Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.",
+  "recommended_done_when": "`amem doctor .` no longer reports `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once` as the top refactor hotspot.",
   "recommended_next_safe_to_auto_execute": true,
   "recommended_next_approval_required": false,
   "recommended_next_approval_reason": "refreshes generated planning docs only",
@@ -69,7 +69,7 @@
         {
           "status": "OK",
           "key": "planning_bundle",
-          "detail": "4 planning bundle(s) passed plan-check"
+          "detail": "5 planning bundle(s) passed plan-check"
         }
       ]
     },
@@ -93,7 +93,7 @@
     {
       "name": "Optional",
       "status": "WATCH",
-      "summary": "Optional status=WATCH (ok=2, warn=5, fail=0, info=0)",
+      "summary": "Optional status=WATCH (ok=2, warn=6, fail=0, info=0)",
       "checks": [
         {
           "status": "OK",
@@ -108,27 +108,32 @@
         {
           "status": "WARN",
           "key": "refactor_watch",
-          "detail": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md high complexity (lines=228>40, branches=12>5, locals=12>8, nesting=3)"
+          "detail": "unable to inspect .spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/examples/synapse_client_quickstart.py: unterminated string literal (detected at line 38) (<unknown>, line 38)"
         },
         {
           "status": "WARN",
           "key": "refactor_watch",
-          "detail": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::_generate_intelligent_overrides high complexity (lines=80>40, branches=13>5, locals=31>8, nesting=3)"
+          "detail": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once high complexity (lines=114>40, branches=8>5, locals=22>8, nesting=3, missing_guiding_comment)"
         },
         {
           "status": "WARN",
           "key": "refactor_watch",
-          "detail": ".github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md high complexity (lines=228>40, branches=12>5, locals=12>8, nesting=3)"
+          "detail": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/storage/postgres/repositories/balance_repository.py::BalanceRepository.read_balance_ledger high complexity (lines=61>40, nesting=4>=4, locals=14>8, branches=5, missing_guiding_comment)"
         },
         {
           "status": "WARN",
           "key": "refactor_watch",
-          "detail": ".github/prompts/ui-ux-pro-max/scripts/design_system.py::_generate_intelligent_overrides high complexity (lines=80>40, branches=13>5, locals=31>8, nesting=3)"
+          "detail": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/storage/postgres/repositories/idempotency_repository.py::IdempotencyRepository.read_idempotency_rows high complexity (lines=58>40, nesting=4>=4, locals=14>8, branches=4, missing_guiding_comment)"
         },
         {
           "status": "WARN",
           "key": "refactor_watch",
-          "detail": ".github/prompts/ui-ux-pro-max/scripts/design_system.py::DesignSystemGenerator._select_best_match high complexity (branches=10>5, nesting=5>=4, locals=9>8)"
+          "detail": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/service_health_service.py::probe_service_health high complexity (lines=81>40, branches=8>5, locals=17>8, nesting=3, missing_guiding_comment)"
+        },
+        {
+          "status": "WARN",
+          "key": "refactor_watch",
+          "detail": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/service_health_service.py::refresh_all_service_health high complexity (lines=49>40, branches=7>5, locals=15>8, missing_guiding_comment)"
         }
       ]
     }
@@ -141,7 +146,7 @@
     "[x] Core - Core status=HEALTHY (ok=7, warn=0, fail=0, info=0)",
     "[x] Planning - Planning status=HEALTHY (ok=2, warn=0, fail=0, info=0)",
     "[x] Integration - Integration status=HEALTHY (ok=2, warn=0, fail=0, info=0)",
-    "[ ] Optional - Optional status=WATCH (ok=2, warn=5, fail=0, info=0)",
+    "[ ] Optional - Optional status=WATCH (ok=2, warn=6, fail=0, info=0)",
     "[x] Final verification - latest `amem doctor .` already reflects the current healthy state"
   ],
   "recommended_steps": [
@@ -150,69 +155,71 @@
       "priority": "recommended",
       "key": "refactor_bundle",
       "status": "WARN",
-      "detail": "refactor bundle ready for Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
-      "action": "Review and execute the generated refactor bundle at docs/plans/refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md before adding more behavior.",
-      "command": "python3 scripts/memory.py refactor-bundle . --token hotspot-134ec6c66e09",
+      "detail": "refactor bundle ready for .spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once",
+      "action": "Review and execute the generated refactor bundle at docs/plans/refactor-spec2flow-runtime-worktrees-synapse-network-workflow-1774578809552-gateway-src-services-platform-tasks-deposit-indexer-backfill-py-run-backfill-scan-once before adding more behavior.",
+      "command": "python3 scripts/memory.py refactor-bundle . --token hotspot-8610e372dd76",
       "verify_with": "amem doctor .",
-      "done_when": "`amem doctor .` no longer reports `Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.",
+      "done_when": "`amem doctor .` no longer reports `.spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once` as the top refactor hotspot.",
       "safe_to_auto_execute": true,
       "approval_required": false,
       "approval_reason": "refreshes generated planning docs only",
       "next_command": "amem doctor .",
-      "bundle_path": "docs/plans/refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
-      "task_name": "Refactor hotspot: Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
-      "task_slug": "refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
+      "bundle_path": "docs/plans/refactor-spec2flow-runtime-worktrees-synapse-network-workflow-1774578809552-gateway-src-services-platform-tasks-deposit-indexer-backfill-py-run-backfill-scan-once",
+      "task_name": "Refactor hotspot: .spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once",
+      "task_slug": "refactor-spec2flow-runtime-worktrees-synapse-network-workflow-1774578809552-gateway-src-services-platform-tasks-deposit-indexer-backfill-py-run-backfill-scan-once",
       "hotspot_index": 1,
-      "hotspot_token": "hotspot-134ec6c66e09",
+      "hotspot_token": "hotspot-8610e372dd76",
       "hotspot": {
-        "identifier": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
-        "rank_token": "hotspot-134ec6c66e09",
-        "relative_path": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py",
-        "function_name": "format_master_md",
-        "qualified_name": "format_master_md",
-        "line": 542,
+        "identifier": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once",
+        "rank_token": "hotspot-8610e372dd76",
+        "relative_path": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py",
+        "function_name": "run_backfill_scan_once",
+        "qualified_name": "run_backfill_scan_once",
+        "line": 112,
         "status": "WARN",
-        "effective_lines": 228,
-        "branches": 12,
+        "effective_lines": 114,
+        "branches": 8,
         "nesting": 3,
-        "local_vars": 12,
-        "has_guiding_comment": true,
+        "local_vars": 22,
+        "has_guiding_comment": false,
         "issues": [
-          "lines=228>40",
-          "branches=12>5",
-          "locals=12>8",
-          "nesting=3"
+          "lines=114>40",
+          "branches=8>5",
+          "locals=22>8",
+          "nesting=3",
+          "missing_guiding_comment"
         ],
-        "score": 31
+        "score": 32
       }
     }
   ],
   "recommended_refactor_bundle": {
-    "bundle_path": "docs/plans/refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
-    "task_name": "Refactor hotspot: Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
-    "task_slug": "refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
+    "bundle_path": "docs/plans/refactor-spec2flow-runtime-worktrees-synapse-network-workflow-1774578809552-gateway-src-services-platform-tasks-deposit-indexer-backfill-py-run-backfill-scan-once",
+    "task_name": "Refactor hotspot: .spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once",
+    "task_slug": "refactor-spec2flow-runtime-worktrees-synapse-network-workflow-1774578809552-gateway-src-services-platform-tasks-deposit-indexer-backfill-py-run-backfill-scan-once",
     "hotspot_index": 1,
-    "hotspot_token": "hotspot-134ec6c66e09",
+    "hotspot_token": "hotspot-8610e372dd76",
     "hotspot": {
-      "identifier": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
-      "rank_token": "hotspot-134ec6c66e09",
-      "relative_path": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py",
-      "function_name": "format_master_md",
-      "qualified_name": "format_master_md",
-      "line": 542,
+      "identifier": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py::run_backfill_scan_once",
+      "rank_token": "hotspot-8610e372dd76",
+      "relative_path": ".spec2flow/runtime/worktrees/synapse-network-workflow-1774578809552/gateway/src/services/platform/tasks/deposit_indexer/backfill.py",
+      "function_name": "run_backfill_scan_once",
+      "qualified_name": "run_backfill_scan_once",
+      "line": 112,
       "status": "WARN",
-      "effective_lines": 228,
-      "branches": 12,
+      "effective_lines": 114,
+      "branches": 8,
       "nesting": 3,
-      "local_vars": 12,
-      "has_guiding_comment": true,
+      "local_vars": 22,
+      "has_guiding_comment": false,
       "issues": [
-        "lines=228>40",
-        "branches=12>5",
-        "locals=12>8",
-        "nesting=3"
+        "lines=114>40",
+        "branches=8>5",
+        "locals=22>8",
+        "nesting=3",
+        "missing_guiding_comment"
       ],
-      "score": 31
+      "score": 32
     }
   }
 }
