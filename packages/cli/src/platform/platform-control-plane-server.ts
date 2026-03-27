@@ -813,6 +813,7 @@ async function handleLocalArtifactRequest(
 
   const content = await fs.promises.readFile(artifact.localPath);
   response.statusCode = 200;
+  response.setHeader('access-control-allow-origin', '*');
   response.setHeader('content-type', artifact.contentType);
   response.setHeader('content-length', content.byteLength);
   response.end(content);
@@ -844,6 +845,7 @@ async function handleArtifactContentRequest(
 
   const content = await fs.promises.readFile(artifact.localPath);
   response.statusCode = 200;
+  response.setHeader('access-control-allow-origin', '*');
   response.setHeader('content-type', artifact.contentType);
   response.setHeader('content-length', content.byteLength);
   response.end(content);
