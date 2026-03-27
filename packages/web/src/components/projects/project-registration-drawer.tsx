@@ -6,6 +6,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   formState: ProjectRegistrationFormState;
+  serverCwd: string | null;
   onFieldChange: (field: keyof ProjectRegistrationFormState, value: string) => void;
   onSubmit: () => void;
   isPending: boolean;
@@ -16,6 +17,7 @@ export function ProjectRegistrationDrawer({
   isOpen,
   onClose,
   formState,
+  serverCwd,
   onFieldChange,
   onSubmit,
   isPending,
@@ -50,6 +52,7 @@ export function ProjectRegistrationDrawer({
 
         <ProjectRegistrationPanel
           formState={formState}
+          serverCwd={serverCwd}
           onFieldChange={onFieldChange}
           onSubmit={onSubmit}
           isPending={isPending}

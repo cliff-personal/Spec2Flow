@@ -55,6 +55,7 @@ export function ControlPlaneProjectsPage(): JSX.Element {
         />
         <ProjectRegistrationPanel
           formState={projectsPage.registrationState}
+          serverCwd={projectsPage.serverCwd}
           onFieldChange={projectsPage.updateRegistrationField}
           onSubmit={projectsPage.submitProjectRegistration}
           isPending={projectsPage.registrationMutation.isPending}

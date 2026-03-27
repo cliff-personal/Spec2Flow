@@ -5,6 +5,7 @@ import {
   getRunDetail,
   getRunObservability,
   getRunTasks,
+  getServerContext,
   listProjects,
   listRuns,
   postRunAction,
@@ -29,9 +30,9 @@ const SESSION_EVENT_LIMIT = 1000;
 const MAX_REQUIREMENT_HISTORY_ITEMS = 20;
 
 const INITIAL_REGISTRATION_STATE: ProjectRegistrationFormState = {
-  projectName: 'Spec2Flow',
-  repositoryRootPath: '/Users/cliff/workspace/Spec2Flow',
-  workspaceRootPath: '/Users/cliff/workspace/Spec2Flow',
+  projectName: '',
+  repositoryRootPath: '',
+  workspaceRootPath: '',
   projectPath: '.spec2flow/project.yaml',
   topologyPath: '.spec2flow/topology.yaml',
   riskPath: '.spec2flow/policies/risk.yaml',
@@ -462,6 +463,13 @@ export function useControlPlaneProjectsPage() {
     refetchInterval: 10000
   });
 
+  const serverContextQuery = useQuery({
+    queryKey: ['control-plane', 'server-context'],
+    queryFn: getServerContext,
+    retry: false,
+    staleTime: Infinity
+  });
+
   const runsQuery = useQuery({
     queryKey: ['control-plane', 'runs'],
     queryFn: listRuns,
@@ -843,6 +851,7 @@ export function useControlPlaneProjectsPage() {
     submitWithRequirement,
     taskActionMutation,
     updateRegistrationField,
-    updateSubmissionField
+    updateSubmissionField,
+    serverCwd: serverContextQuery.data?.serverCwd ?? null
   };
 }

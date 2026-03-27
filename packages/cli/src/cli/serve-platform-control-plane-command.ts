@@ -103,6 +103,7 @@ export async function runServePlatformControlPlane(
     host,
     port,
     eventLimit,
+    serverContext: { serverCwd: process.cwd() },
     listPlatformRuns: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.listPlatformRuns(client, config.schema, request)),

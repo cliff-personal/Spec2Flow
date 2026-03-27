@@ -512,6 +512,11 @@ export async function listRuns(): Promise<RunListItem[]> {
   return payload.runs;
 }
 
+export async function getServerContext(): Promise<{ serverCwd: string }> {
+  const payload = await requestJson<{ context: { serverCwd: string } }>('/api/context');
+  return payload.context;
+}
+
 export async function listProjects(): Promise<ProjectListItem[]> {
   const payload = await requestJson<{ projects: ProjectListItem[] }>('/api/projects');
   return payload.projects;

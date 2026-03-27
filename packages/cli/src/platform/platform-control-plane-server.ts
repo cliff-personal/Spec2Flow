@@ -28,10 +28,15 @@ import { PlatformControlPlaneActionError } from './platform-control-plane-action
 import { PlatformControlPlaneRunSubmissionError } from './platform-control-plane-run-submission-service.js';
 import { PlatformProjectRegistrationError } from './platform-project-service.js';
 
+export interface PlatformControlPlaneServerContext {
+  serverCwd: string;
+}
+
 export interface StartPlatformControlPlaneServerOptions {
   host?: string;
   port: number;
   eventLimit: number;
+  serverContext?: PlatformControlPlaneServerContext;
   listPlatformRuns: (options: {
     limit: number;
     repositoryId?: string;
@@ -152,6 +157,7 @@ export interface StartedPlatformControlPlaneServer {
   close: () => Promise<void>;
 }
 
+const SERVER_CONTEXT_ROUTE = '/api/context';
 const RUN_DETAIL_ROUTE = /^\/api\/runs\/([^/]+)$/u;
 const PROJECT_LIST_ROUTE = '/api/projects';
 const PROJECT_ADAPTER_PROFILE_ROUTE = /^\/api\/projects\/([^/]+)\/adapter-profile$/u;
@@ -971,6 +977,11 @@ async function handleGetRequest(
 ): Promise<boolean> {
   if (pathname === '/healthz') {
     writeJson(response, 200, { status: 'ok' });
+    return true;
+  }
+
+  if (pathname === SERVER_CONTEXT_ROUTE) {
+    writeJson(response, 200, { context: { serverCwd: options.serverContext?.serverCwd ?? process.cwd() } });
     return true;
   }
 

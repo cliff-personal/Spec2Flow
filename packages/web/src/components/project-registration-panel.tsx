@@ -3,12 +3,15 @@ import type { ProjectRegistrationFormState } from '../lib/control-plane-ui-types
 export function ProjectRegistrationPanel(
   props: Readonly<{
     formState: ProjectRegistrationFormState;
+    serverCwd: string | null;
     onFieldChange: <K extends keyof ProjectRegistrationFormState>(field: K, value: ProjectRegistrationFormState[K]) => void;
     onSubmit: () => void;
     isPending: boolean;
     errorMessage: string | null;
   }>
 ): JSX.Element {
+  const pathPlaceholder = props.serverCwd ? `e.g. /path/to/your-project (server CWD: ${props.serverCwd})` : '/absolute/path/to/project-repo';
+
   return (
     <article className="panel">
       <div className="panel__header">
@@ -18,6 +21,11 @@ export function ProjectRegistrationPanel(
         </div>
         <span className="panel__hint">Project-first setup</span>
       </div>
+      {props.serverCwd ? (
+        <p className="panel__subtitle" style={{ fontSize: '0.8em', color: 'var(--color-text-muted, #888)', marginBottom: '0.5rem' }}>
+          Server working directory: <code>{props.serverCwd}</code>. Repository Root must be the root of the target project&apos;s git repository.
+        </p>
+      ) : null}
 
       <form
         className="form-grid"
@@ -31,7 +39,7 @@ export function ProjectRegistrationPanel(
           <input
             value={props.formState.projectName}
             onChange={(event) => props.onFieldChange('projectName', event.target.value)}
-            placeholder="Spec2Flow"
+            placeholder="MyProject"
           />
         </label>
 
@@ -40,7 +48,7 @@ export function ProjectRegistrationPanel(
           <input
             value={props.formState.repositoryRootPath}
             onChange={(event) => props.onFieldChange('repositoryRootPath', event.target.value)}
-            placeholder="/Users/cliff/workspace/Spec2Flow"
+            placeholder={pathPlaceholder}
           />
         </label>
 
@@ -49,7 +57,7 @@ export function ProjectRegistrationPanel(
           <input
             value={props.formState.workspaceRootPath}
             onChange={(event) => props.onFieldChange('workspaceRootPath', event.target.value)}
-            placeholder="/Users/cliff/workspace/Spec2Flow"
+            placeholder={pathPlaceholder}
           />
         </label>
 

@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { quoteSqlIdentifier, type SqlExecutor } from './platform-database.js';
 import { resolvePlatformProjectAdapterProfile } from './platform-project-adapter-profile.js';
@@ -250,12 +252,49 @@ export async function updatePlatformProjectAdapterProfile(
   };
 }
 
+function assertIsGitRepositoryRoot(repositoryRootPath: string): void {
+  if (!fs.existsSync(repositoryRootPath)) {
+    throw new PlatformProjectRegistrationError(
+      'invalid-repository-path',
+      `repositoryRootPath does not exist: "${repositoryRootPath}"`,
+      400,
+      { repositoryRootPath }
+    );
+  }
+
+  let gitRoot: string;
+  try {
+    gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: repositoryRootPath,
+      encoding: 'utf8'
+    }).trim();
+  } catch {
+    throw new PlatformProjectRegistrationError(
+      'invalid-repository-path',
+      `repositoryRootPath is not inside a git repository: "${repositoryRootPath}"`,
+      400,
+      { repositoryRootPath }
+    );
+  }
+
+  const resolvedGitRoot = path.resolve(gitRoot);
+  if (resolvedGitRoot !== repositoryRootPath) {
+    throw new PlatformProjectRegistrationError(
+      'invalid-repository-path',
+      `repositoryRootPath must be the git repository root, not a subdirectory. Provided: "${repositoryRootPath}", actual git root: "${resolvedGitRoot}". Use the repository root path directly.`,
+      400,
+      { repositoryRootPath, gitRepositoryRoot: resolvedGitRoot }
+    );
+  }
+}
+
 export async function registerPlatformProject(
   executor: SqlExecutor,
   schema: string,
   options: PlatformControlPlaneProjectRegistrationRequest
 ): Promise<PlatformControlPlaneProjectRegistrationResult> {
   const repositoryRootPath = path.resolve(options.repositoryRootPath);
+  assertIsGitRepositoryRoot(repositoryRootPath);
   const repositoryName = normalizeString(options.repositoryName) ?? path.basename(repositoryRootPath);
   const repositoryId = normalizeString(options.repositoryId) ?? toStableIdentifier(repositoryName);
   const projectName = normalizeString(options.projectName) ?? repositoryName;
