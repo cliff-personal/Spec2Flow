@@ -176,7 +176,7 @@ export function inferExecutionStateStatus(taskStates: TaskState[]): ExecutionSta
 export function inferCurrentStage(taskGraphPayload: TaskGraphDocument, executionStatePayload: ExecutionStateDocument): TaskStage | undefined {
   const taskStateIndex = getExecutionStateTaskIndex(executionStatePayload);
 
-  for (const preferredStatus of ['in-progress', 'ready', 'pending', 'blocked', 'failed', 'completed'] as const) {
+  for (const preferredStatus of ['in-progress', 'ready', 'blocked', 'failed', 'pending', 'completed'] as const) {
     const matchingTask = taskGraphPayload.taskGraph.tasks.find((task) => taskStateIndex.get(task.id)?.status === preferredStatus);
     if (matchingTask) {
       return matchingTask.stage;
