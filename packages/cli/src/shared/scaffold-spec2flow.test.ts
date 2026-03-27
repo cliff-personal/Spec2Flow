@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { buildValidatorResult } from '../onboarding/validator-service.js';
+import { readStructuredFileFrom } from './fs-utils.js';
 import { scaffoldSpec2flowFiles } from './scaffold-spec2flow.js';
 
 const tempDirectories: string[] = [];
@@ -71,5 +73,32 @@ describe('scaffold-spec2flow', () => {
     expect(projectYaml).toContain('app:');
     expect(topologyYaml).toContain('name: default');
     expect(runtimeJson).toContain('example-command-adapter.mjs');
+  });
+
+  it('keeps scaffolded onboarding files valid for docs-only repositories without a readme', () => {
+    const repositoryRoot = createTempRepository('spec2flow-docs-only-');
+    fs.mkdirSync(path.join(repositoryRoot, 'docs', 'provider_service', 'api'), { recursive: true });
+    fs.writeFileSync(
+      path.join(repositoryRoot, 'docs', 'provider_service', 'api', 'oss-security-healthcheck.md'),
+      '# OSS security healthcheck\n',
+      'utf8'
+    );
+
+    scaffoldSpec2flowFiles(repositoryRoot, 'Docs Only');
+
+    const projectYaml = fs.readFileSync(path.join(repositoryRoot, '.spec2flow', 'project.yaml'), 'utf8');
+    const validatorResult = buildValidatorResult(
+      readStructuredFileFrom(repositoryRoot, '.spec2flow/project.yaml') as Parameters<typeof buildValidatorResult>[0],
+      readStructuredFileFrom(repositoryRoot, '.spec2flow/topology.yaml') as Parameters<typeof buildValidatorResult>[1],
+      readStructuredFileFrom(repositoryRoot, '.spec2flow/policies/risk.yaml') as Parameters<typeof buildValidatorResult>[2],
+      {
+        project: '.spec2flow/project.yaml',
+        topology: '.spec2flow/topology.yaml',
+        risk: '.spec2flow/policies/risk.yaml',
+      }
+    );
+
+    expect(projectYaml).toContain('docs/provider_service/api/oss-security-healthcheck.md');
+    expect(validatorResult.validatorResult.status).toBe('passed');
   });
 });
