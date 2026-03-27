@@ -82,10 +82,8 @@ export function ProjectsPage(): JSX.Element {
         onNewRequirement={(projectId) => {
           setForceNewMode(true);
           projectsPage.updateSubmissionField('requirement', '');
-          // Navigate away from a session if needed; same-URL case is handled by forceNewMode
-          if (projectsPage.sessionRunIdParam) {
-            projectsPage.openRun(`/projects/${projectId}`);
-          } else if (projectsPage.selectedProjectId !== projectId) {
+          // Navigate away from a session or switch project; same-URL case is handled by forceNewMode.
+          if (projectsPage.sessionRunIdParam || projectsPage.selectedProjectId !== projectId) {
             projectsPage.openRun(`/projects/${projectId}`);
           }
         }}
@@ -128,6 +126,7 @@ export function ProjectsPage(): JSX.Element {
             blockedTaskId={projectsPage.blockedTaskId}
             pendingConfirmations={projectsPage.pendingConfirmations}
             requirement={projectsPage.submissionState.requirement}
+            requirementHistory={projectsPage.requirementHistory}
             onRequirementChange={(value) =>
               projectsPage.updateSubmissionField('requirement', value)
             }

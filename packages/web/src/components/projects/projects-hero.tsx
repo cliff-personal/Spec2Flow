@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { ArrowRight, Loader2, Sparkles, CheckCircle2, XCircle, AlertTriangle, Circle, GitBranch } from 'lucide-react';
 import type { ProjectListItem, RunListItem, PlatformTaskRecord, PlatformTaskObservabilitySummary, PlatformObservabilityTimelineEntry } from '../../lib/control-plane-api';
 
@@ -28,6 +28,7 @@ type Props = {
   blockedTaskId: string | null;
   pendingConfirmations: PendingConfirmationItem[];
   requirement: string;
+  requirementHistory: string[];
   onRequirementChange: (value: string) => void;
   onGenerate: (suggestion?: string) => void;
   onApproveConfirmation: (taskId: string) => void;
@@ -43,6 +44,23 @@ type Props = {
   errorMessage: string | null;
 };
 
+type RequirementHistoryDirection = 'previous' | 'next';
+
+type RequirementHistoryNavigationState = {
+  history: string[];
+  currentValue: string;
+  currentIndex: number | null;
+  draftValue: string;
+  direction: RequirementHistoryDirection;
+};
+
+type RequirementHistoryNavigationResult = {
+  nextValue: string;
+  nextIndex: number | null;
+  nextDraftValue: string;
+  didNavigate: boolean;
+};
+
 const PIPELINE_STAGES: { stageKey: string; label: string }[] = [
   { stageKey: 'requirements-analysis', label: '需求分析' },
   { stageKey: 'code-implementation', label: '代码实现' },
@@ -52,6 +70,77 @@ const PIPELINE_STAGES: { stageKey: string; label: string }[] = [
   { stageKey: 'collaboration', label: '协作流程' },
   { stageKey: 'evaluation', label: '评估验收' },
 ];
+
+export function resolveRequirementHistoryNavigation({
+  history,
+  currentValue,
+  currentIndex,
+  draftValue,
+  direction,
+}: RequirementHistoryNavigationState): RequirementHistoryNavigationResult {
+  if (history.length === 0) {
+    return {
+      nextValue: currentValue,
+      nextIndex: currentIndex,
+      nextDraftValue: draftValue,
+      didNavigate: false,
+    };
+  }
+
+  if (direction === 'previous') {
+    if (currentIndex === null) {
+      return {
+        nextValue: history[0] ?? currentValue,
+        nextIndex: history[0] ? 0 : null,
+        nextDraftValue: currentValue,
+        didNavigate: Boolean(history[0]),
+      };
+    }
+
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= history.length) {
+      return {
+        nextValue: currentValue,
+        nextIndex: currentIndex,
+        nextDraftValue: draftValue,
+        didNavigate: false,
+      };
+    }
+
+    return {
+      nextValue: history[nextIndex] ?? currentValue,
+      nextIndex,
+      nextDraftValue: draftValue,
+      didNavigate: true,
+    };
+  }
+
+  if (currentIndex === null) {
+    return {
+      nextValue: currentValue,
+      nextIndex: null,
+      nextDraftValue: draftValue,
+      didNavigate: false,
+    };
+  }
+
+  if (currentIndex === 0) {
+    return {
+      nextValue: draftValue,
+      nextIndex: null,
+      nextDraftValue: '',
+      didNavigate: true,
+    };
+  }
+
+  const nextIndex = currentIndex - 1;
+  return {
+    nextValue: history[nextIndex] ?? currentValue,
+    nextIndex,
+    nextDraftValue: draftValue,
+    didNavigate: true,
+  };
+}
 
 type StageAggStatus = 'pending' | 'running' | 'completed' | 'skipped' | 'blocked' | 'failed';
 
@@ -355,6 +444,7 @@ export function ProjectsHeroPanel({
   blockedTaskId,
   pendingConfirmations,
   requirement,
+  requirementHistory,
   onRequirementChange,
   onGenerate,
   onApproveConfirmation,
@@ -371,6 +461,8 @@ export function ProjectsHeroPanel({
 }: Readonly<Props>): JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
+  const [draftBeforeHistory, setDraftBeforeHistory] = useState('');
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -385,6 +477,11 @@ export function ProjectsHeroPanel({
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [executionFeed.length, tasks.length, taskSummaries.length]);
+
+  useEffect(() => {
+    setHistoryIndex(null);
+    setDraftBeforeHistory('');
+  }, [selectedProject?.projectId]);
 
   const hasActiveRun = Boolean(activeRun);
   const requirementText = activeRun?.requirement?.trim() || activeRun?.workflowName || '';
@@ -625,8 +722,32 @@ export function ProjectsHeroPanel({
             ref={textareaRef}
             rows={1}
             value={requirement}
-            onChange={(e) => onRequirementChange(e.target.value)}
+            onChange={(e) => {
+              if (historyIndex !== null) {
+                setHistoryIndex(null);
+                setDraftBeforeHistory('');
+              }
+              onRequirementChange(e.target.value);
+            }}
             onKeyDown={(e) => {
+              if (!e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                const navigation = resolveRequirementHistoryNavigation({
+                  history: requirementHistory,
+                  currentValue: requirement,
+                  currentIndex: historyIndex,
+                  draftValue: draftBeforeHistory,
+                  direction: e.key === 'ArrowUp' ? 'previous' : 'next',
+                });
+
+                if (navigation.didNavigate) {
+                  e.preventDefault();
+                  setHistoryIndex(navigation.nextIndex);
+                  setDraftBeforeHistory(navigation.nextDraftValue);
+                  onRequirementChange(navigation.nextValue);
+                  return;
+                }
+              }
+
               if (e.key === 'Enter' && !e.shiftKey && !isPending) {
                 e.preventDefault();
                 onGenerate();

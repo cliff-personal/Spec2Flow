@@ -24,7 +24,9 @@ import { parseChangedFiles } from '../lib/control-plane-formatters';
 import { summarizeReviewDecision } from '../lib/review-decision-summary';
 import type { ProjectRegistrationFormState, SubmissionFormState, TaskActionType } from '../lib/control-plane-ui-types';
 const APPROVAL_PREFERENCES_STORAGE_KEY = 'spec2flow.approval-preferences.v1';
+const REQUIREMENT_HISTORY_STORAGE_KEY = 'spec2flow.requirement-history.v1';
 const SESSION_EVENT_LIMIT = 1000;
+const MAX_REQUIREMENT_HISTORY_ITEMS = 20;
 
 const INITIAL_REGISTRATION_STATE: ProjectRegistrationFormState = {
   projectName: 'Spec2Flow',
@@ -107,6 +109,75 @@ function rememberApprovalKey(projectId: string | null, approvalKey: string): str
     ? current[projectId] ?? []
     : [...(current[projectId] ?? []), approvalKey];
   writeStoredApprovalPreferences({
+    ...current,
+    [projectId]: nextValues,
+  });
+  return nextValues;
+}
+
+function readStoredRequirementHistory(): Record<string, string[]> {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return {};
+  }
+
+  try {
+    const rawValue = storage.getItem(REQUIREMENT_HISTORY_STORAGE_KEY);
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsed = JSON.parse(rawValue) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter((entry): entry is [string, string[]] => Array.isArray(entry[1]) && entry[1].every((value) => typeof value === 'string'))
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredRequirementHistory(value: Record<string, string[]>): void {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(REQUIREMENT_HISTORY_STORAGE_KEY, JSON.stringify(value));
+}
+
+export function appendRequirementHistoryEntry(history: string[], requirement: string, limit = MAX_REQUIREMENT_HISTORY_ITEMS): string[] {
+  const normalizedRequirement = requirement.trim();
+  if (!normalizedRequirement) {
+    return history;
+  }
+
+  return [
+    normalizedRequirement,
+    ...history.filter((entry) => entry !== normalizedRequirement),
+  ].slice(0, limit);
+}
+
+function readProjectRequirementHistory(projectId: string | null): string[] {
+  if (!projectId) {
+    return [];
+  }
+
+  return readStoredRequirementHistory()[projectId] ?? [];
+}
+
+function rememberProjectRequirement(projectId: string | null, requirement: string): string[] {
+  if (!projectId) {
+    return [];
+  }
+
+  const current = readStoredRequirementHistory();
+  const nextValues = appendRequirementHistoryEntry(current[projectId] ?? [], requirement);
+  writeStoredRequirementHistory({
     ...current,
     [projectId]: nextValues,
   });
@@ -381,6 +452,7 @@ export function useControlPlaneProjectsPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectId ?? null);
   const [rememberedApprovalKeys, setRememberedApprovalKeys] = useState<string[]>([]);
+  const [requirementHistory, setRequirementHistory] = useState<string[]>([]);
   const autoApprovedFingerprintRef = useRef<string | null>(null);
 
   const projectsQuery = useQuery({
@@ -411,6 +483,7 @@ export function useControlPlaneProjectsPage() {
 
   useEffect(() => {
     setRememberedApprovalKeys(readRememberedApprovalKeys(selectedProjectId));
+    setRequirementHistory(readProjectRequirementHistory(selectedProjectId));
     autoApprovedFingerprintRef.current = null;
   }, [selectedProjectId]);
 
@@ -652,6 +725,7 @@ export function useControlPlaneProjectsPage() {
       return;
     }
 
+    setRequirementHistory(rememberProjectRequirement(selectedProject.projectId, submissionState.requirement));
     setActionMessage(null);
     submissionMutation.mutate(buildRunSubmissionPayload(selectedProject, submissionState));
   }
@@ -660,6 +734,7 @@ export function useControlPlaneProjectsPage() {
     if (!selectedProject) {
       return;
     }
+    setRequirementHistory(rememberProjectRequirement(selectedProject.projectId, requirement));
     setActionMessage(null);
     const state: SubmissionFormState = { ...submissionState, requirement: requirement.trim() };
     submissionMutation.mutate(buildRunSubmissionPayload(selectedProject, state));
@@ -760,6 +835,7 @@ export function useControlPlaneProjectsPage() {
     selectedProjectRuns,
     selectedProjectId,
     selectProject,
+    requirementHistory,
     submissionMutation,
     submissionState,
     submitProjectRegistration,
