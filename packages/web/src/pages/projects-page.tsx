@@ -74,7 +74,11 @@ export function ProjectsPage(): JSX.Element {
         runs={projectsPage.runsQuery.data ?? []}
         selectedProjectId={projectsPage.selectedProjectId}
         selectedRunId={projectsPage.sessionRunIdParam}
-        onSelectProject={projectsPage.selectProject}
+        onSelectProject={(id) => {
+          setForceNewMode(true);
+          projectsPage.updateSubmissionField('requirement', '');
+          projectsPage.selectProject(id);
+        }}
         onRegisterProject={(path) =>
           projectsPage.registrationMutation.mutate({ repositoryRootPath: path })
         }
