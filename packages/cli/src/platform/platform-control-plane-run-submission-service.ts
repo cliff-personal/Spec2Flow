@@ -177,7 +177,8 @@ export async function submitPlatformControlPlaneRun(
   executor: SqlExecutor,
   schema: string,
   options: PlatformControlPlaneRunSubmissionRequest,
-  dependencies: SubmitPlatformControlPlaneRunDependencies = defaultRunSubmissionDependencies
+  dependencies: SubmitPlatformControlPlaneRunDependencies = defaultRunSubmissionDependencies,
+  storageRoot?: string
 ): Promise<PlatformControlPlaneRunSubmissionResult> {
   const repositoryRoot = path.resolve(options.repositoryRootPath);
   const projectPath = normalizeString(options.projectPath) ?? DEFAULT_PROJECT_PATH;
@@ -195,6 +196,8 @@ export async function submitPlatformControlPlaneRun(
   const branchPrefix = normalizeString(options.branchPrefix) ?? 'spec2flow/';
   const worktreeRootPath = normalizeString(options.worktreeRootPath)
     ? path.resolve(workspaceRootPath, normalizeString(options.worktreeRootPath) as string)
+    : storageRoot
+    ? path.resolve(storageRoot, '.spec2flow', 'runtime', 'worktrees')
     : undefined;
   const worktreeMode = options.worktreeMode ?? 'managed';
   const workspacePolicy = normalizeWorkspacePolicy(options.workspacePolicy);
@@ -205,10 +208,13 @@ export async function submitPlatformControlPlaneRun(
 
   // Ensure scaffold files exist — idempotent, only writes missing files.
   // This covers projects registered before auto-scaffolding was added.
-  try {
-    scaffoldSpec2flowFiles(repositoryRoot, projectName, projectPath, topologyPath, riskPath);
-  } catch {
-    // Scaffolding is best-effort; don't block run submission if filesystem write fails.
+  // Skip when paths are absolute (managed by storageRoot) to avoid touching the target repo.
+  if (!storageRoot && !path.isAbsolute(projectPath)) {
+    try {
+      scaffoldSpec2flowFiles(repositoryRoot, projectName, projectPath, topologyPath, riskPath);
+    } catch {
+      // Scaffolding is best-effort; don't block run submission if filesystem write fails.
+    }
   }
 
   try {

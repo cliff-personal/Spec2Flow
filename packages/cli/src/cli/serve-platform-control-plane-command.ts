@@ -98,12 +98,14 @@ export async function runServePlatformControlPlane(
   const port = parsePort(options.port, dependencies.fail);
   const eventLimit = parsePositiveInteger(options['event-limit'], '--event-limit', DEFAULT_PLATFORM_RUN_STATE_EVENT_LIMIT, dependencies.fail);
   const pool = dependencies.createPlatformPool(config);
+  const controlPlaneStorageRoot = process.cwd();
 
   const startedServer = await dependencies.startPlatformControlPlaneServer({
     host,
     port,
     eventLimit,
     serverContext: { serverCwd: process.cwd() },
+
     listPlatformRuns: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.listPlatformRuns(client, config.schema, request)),
@@ -134,10 +136,10 @@ export async function runServePlatformControlPlane(
       : {}),
     submitPlatformRun: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
-        dependencies.submitPlatformControlPlaneRun(client, config.schema, request)),
+        dependencies.submitPlatformControlPlaneRun(client, config.schema, request, undefined, controlPlaneStorageRoot)),
     registerPlatformProject: async (request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
-        dependencies.registerPlatformProject(client, config.schema, request)),
+        dependencies.registerPlatformProject(client, config.schema, request, controlPlaneStorageRoot)),
     updatePlatformProjectAdapterProfile: async (projectId, request) =>
       dependencies.withPlatformTransaction(pool, async (client) =>
         dependencies.updatePlatformProjectAdapterProfile(client, config.schema, projectId, request)),

@@ -291,7 +291,8 @@ function assertIsGitRepositoryRoot(repositoryRootPath: string): void {
 export async function registerPlatformProject(
   executor: SqlExecutor,
   schema: string,
-  options: PlatformControlPlaneProjectRegistrationRequest
+  options: PlatformControlPlaneProjectRegistrationRequest,
+  storageRoot?: string
 ): Promise<PlatformControlPlaneProjectRegistrationResult> {
   const repositoryRootPath = path.resolve(options.repositoryRootPath);
   assertIsGitRepositoryRoot(repositoryRootPath);
@@ -300,6 +301,32 @@ export async function registerPlatformProject(
   const projectName = normalizeString(options.projectName) ?? repositoryName;
   const projectId = normalizeString(options.projectId) ?? toStableIdentifier(projectName);
   const workspaceRootPath = path.resolve(normalizeString(options.workspaceRootPath) ?? repositoryRootPath);
+
+  // Compute config paths: if storageRoot is provided, use server-side storage so
+  // the target project directory is never touched by Spec2Flow.
+  let resolvedProjectPath: string | null = normalizeString(options.projectPath) ?? null;
+  let resolvedTopologyPath: string | null = normalizeString(options.topologyPath) ?? null;
+  let resolvedRiskPath: string | null = normalizeString(options.riskPath) ?? null;
+
+  if (storageRoot) {
+    const configDir = path.resolve(storageRoot, '.spec2flow', 'runtime', 'projects', projectId);
+    const projectRelPath = path.posix.join('.spec2flow', 'runtime', 'projects', projectId, 'project.yaml');
+    const topologyRelPath = path.posix.join('.spec2flow', 'runtime', 'projects', projectId, 'topology.yaml');
+    const riskRelPath = path.posix.join('.spec2flow', 'runtime', 'projects', projectId, 'policies', 'risk.yaml');
+
+    // Scaffold into the server-side storageRoot dir (not the target project).
+    try {
+      scaffoldSpec2flowFiles(path.resolve(storageRoot), projectName, projectRelPath, topologyRelPath, riskRelPath);
+    } catch {
+      // Best-effort; don't block registration if filesystem write fails.
+    }
+
+    // Store absolute paths so reads bypass repositoryRootPath resolution.
+    resolvedProjectPath = path.resolve(configDir, 'project.yaml');
+    resolvedTopologyPath = path.resolve(configDir, 'topology.yaml');
+    resolvedRiskPath = path.resolve(configDir, 'policies', 'risk.yaml');
+  }
+
   const repository: PlatformRepositoryRecord = {
     repositoryId,
     name: repositoryName,
@@ -315,9 +342,9 @@ export async function registerPlatformProject(
     name: projectName,
     repositoryRootPath,
     workspaceRootPath,
-    projectPath: normalizeString(options.projectPath) ?? null,
-    topologyPath: normalizeString(options.topologyPath) ?? null,
-    riskPath: normalizeString(options.riskPath) ?? null,
+    projectPath: resolvedProjectPath,
+    topologyPath: resolvedTopologyPath,
+    riskPath: resolvedRiskPath,
     defaultBranch: normalizeString(options.defaultBranch) ?? null,
     branchPrefix: normalizeString(options.branchPrefix) ?? null,
     adapterProfile: resolvePlatformProjectAdapterProfile({
@@ -334,17 +361,20 @@ export async function registerPlatformProject(
   await upsertPlatformRepository(executor, schema, repository);
   await upsertPlatformProject(executor, schema, project);
 
-  // Auto-generate .spec2flow scaffold files so users can submit runs without manual config.
-  try {
-    scaffoldSpec2flowFiles(
-      repositoryRootPath,
-      project.name,
-      project.projectPath ?? undefined,
-      project.topologyPath ?? undefined,
-      project.riskPath ?? undefined
-    );
-  } catch {
-    // Scaffolding is best-effort; don't block registration if filesystem write fails.
+  if (!storageRoot) {
+    // Legacy path: scaffold into the target project directory only when no
+    // server-side storageRoot is configured.
+    try {
+      scaffoldSpec2flowFiles(
+        repositoryRootPath,
+        project.name,
+        project.projectPath ?? undefined,
+        project.topologyPath ?? undefined,
+        project.riskPath ?? undefined
+      );
+    } catch {
+      // Scaffolding is best-effort; don't block registration if filesystem write fails.
+    }
   }
 
   return {
