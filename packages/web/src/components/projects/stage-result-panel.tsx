@@ -68,6 +68,7 @@ export type CommandSignalCard = {
 };
 
 type StageResultPanelProps = Readonly<{
+  stageKey: string;
   stageLabel: string;
   tasks: PlatformTaskRecord[];
   taskSummaries: PlatformTaskObservabilitySummary[];
@@ -570,60 +571,79 @@ export function StageResultPanel(
         </span>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <div>
-          <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>任务目标</p>
-          <div className="flex flex-col gap-2">
-            {props.tasks.map((task) => (
-              <div key={task.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{task.title}</p>
-                <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>{task.goal}</p>
-              </div>
-            ))}
-            {props.tasks.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无任务。</p> : null}
-          </div>
+      {props.stageKey === 'requirements-analysis' ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-[11px] font-mono mb-1" style={{ color: 'rgba(0,240,255,0.5)' }}>
+            共拆分为 {props.tasks.length} 个子任务
+          </p>
+          {props.tasks.map((task) => (
+            <div key={task.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.78)' }}>{task.title}</p>
+              {task.goal ? (
+                <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.42)' }}>{task.goal}</p>
+              ) : null}
+            </div>
+          ))}
+          {props.tasks.length === 0 ? (
+            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>分析结果尚未生成。</p>
+          ) : null}
         </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-3">
+          <div>
+            <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>任务目标</p>
+            <div className="flex flex-col gap-2">
+              {props.tasks.map((task) => (
+                <div key={task.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{task.title}</p>
+                  <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>{task.goal}</p>
+                </div>
+              ))}
+              {props.tasks.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无任务。</p> : null}
+            </div>
+          </div>
 
-        <div>
-          <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>执行摘要</p>
-          <div className="flex flex-col gap-2">
-            {props.taskSummaries.map((summary) => (
-              <div key={summary.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>status: {summary.status}</p>
-                <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.36)' }}>
-                  attempts {summary.attempts} / artifacts {summary.artifactCount}/{summary.expectedArtifactCount}
-                </p>
-                <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.36)' }}>
-                  retries {summary.retryCount} / auto repair {summary.autoRepairCount}
-                </p>
-              </div>
-            ))}
-            {props.taskSummaries.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无摘要数据。</p> : null}
+          <div>
+            <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>执行摘要</p>
+            <div className="flex flex-col gap-2">
+              {props.taskSummaries.map((summary) => (
+                <div key={summary.taskId} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>status: {summary.status}</p>
+                  <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                    attempts {summary.attempts} / artifacts {summary.artifactCount}/{summary.expectedArtifactCount}
+                  </p>
+                  <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                    retries {summary.retryCount} / auto repair {summary.autoRepairCount}
+                  </p>
+                </div>
+              ))}
+              {props.taskSummaries.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无摘要数据。</p> : null}
+            </div>
           </div>
-        </div>
 
-        <div>
-          <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>产物结果</p>
-          <div className="flex flex-col gap-2">
-            {props.artifacts.map((artifact) => (
-              <button
-                key={artifact.artifactId}
-                type="button"
-                onClick={() => setSelectedArtifactId(artifact.artifactId)}
-                className="rounded-lg px-3 py-2 text-left transition-all duration-200"
-                style={{
-                  background: selectedArtifactId === artifact.artifactId ? 'rgba(0,240,255,0.08)' : 'rgba(255,255,255,0.03)',
-                  border: selectedArtifactId === artifact.artifactId ? '1px solid rgba(0,240,255,0.18)' : '1px solid transparent',
-                }}
-              >
-                <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{summarizeArtifactLabel(artifact)}</p>
-                <p className="text-[11px] mt-1 break-all" style={{ color: 'rgba(255,255,255,0.36)' }}>{artifact.path}</p>
-              </button>
-            ))}
-            {props.artifacts.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无产物。</p> : null}
+          <div>
+            <p className="text-[10px] tracking-widest uppercase mb-2" style={{ color: 'rgba(255,255,255,0.18)' }}>产物结果</p>
+            <div className="flex flex-col gap-2">
+              {props.artifacts.map((artifact) => (
+                <button
+                  key={artifact.artifactId}
+                  type="button"
+                  onClick={() => setSelectedArtifactId(artifact.artifactId)}
+                  className="rounded-lg px-3 py-2 text-left transition-all duration-200"
+                  style={{
+                    background: selectedArtifactId === artifact.artifactId ? 'rgba(0,240,255,0.08)' : 'rgba(255,255,255,0.03)',
+                    border: selectedArtifactId === artifact.artifactId ? '1px solid rgba(0,240,255,0.18)' : '1px solid transparent',
+                  }}
+                >
+                  <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.72)' }}>{summarizeArtifactLabel(artifact)}</p>
+                  <p className="text-[11px] mt-1 break-all" style={{ color: 'rgba(255,255,255,0.36)' }}>{artifact.path}</p>
+                </button>
+              ))}
+              {props.artifacts.length === 0 ? <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>该阶段暂无产物。</p> : null}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {selectedArtifactId ? (
         <div className="mt-3 rounded-lg px-3 py-3" style={{ background: 'rgba(8,18,31,0.68)', border: '1px solid rgba(255,255,255,0.06)' }}>

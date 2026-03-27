@@ -1067,6 +1067,31 @@ describe('task-result-service', () => {
     expect(executionStatePayload.executionState.currentStage).toBe('collaboration');
   });
 
+  it('does not route blocked recoverable adapter errors to defect when expected artifacts are missing', () => {
+    const { executionStatePayload, taskGraphPayload, statePath } = createWorkflowDocuments();
+
+    applyTaskResult(executionStatePayload, taskGraphPayload, statePath, {
+      taskId: 'frontend-smoke--automated-execution',
+      taskStatus: 'blocked',
+      notes: ['blocked:no-adapter-configured'],
+      artifacts: [],
+      errors: [
+        {
+          code: 'no-adapter-configured',
+          message: 'No adapter runtime is configured for this task.',
+          recoverable: true
+        }
+      ]
+    });
+
+    expect(executionStatePayload.executionState.tasks[1]?.status).toBe('skipped');
+    expect(executionStatePayload.executionState.tasks[1]?.notes).toContain('route-auto-skip:defect-feedback');
+    expect(executionStatePayload.executionState.tasks[1]?.notes).not.toContain('route-trigger:automated-execution');
+    expect(executionStatePayload.executionState.tasks[2]?.status).toBe('ready');
+    expect(executionStatePayload.executionState.tasks[3]?.status).toBe('pending');
+    expect(executionStatePayload.executionState.currentStage).toBe('collaboration');
+  });
+
   it('reroutes evaluator needs-repair back into defect-feedback automatically', () => {
     const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
     const evaluationSummaryPath = path.join(path.dirname(statePath), 'evaluation-summary.json');

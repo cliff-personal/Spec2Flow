@@ -505,6 +505,7 @@ export function RunSessionPanel({
 
         {selectedStage ? (
           <StageResultPanel
+            stageKey={selectedStage}
             stageLabel={PIPELINE_STAGES.find((stage) => stage.stageKey === selectedStage)?.label ?? selectedStage}
             tasks={selectedStageTasks}
             taskSummaries={selectedStageTaskSummaries}
