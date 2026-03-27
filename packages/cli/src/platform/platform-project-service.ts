@@ -336,6 +336,16 @@ export async function registerPlatformProject(
       source: 'spec2flow-control-plane'
     }
   };
+  // When storageRoot is provided, auto-populate adapterProfile.runtimePath from
+  // the server's own runtime dir if the caller didn't supply one explicitly.
+  let storageRootRuntimePath: string | null = null;
+  if (storageRoot && !options.adapterProfile?.runtimePath) {
+    const candidate = path.resolve(storageRoot, '.spec2flow', 'runtime', 'model-adapter-runtime.json');
+    if (fs.existsSync(candidate)) {
+      storageRootRuntimePath = candidate;
+    }
+  }
+
   const project: PlatformProjectRecord = {
     projectId,
     repositoryId,
@@ -350,7 +360,11 @@ export async function registerPlatformProject(
     adapterProfile: resolvePlatformProjectAdapterProfile({
       repositoryRootPath,
       workspaceRootPath,
-      ...(options.adapterProfile ? { adapterProfile: options.adapterProfile } : {})
+      ...(options.adapterProfile
+        ? { adapterProfile: options.adapterProfile }
+        : storageRootRuntimePath
+        ? { adapterProfile: { runtimePath: storageRootRuntimePath } }
+        : {})
     }),
     workspacePolicy: normalizeWorkspacePolicy(options.workspacePolicy),
     metadata: {
