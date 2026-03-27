@@ -1383,7 +1383,7 @@ describe('adapter-runner', () => {
     errorSpy.mockRestore();
   });
 
-  it('synthesizes collaboration-handoff from model output and blocks on approval gate', () => {
+  it('synthesizes collaboration-handoff from model output and auto-approves agent review gates', () => {
     const { statePath, taskGraphPath, claimPayload, repositoryRoot, artifactsDir } = createCollaborationTestFiles();
     const runtimePath = path.join(repositoryRoot, 'adapter-runtime.json');
     const modelOutputPath = path.join(artifactsDir, 'collaboration-copilot-cli-output.json');
@@ -1413,7 +1413,7 @@ describe('adapter-runner', () => {
     ]));
     expect(result.adapterRun.errors).toEqual([]);
     expect(result.receipt.artifactContract.status).toBe('satisfied');
-    expect(result.receipt.status).toBe('blocked');
+    expect(result.receipt.status).toBe('completed');
   });
 
   it('normalizes an existing invalid collaboration-handoff artifact and recovers blocked writes', () => {
@@ -1473,18 +1473,17 @@ describe('adapter-runner', () => {
       taskId: 'frontend-smoke--collaboration',
       stage: 'collaboration',
       handoffType: 'pull-request',
-      readiness: 'awaiting-approval',
-      approvalRequired: true,
+      readiness: 'ready',
+      approvalRequired: false,
       artifactRefs: ['spec2flow/outputs/execution/frontend-smoke/requirements-summary.json'],
       nextActions: expect.arrayContaining([
-        'Request human approval for the collaboration handoff.',
         'Open follow-up issue: Track remaining frontend smoke coverage gaps.',
         'Open a follow-up issue for remaining smoke coverage gaps.'
       ]),
       reviewPolicy: {
         required: true,
         reviewAgentCount: 1,
-        requireHumanApproval: true
+        requireHumanApproval: false
       }
     });
     expect(result.adapterRun.notes).toEqual(expect.arrayContaining([
@@ -1493,6 +1492,6 @@ describe('adapter-runner', () => {
     ]));
     expect(result.adapterRun.errors).toEqual([]);
     expect(result.receipt.artifactContract.status).toBe('satisfied');
-    expect(result.receipt.status).toBe('blocked');
+    expect(result.receipt.status).toBe('completed');
   });
 });

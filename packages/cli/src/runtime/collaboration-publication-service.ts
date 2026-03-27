@@ -421,7 +421,19 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   }
 
   const handoff = readCollaborationHandoff(options.artifacts, options.artifactBaseDir);
-  if (handoff?.readiness !== 'ready') {
+  const normalizedHandoff: CollaborationHandoff | null = handoff
+    ? {
+        ...handoff,
+        readiness: handoff.readiness === 'blocked' ? 'blocked' : 'ready',
+        approvalRequired: false,
+        reviewPolicy: {
+          ...handoff.reviewPolicy,
+          requireHumanApproval: false
+        }
+      }
+    : null;
+
+  if (normalizedHandoff?.readiness !== 'ready') {
     return {
       status: 'not-applicable',
       generatedArtifacts: [],
@@ -437,16 +449,15 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   const generatedArtifacts: ArtifactRef[] = [];
   const autoCommitEnabled = options.taskGraphTask.reviewPolicy?.allowAutoCommit === true;
   const publicationAutoCommitEnabled = autoCommitEnabled || forcePublish || operatorApproved;
-  const requireHumanApproval = !(forcePublish || operatorApproved)
-    && (options.taskGraphTask.reviewPolicy?.requireHumanApproval === true || handoff.approvalRequired === true);
+  const requireHumanApproval = false;
   const successfulPublishMode = resolveSuccessfulPublishMode(operatorApproved, publicationAutoCommitEnabled);
 
-  if (handoff.handoffType === 'pull-request') {
+  if (normalizedHandoff.handoffType === 'pull-request') {
     ensureDirForFile(path.join(repoRoot, publicationRecordPath));
   }
 
   const writeDraftArtifact = (publicationRecord: PublicationRecord): ArtifactRef[] => {
-    if (handoff.handoffType !== 'pull-request') {
+    if (normalizedHandoff.handoffType !== 'pull-request') {
       return [];
     }
 
@@ -454,18 +465,18 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     const prDraftPath = toRelativeArtifactPath(repoRoot, prDraftAbsolutePath);
     const updatedRecord = {
       ...publicationRecord,
-      prTitle: publicationRecord.prTitle ?? buildPrTitle(routeName, handoff),
+      prTitle: publicationRecord.prTitle ?? buildPrTitle(routeName, normalizedHandoff),
       prDraftPath
     };
     fs.mkdirSync(path.dirname(prDraftAbsolutePath), { recursive: true });
-    fs.writeFileSync(prDraftAbsolutePath, buildPrDraftBody(handoff, updatedRecord), 'utf8');
+    fs.writeFileSync(prDraftAbsolutePath, buildPrDraftBody(normalizedHandoff, updatedRecord), 'utf8');
     publicationRecord.prTitle = updatedRecord.prTitle;
     publicationRecord.prDraftPath = updatedRecord.prDraftPath;
     return [buildGeneratedArtifact(options.taskGraphTask.id, 'pr-draft', prDraftPath)];
   };
 
   if (requireHumanApproval) {
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'approval-required', 'manual-handoff', {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'approval-required', 'manual-handoff', {
       gateReason: 'human-approval-required'
     });
     const draftArtifacts = writeDraftArtifact(publicationRecord);
@@ -495,14 +506,14 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     if (earlyChangedFiles.length > 0 && checkIfScopedChangesAreCommitted(repoRoot, earlyChangedFiles)) {
       const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
       const currentBranch = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-      const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
+      const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
         branchName: currentBranch,
         commitSha
       });
-      return finalizePublishedPublication(options, handoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
+      return finalizePublishedPublication(options, normalizedHandoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
     }
 
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'approval-required', 'manual-handoff', {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'approval-required', 'manual-handoff', {
       gateReason: 'auto-commit-disabled'
     });
     const draftArtifacts = writeDraftArtifact(publicationRecord);
@@ -526,7 +537,7 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   const implementationSummary = readImplementationSummary(options.allArtifacts, options.artifactBaseDir);
   const scopedChangedFiles = normalizePaths(getScopedChangedFiles(implementationSummary));
   if (scopedChangedFiles.length === 0) {
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
       gateReason: 'missing-implementation-summary'
     });
     const draftArtifacts = writeDraftArtifact(publicationRecord);
@@ -550,7 +561,7 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
   const scopedStagedFiles = normalizePaths(getStagedFiles(repoRoot));
   const stagedOutsideScope = scopedStagedFiles.filter((filePath) => !scopedChangedFiles.includes(filePath.replaceAll('\\', '/')));
   if (stagedOutsideScope.length > 0) {
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
       gateReason: 'staged-changes-outside-scope'
     });
     const draftArtifacts = writeDraftArtifact(publicationRecord);
@@ -571,19 +582,19 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     };
   }
 
-  const commitMessage = buildCommitMessage(routeName, handoff);
+  const commitMessage = buildCommitMessage(routeName, normalizedHandoff);
 
   // Check if the scoped changes are already committed to the current branch
   // before attempting to create a new auto-commit branch.
   if (checkIfScopedChangesAreCommitted(repoRoot, scopedChangedFiles)) {
     const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
     const currentBranch = runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
       branchName: currentBranch,
       commitSha,
       commitMessage
     });
-    return finalizePublishedPublication(options, handoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
+    return finalizePublishedPublication(options, normalizedHandoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
   }
 
   // If we are already on a spec2flow/ worktree branch, stage and commit there
@@ -600,7 +611,7 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
     stageScopedFiles(repoRoot, scopedChangedFiles);
     const stagedScopedFiles = getStagedScopedFiles(repoRoot, scopedChangedFiles);
     if (stagedScopedFiles.length === 0) {
-      const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
+      const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
         branchName,
         commitMessage,
         gateReason: 'no-scoped-changes'
@@ -626,14 +637,14 @@ export function applyCollaborationPublicationPolicy(options: ApplyCollaborationP
 
     runGit(repoRoot, ['commit', '-m', commitMessage]);
     const commitSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'published', successfulPublishMode, {
       branchName,
       commitSha,
       commitMessage
     });
-    return finalizePublishedPublication(options, handoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
+    return finalizePublishedPublication(options, normalizedHandoff, repoRoot, publicationRecordPath, publicationArtifactsDir, publicationRecord, writeDraftArtifact);
   } catch {
-    const publicationRecord = buildPublicationRecord(handoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
+    const publicationRecord = buildPublicationRecord(normalizedHandoff, options.taskGraphTask.id, publicationAutoCommitEnabled, 'blocked', 'auto-commit', {
       branchName,
       commitMessage,
       gateReason: 'publish-command-failed'

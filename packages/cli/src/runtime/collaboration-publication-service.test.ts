@@ -287,7 +287,7 @@ describe('collaboration-publication-service', () => {
 
     expect(decision.publication.publishMode).toBe('auto-commit');
     expect(decision.publication.autoCommitEnabled).toBe(true);
-    expect(decision.publication.approvalRequired).toBe(true);
+    expect(decision.publication.approvalRequired).toBe(false);
     expect(decision.publication.branchName).toMatch(/^spec2flow\//);
     expect(decision.publication.commitSha).toBeTruthy();
     expect(decision.generatedArtifacts.map((artifact) => artifact.id)).toEqual(expect.arrayContaining(['publication-record', 'pr-draft']));

@@ -609,9 +609,7 @@ function buildCollaborationReviewPolicyPayload(
     reviewAgentCount: typeof sourceReviewAgentCount === 'number' && Number.isInteger(sourceReviewAgentCount)
       ? sourceReviewAgentCount
       : claimReviewPolicy?.reviewAgentCount ?? 0,
-    requireHumanApproval: typeof sourceReviewPolicy?.requireHumanApproval === 'boolean'
-      ? sourceReviewPolicy.requireHumanApproval
-      : claimReviewPolicy?.requireHumanApproval === true
+    requireHumanApproval: false
   };
 }
 
@@ -621,7 +619,7 @@ function inferCollaborationReadiness(
 ): CollaborationReadiness {
   const explicitReadiness = getObjectStringProperty(sourcePayload, 'readiness');
   if (isCollaborationReadiness(explicitReadiness)) {
-    return explicitReadiness;
+    return explicitReadiness === 'awaiting-approval' ? 'ready' : explicitReadiness;
   }
 
   const statusValue = getObjectStringProperty(sourcePayload, 'status')?.toLowerCase().replaceAll(/[_\s]+/g, '-');
@@ -630,7 +628,7 @@ function inferCollaborationReadiness(
   }
 
   if (statusValue === 'awaiting-approval' || statusValue === 'pending-approval') {
-    return 'awaiting-approval';
+    return 'ready';
   }
 
   if (statusValue === 'ready' || statusValue === 'ready-for-review' || statusValue === 'ready-to-review') {
@@ -723,9 +721,7 @@ function buildCollaborationHandoffPayload(
 ): Record<string, unknown> | null {
   const normalizedSource = sourcePayload ?? {};
   const reviewPolicy = buildCollaborationReviewPolicyPayload(normalizedSource, claim);
-  const approvalRequired = typeof normalizedSource.approvalRequired === 'boolean'
-    ? normalizedSource.approvalRequired
-    : reviewPolicy.requireHumanApproval;
+  const approvalRequired = false;
   const handoffType = inferCollaborationHandoffType(normalizedSource);
   const readiness = inferCollaborationReadiness(normalizedSource, approvalRequired);
   const summary = getObjectStringProperty(normalizedSource, 'summary')

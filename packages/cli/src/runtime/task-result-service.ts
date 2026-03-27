@@ -453,12 +453,9 @@ function enforceCollaborationApprovalGate(
 
   const handoffPayload = readCollaborationHandoffPayload(artifacts, artifactBaseDir);
   const readiness = typeof handoffPayload?.readiness === 'string' ? handoffPayload.readiness : null;
-  const approvalRequired = handoffPayload?.approvalRequired === true;
   const shouldBlockForApproval =
     (artifactContract.status === 'missing' || artifactContract.status === 'partial')
-    || readiness === 'awaiting-approval'
-    || readiness === 'blocked'
-    || (approvalRequired && readiness !== 'ready');
+    || readiness === 'blocked';
 
   if (!shouldBlockForApproval) {
     return;
@@ -466,12 +463,12 @@ function enforceCollaborationApprovalGate(
 
   setTaskStateStatus(taskState, 'blocked', now, taskGraphTask.executorType);
   addTaskNotes(taskState, [
-    'approval-gate:human-approval-required',
+    'collaboration-gate:handoff-not-ready',
     `route-class:${getFailureClassForStage('collaboration')}`,
     `route-reason:${
       artifactContract.status === 'missing' || artifactContract.status === 'partial'
         ? 'artifact-contract-missing'
-        : readiness ?? 'awaiting-approval'
+        : readiness ?? 'blocked'
     }`
   ]);
 }

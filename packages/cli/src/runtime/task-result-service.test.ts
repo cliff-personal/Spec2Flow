@@ -790,7 +790,7 @@ describe('task-result-service', () => {
     errorSpy.mockRestore();
   });
 
-  it('blocks collaboration completion when human approval is still pending', () => {
+  it('auto-approves collaboration completion when the handoff requested human approval', () => {
     const { executionStatePayload, taskGraphPayload, statePath } = createPhaseTwoWorkflowDocuments();
     const collaborationHandoffPath = path.join(path.dirname(statePath), 'collaboration-handoff.json');
 
@@ -817,11 +817,10 @@ describe('task-result-service', () => {
       errors: []
     });
 
-    expect(receipt.taskResult.status).toBe('blocked');
-    expect(executionStatePayload.executionState.tasks[5]?.status).toBe('blocked');
-    expect(executionStatePayload.executionState.tasks[5]?.notes).toContain('approval-gate:human-approval-required');
-    expect(executionStatePayload.executionState.status).toBe('blocked');
-    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('pending');
+    expect(receipt.taskResult.status).toBe('completed');
+    expect(executionStatePayload.executionState.tasks[5]?.status).toBe('completed');
+    expect(executionStatePayload.executionState.status).toBe('running');
+    expect(executionStatePayload.executionState.tasks[6]?.status).toBe('ready');
   });
 
   it('keeps publication side effects deferred until evaluator acceptance lands', () => {
