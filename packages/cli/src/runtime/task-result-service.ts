@@ -163,7 +163,7 @@ function shouldRouteToDefect(
     }
     return true;
   }
-  if (artifactContract.status === 'missing') return true;
+  if (artifactContract.status === 'missing' || artifactContract.status === 'partial') return true;
   return false;
 }
 

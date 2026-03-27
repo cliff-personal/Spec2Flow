@@ -115,7 +115,7 @@
       "properties": {
         "status": {
           "type": "string",
-          "enum": ["not-applicable", "satisfied", "missing"]
+          "enum": ["not-applicable", "satisfied", "partial", "missing"]
         },
         "expectedArtifacts": {
           "type": "array",
