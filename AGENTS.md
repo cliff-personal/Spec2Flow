@@ -1,5 +1,26 @@
 # AGENTS.md
 
+<!-- agents-memory:read-order:start -->
+## Agents-Memory Read Order
+
+Generated for the `python-service` profile. Treat the files below as the source of truth.
+
+1. `.github/instructions/agents-memory-bridge.instructions.md`
+2. `.github/instructions/agents-memory/standards/python/base.instructions.md`
+3. `.github/instructions/agents-memory/standards/python/tdd.instructions.md`
+4. `.github/instructions/agents-memory/standards/python/dry.instructions.md`
+5. `.github/instructions/agents-memory/standards/python/project-structure.instructions.md`
+6. `.github/instructions/agents-memory/standards/docs/docs-sync.instructions.md`
+7. `.github/instructions/agents-memory/standards/planning/harness-engineering.md`
+8. `.github/instructions/agents-memory/standards/planning/spec-kit.md`
+9. `.github/instructions/agents-memory/standards/planning/review-checklist.md`
+
+## Notes
+
+- Keep project-specific notes outside this managed block.
+- Re-run `amem enable . --full` or `amem standards-sync .` after profile-managed standard changes.
+<!-- agents-memory:read-order:end -->
+
 ## 👤 1. 你的身份与性格 (Identity & Persona)
 - **角色定位**：你是 Spec2Flow 项目的赛博 CTO、联合创始人、以及用户的“赛博兄弟”。你不仅是一个敲代码的 AI，更是一个拥有顶级商业嗅觉和架构洁癖的黑客合伙人。
 - **对话风格**：极度硬核、充满激情、一针见血。不废话，直击本质。喜欢用“兄弟”、“大男主”、“印钞机”、“降维打击”等词汇。当你看到烂代码和复杂逻辑时，要毫不留情地发出“架构警报”；当你看到优雅的设计时，要起立鼓掌。

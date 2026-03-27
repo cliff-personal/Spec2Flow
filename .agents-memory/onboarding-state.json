@@ -1,0 +1,218 @@
+{
+  "generated_at": "2026-03-27T01:03:56.716290+00:00",
+  "project_id": "spec2flow",
+  "project_root": "/Users/cliff/workspace/Spec2Flow",
+  "overall": "READY",
+  "project_bootstrap_ready": true,
+  "project_bootstrap_complete": true,
+  "recommended_next_group": "Refactor",
+  "recommended_next_key": "refactor_bundle",
+  "recommended_next_command": "python3 scripts/memory.py refactor-bundle . --token hotspot-134ec6c66e09",
+  "recommended_verify_command": "amem doctor .",
+  "recommended_done_when": "`amem doctor .` no longer reports `Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.",
+  "recommended_next_safe_to_auto_execute": true,
+  "recommended_next_approval_required": false,
+  "recommended_next_approval_reason": "refreshes generated planning docs only",
+  "groups": [
+    {
+      "name": "Core",
+      "status": "HEALTHY",
+      "summary": "Core status=HEALTHY (ok=7, warn=0, fail=0, info=0)",
+      "checks": [
+        {
+          "status": "OK",
+          "key": "registry",
+          "detail": "registered as 'spec2flow'"
+        },
+        {
+          "status": "OK",
+          "key": "active",
+          "detail": "active=true"
+        },
+        {
+          "status": "OK",
+          "key": "root",
+          "detail": "/Users/cliff/workspace/Spec2Flow"
+        },
+        {
+          "status": "OK",
+          "key": "python3.12",
+          "detail": "/opt/homebrew/bin/python3.12"
+        },
+        {
+          "status": "OK",
+          "key": "mcp_package",
+          "detail": "mcp import OK"
+        },
+        {
+          "status": "OK",
+          "key": "profile_manifest",
+          "detail": "applied profile 'python-service'"
+        },
+        {
+          "status": "OK",
+          "key": "profile_consistency",
+          "detail": "profile 'python-service' consistency OK"
+        }
+      ]
+    },
+    {
+      "name": "Planning",
+      "status": "HEALTHY",
+      "summary": "Planning status=HEALTHY (ok=2, warn=0, fail=0, info=0)",
+      "checks": [
+        {
+          "status": "OK",
+          "key": "planning_root",
+          "detail": "present: /Users/cliff/workspace/Spec2Flow/docs/plans"
+        },
+        {
+          "status": "OK",
+          "key": "planning_bundle",
+          "detail": "4 planning bundle(s) passed plan-check"
+        }
+      ]
+    },
+    {
+      "name": "Integration",
+      "status": "HEALTHY",
+      "summary": "Integration status=HEALTHY (ok=2, warn=0, fail=0, info=0)",
+      "checks": [
+        {
+          "status": "OK",
+          "key": "bridge_instruction",
+          "detail": "/Users/cliff/workspace/Spec2Flow/.github/instructions/agents-memory-bridge.instructions.md"
+        },
+        {
+          "status": "OK",
+          "key": "mcp_config",
+          "detail": "agents-memory server configured -> /Users/cliff/workspace/Spec2Flow/.vscode/mcp.json"
+        }
+      ]
+    },
+    {
+      "name": "Optional",
+      "status": "WATCH",
+      "summary": "Optional status=WATCH (ok=2, warn=5, fail=0, info=0)",
+      "checks": [
+        {
+          "status": "OK",
+          "key": "copilot_activation",
+          "detail": "Agents-Memory activation block present -> /Users/cliff/workspace/Spec2Flow/.github/copilot-instructions.md"
+        },
+        {
+          "status": "OK",
+          "key": "agents_read_order",
+          "detail": "AGENTS.md references current bridge and 8 managed standard(s)"
+        },
+        {
+          "status": "WARN",
+          "key": "refactor_watch",
+          "detail": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md high complexity (lines=228>40, branches=12>5, locals=12>8, nesting=3)"
+        },
+        {
+          "status": "WARN",
+          "key": "refactor_watch",
+          "detail": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::_generate_intelligent_overrides high complexity (lines=80>40, branches=13>5, locals=31>8, nesting=3)"
+        },
+        {
+          "status": "WARN",
+          "key": "refactor_watch",
+          "detail": ".github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md high complexity (lines=228>40, branches=12>5, locals=12>8, nesting=3)"
+        },
+        {
+          "status": "WARN",
+          "key": "refactor_watch",
+          "detail": ".github/prompts/ui-ux-pro-max/scripts/design_system.py::_generate_intelligent_overrides high complexity (lines=80>40, branches=13>5, locals=31>8, nesting=3)"
+        },
+        {
+          "status": "WARN",
+          "key": "refactor_watch",
+          "detail": ".github/prompts/ui-ux-pro-max/scripts/design_system.py::DesignSystemGenerator._select_best_match high complexity (branches=10>5, nesting=5>=4, locals=9>8)"
+        }
+      ]
+    }
+  ],
+  "action_sequence": [
+    "Optional (recommended): Refactor flagged functions before adding more behavior, and add a short guiding comment when complex logic must remain in place."
+  ],
+  "runbook_steps": [],
+  "bootstrap_checklist": [
+    "[x] Core - Core status=HEALTHY (ok=7, warn=0, fail=0, info=0)",
+    "[x] Planning - Planning status=HEALTHY (ok=2, warn=0, fail=0, info=0)",
+    "[x] Integration - Integration status=HEALTHY (ok=2, warn=0, fail=0, info=0)",
+    "[ ] Optional - Optional status=WATCH (ok=2, warn=5, fail=0, info=0)",
+    "[x] Final verification - latest `amem doctor .` already reflects the current healthy state"
+  ],
+  "recommended_steps": [
+    {
+      "group": "Refactor",
+      "priority": "recommended",
+      "key": "refactor_bundle",
+      "status": "WARN",
+      "detail": "refactor bundle ready for Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
+      "action": "Review and execute the generated refactor bundle at docs/plans/refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md before adding more behavior.",
+      "command": "python3 scripts/memory.py refactor-bundle . --token hotspot-134ec6c66e09",
+      "verify_with": "amem doctor .",
+      "done_when": "`amem doctor .` no longer reports `Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md` as the top refactor hotspot.",
+      "safe_to_auto_execute": true,
+      "approval_required": false,
+      "approval_reason": "refreshes generated planning docs only",
+      "next_command": "amem doctor .",
+      "bundle_path": "docs/plans/refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
+      "task_name": "Refactor hotspot: Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
+      "task_slug": "refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
+      "hotspot_index": 1,
+      "hotspot_token": "hotspot-134ec6c66e09",
+      "hotspot": {
+        "identifier": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
+        "rank_token": "hotspot-134ec6c66e09",
+        "relative_path": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py",
+        "function_name": "format_master_md",
+        "qualified_name": "format_master_md",
+        "line": 542,
+        "status": "WARN",
+        "effective_lines": 228,
+        "branches": 12,
+        "nesting": 3,
+        "local_vars": 12,
+        "has_guiding_comment": true,
+        "issues": [
+          "lines=228>40",
+          "branches=12>5",
+          "locals=12>8",
+          "nesting=3"
+        ],
+        "score": 31
+      }
+    }
+  ],
+  "recommended_refactor_bundle": {
+    "bundle_path": "docs/plans/refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
+    "task_name": "Refactor hotspot: Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
+    "task_slug": "refactor-synapse-network-spec2flow-worktrees-synapse-network-workflow-1774571039585-github-prompts-ui-ux-pro-max-scripts-design-system-py-format-master-md",
+    "hotspot_index": 1,
+    "hotspot_token": "hotspot-134ec6c66e09",
+    "hotspot": {
+      "identifier": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py::format_master_md",
+      "rank_token": "hotspot-134ec6c66e09",
+      "relative_path": "Synapse-Network/.spec2flow/worktrees/synapse-network-workflow-1774571039585/.github/prompts/ui-ux-pro-max/scripts/design_system.py",
+      "function_name": "format_master_md",
+      "qualified_name": "format_master_md",
+      "line": 542,
+      "status": "WARN",
+      "effective_lines": 228,
+      "branches": 12,
+      "nesting": 3,
+      "local_vars": 12,
+      "has_guiding_comment": true,
+      "issues": [
+        "lines=228>40",
+        "branches=12>5",
+        "locals=12>8",
+        "nesting=3"
+      ],
+      "score": 31
+    }
+  }
+}

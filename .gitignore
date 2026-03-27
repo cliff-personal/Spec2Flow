@@ -10,4 +10,4 @@ packages/web/dist/
 !.spec2flow/runtime/model-adapter-runtime.deterministic.json
 spec2flow/outputs/
 .env.local
-.env.prod
+.env.prodSynapse-Network/.spec2flow/worktrees/
