@@ -76,6 +76,7 @@ Docs governance quick path:
 ### How should Spec2Flow evolve into an agent orchestration platform?
 
 - [docs/agent-orchestration-platform-design.md](/Users/cliff/workspace/Spec2Flow/docs/agent-orchestration-platform-design.md)
+- [docs/cross-project-agent-orchestration-evolution.md](/Users/cliff/workspace/Spec2Flow/docs/cross-project-agent-orchestration-evolution.md)
 - [docs/project-workspace-autonomous-delivery-design.md](/Users/cliff/workspace/Spec2Flow/docs/project-workspace-autonomous-delivery-design.md)
 - [docs/ui/operator-console.md](/Users/cliff/workspace/Spec2Flow/docs/ui/operator-console.md)
 - [docs/architecture.md](/Users/cliff/workspace/Spec2Flow/docs/architecture.md)
